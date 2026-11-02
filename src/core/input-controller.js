@@ -225,13 +225,15 @@ export function bindInput({
       moveStick.classList.add("active");
       updateStick(event);
     });
-    listen(moveStick, "pointermove", event => {
+    // Track the active finger on window as well as through pointer capture.
+    // iOS Safari can retarget/cancel a captured pointer when the viewport changes.
+    listen(window, "pointermove", event => {
       if (event.pointerId !== stickPointer) return;
-      event.preventDefault();
+      if (event.cancelable) event.preventDefault();
       updateStick(event);
-    });
-    listen(moveStick, "pointerup", releaseStick);
-    listen(moveStick, "pointercancel", releaseStick);
+    }, { passive: false });
+    listen(window, "pointerup", releaseStick);
+    listen(window, "pointercancel", releaseStick);
     listen(moveStick, "lostpointercapture", releaseStick);
   }
 
@@ -243,9 +245,10 @@ export function bindInput({
       lookZone.setPointerCapture?.(event.pointerId);
       lookZone.classList.add("active");
     });
-    listen(lookZone, "pointermove", event => {
+    // Keep camera drag alive if Safari temporarily retargets the captured finger.
+    listen(window, "pointermove", event => {
       if (!lookPointer || lookPointer.id !== event.pointerId) return;
-      event.preventDefault();
+      if (event.cancelable) event.preventDefault();
       const dx = event.clientX - lookPointer.x;
       const dy = event.clientY - lookPointer.y;
       lookPointer.x = event.clientX;
@@ -256,9 +259,9 @@ export function bindInput({
       }
       player.yaw -= dx * sensitivity.touchX;
       player.pitch = clamp(player.pitch - dy * sensitivity.touchY, -0.95, 1.25);
-    });
-    listen(lookZone, "pointerup", endLook);
-    listen(lookZone, "pointercancel", endLook);
+    }, { passive: false });
+    listen(window, "pointerup", endLook);
+    listen(window, "pointercancel", endLook);
     listen(lookZone, "lostpointercapture", endLook);
   }
 
