@@ -177,6 +177,8 @@ export function bindInput({
   listen(window, "keyup", onKeyUp, { capture: true });
   listen(window, "blur", clearInput);
   listen(window, "pagehide", clearInput);
+  // A rotation can interrupt an active iOS pointer without a reliable pointerup.
+  listen(window, "orientationchange", clearInput);
   listen(document, "visibilitychange", () => {
     if (document.hidden) clearInput();
   });
@@ -231,9 +233,9 @@ export function bindInput({
       if (event.pointerId !== stickPointer) return;
       if (event.cancelable) event.preventDefault();
       updateStick(event);
-    }, { passive: false });
-    listen(window, "pointerup", releaseStick);
-    listen(window, "pointercancel", releaseStick);
+    }, { passive: false, capture: true });
+    listen(window, "pointerup", releaseStick, true);
+    listen(window, "pointercancel", releaseStick, true);
     listen(moveStick, "lostpointercapture", releaseStick);
   }
 
@@ -259,9 +261,9 @@ export function bindInput({
       }
       player.yaw -= dx * sensitivity.touchX;
       player.pitch = clamp(player.pitch - dy * sensitivity.touchY, -0.95, 1.25);
-    }, { passive: false });
-    listen(window, "pointerup", endLook);
-    listen(window, "pointercancel", endLook);
+    }, { passive: false, capture: true });
+    listen(window, "pointerup", endLook, true);
+    listen(window, "pointercancel", endLook, true);
     listen(lookZone, "lostpointercapture", endLook);
   }
 
