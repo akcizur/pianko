@@ -1,20 +1,9 @@
 <!doctype html>
 <html lang="cs">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#090a0b" />
-    <meta name="description" content="MÍR 12 — příběhová RPG FPS hra z Československa roku 1975." />
-    <link rel="stylesheet" href="./styles.css" />
-    <title>MÍR 12 — Rok 1975</title>
-  </head>
+  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" /><meta name="theme-color" content="#090a0b" /><meta name="description" content="MÍR 12 — příběhová RPG FPS hra z Československa roku 1975." /><link rel="stylesheet" href="./styles.css" /><title>MÍR 12 — Rok 1975</title></head>
   <body>
     <main id="app">
-      <div id="game" aria-label="Městská FPS hra Mír 12"></div>
-      <header class="hud"><div class="hud-brand">MÍR 12 <span> / SÍDLIŠTĚ · 1975</span></div><div class="hud-status" id="coordinates">X 0.00 · Z 0.00</div></header>
-      <div class="crosshair" aria-hidden="true"></div>
-      <div class="hint" id="hint">WASD pohyb · SHIFT běh · SPACE skok · MYŠ rozhled · E interakce · ESC pauza</div>
-      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+      <div id="game" aria-label="Městská FPS hra Mír 12"></div><header class="hud"><div class="hud-brand">MÍR 12 <span> / SÍDLIŠTĚ · 1975</span></div><div class="hud-status" id="coordinates">X 0.00 · Z 0.00</div></header><div class="crosshair" aria-hidden="true"></div><div class="hint" id="hint">WASD pohyb · SHIFT běh · SPACE skok · MYŠ rozhled · E interakce · ESC pauza</div><div class="toast" id="toast" role="status" aria-live="polite"></div>
       <section class="mission-card" aria-live="polite"><div class="mission-kicker">AKTUÁLNÍ ÚKOL <span id="missionIndex">01 / 05</span></div><h2 id="missionTitle">Ticho v bloku</h2><p id="missionText">V ulici se objevil člověk, který nechce, abys došel k telefonní ústředně.</p><div class="side-objective" id="neighborObjective">SOUSEDÉ · ZEPTEJ SE ANNY</div><div class="side-objective" id="supplyProgress">ZTRACENÉ ZÁSOBY · 0 / 3</div><div class="objective-pointer" id="objectivePointer" aria-live="off"><b id="objectiveArrow">↑</b><span id="objectiveReadout">HLÍDKA · 26 M</span></div><div class="mission-track"><i id="missionProgress"></i></div></section>
       <section class="status-card" aria-label="Stav postavy"><div class="status-head"><span>VIKTOR „ŠEDÝ“</span><span>LVL <b id="level">01</b></span></div><div class="status-line"><span>HP</span><i><b id="hpBar"></b></i><strong id="hpValue">74 / 74</strong></div><div class="status-line"><span>EN</span><i><b id="energyBar"></b></i><strong id="energyValue">32 / 32</strong></div><div class="status-foot"><span>XP <b id="xpValue">0 / 100</b></span><span>KČS <b id="creditValue">120</b></span><span>OBV <b id="medkitValue">× 2</b></span></div><div class="status-loadout" id="loadoutValue">VZ. 61 · ZÁKLAD / BUNDA · I</div></section>
       <div class="vehicle-hud" id="vehicleHud" aria-label="Telemetrie vozidla" hidden><div class="vehicle-metric"><small>ALT</small><b id="altitudeValue">00</b><span>M</span></div><div class="vehicle-metric"><small>SPEED</small><b id="speedValue">000</b><span>KM/H</span></div><div class="vehicle-metric"><small>BATTERY</small><b id="batteryValue">100</b><span>%</span></div><i>HATCHBACK</i></div>
@@ -25,7 +14,6 @@
       <section class="pause-screen" id="pauseScreen" hidden><div class="pause-panel"><div class="eyebrow">──── PAUZA ────</div><h1>POZASTAVENO</h1><p>HRA JE POZASTAVENA</p><button id="resumeButton" type="button">POKRAČOVAT</button><button id="pauseMenuButton" type="button">ZPĚT DO MENU</button><small>ESC / ENTER POKRAČOVAT</small></div></section>
       <section class="touch-ui" id="touchUI" aria-label="Dotykové ovládání"><div class="move-stick" id="moveStick" aria-label="Joystick pohybu"><div class="stick-ring"></div><div class="stick-knob" id="moveKnob"></div></div><div class="look-zone" id="touchLookZone" aria-label="Tažením změnit rozhled"></div><div class="touch-actions"><button type="button" data-touch-action="jump">SKOK</button><button type="button" data-touch-action="run">BĚH</button><button type="button" data-touch-action="interact">E</button><button type="button" data-touch-action="pause">Ⅱ</button></div></section>
     </main>
-    <script src="./src/touch-visual-fix.js"></script>
-    <script type="module" src="/src/main.js"></script>
+    <script src="./touch-visual-fix.js"></script><script type="module" src="/src/main.js"></script>
   </body>
 </html>
