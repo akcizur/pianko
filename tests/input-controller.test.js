@@ -27,15 +27,16 @@ class MockElement extends EventHub {
   hasPointerCapture() { return false; }
 }
 
-function installHarness() {
+function installHarness(onVehicleLook = () => {}) {
   const names = ["window", "document", "Element", "navigator", "requestAnimationFrame", "cancelAnimationFrame"];
   const previous = new Map(names.map(name => [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
   const window = new EventHub();
   const jump = new MockElement("jump");
   const run = new MockElement("run");
+  const look = new MockElement();
   const root = new EventHub();
   root.getElementById = () => null;
-  root.querySelector = selector => selector.includes("data-touch-action") ? run : null;
+  root.querySelector = selector => selector === "#touchLookZone" ? look : selector.includes("data-touch-action") ? run : null;
   root.querySelectorAll = () => [jump, run];
   root.pointerLockElement = null;
   root.hidden = false;
@@ -51,9 +52,9 @@ function installHarness() {
   const element = new MockElement();
   const state = { started: true, paused: false, combat: false, dialogue: false, inVehicle: true };
   const controller = { player: { yaw: 0, pitch: 0 }, keysDown: Object.create(null), setAnalogMove() {}, jump() {} };
-  const input = bindInput({ element, controller, state, touchRoot: root });
+  const input = bindInput({ element, controller, state, touchRoot: root, onVehicleLook });
   return {
-    state, controller, input, window, jump, run, frames,
+    state, controller, input, window, root, element, look, jump, run, frames,
     setGamepad(value) { gamepad = value; },
     restore() {
       input.destroy();
@@ -100,4 +101,21 @@ test("vehicle flight uses Shift/Ctrl on keyboard, touch and gamepad", () => {
   } finally {
     h.restore();
   }
+});
+
+
+test("vehicle look reports mouse, touch and gamepad as distinct steering sources", () => {
+  const calls = [];
+  const h = installHarness((...args) => calls.push(args));
+  try {
+    h.root.pointerLockElement = h.element;
+    h.root.emit("mousemove", { movementX: 8, movementY: 2 });
+    assert.equal(calls.at(-1)[2], "mouse");
+    h.look.emit("pointerdown", { pointerType: "touch", pointerId: 7, clientX: 10, clientY: 10, preventDefault() {} });
+    h.look.emit("pointermove", { pointerType: "touch", pointerId: 7, clientX: 15, clientY: 12, preventDefault() {} });
+    assert.equal(calls.at(-1)[2], "touch");
+    h.setGamepad({ connected: true, axes: [0, 0, 0.5, 0], buttons: Array.from({ length: 10 }, () => ({ pressed: false })) });
+    h.frames.shift()();
+    assert.equal(calls.at(-1)[2], "gamepad");
+  } finally { h.restore(); }
 });

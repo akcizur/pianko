@@ -1,110 +1,73 @@
-<<<<<<< HEAD
-# MÍR 12 — Rok 1975
+# MÍR 12 · Rok 1975
 
-Příběhová RPG FPS hra v Three.js, zasazená do Československa roku 1975. Základ ovládání hráče a vstupních zařízení vychází z [akcizur/14](https://github.com/akcizur/14); město, vozidla, postavy a kampaň jsou vytvořené pro tento projekt.
+Příběhová RPG/FPS hra v Three.js, zasazená do normalizačního Československa. Hratelná čtvrť kombinuje panelovou zástavbu, starší činžovní domy, brutalistní obchodní dům, tramvajový most, obyvatele s vlastními trasami a dobové městské detaily. Hra používá hranatý low-poly vzhled a černobílý VHS styl rozhraní.
 
-Sídliště Mír staví vedle sebe panelovou výstavbu, oprýskanou starší zástavbu a brutalistní obchodní dům. Ulice doplňují tramvaj Tatra T3, hlídková Škoda 100, zelený hranatý hatchback, procházející obyvatelé, výlohy, prádlo na balkonech a plakát Spartakiády; kolem chodců lze projít, nebo s nimi prohodit pár dobových vět. Obyvatelé mají vlastní trasy a zastávky, neútočí a pokračují ve svém denním rytmu. Hratelný hatchback má prosklenou kabinu s viditelným interiérem, zavazadly, světly, nárazníky, koly a registračními značkami; umí vzlétnout až do 42 metrů, ve vzduchu dosahuje 72 km/h a jeho baterie se dobíjí po přistání. Telemetrie zobrazuje výšku, rychlost a stav baterie. Průchozí osmipatrový panelák má vstupní vestibul, centrální schodiště s mezipodestami a chodbu se čtyřmi byty na patře. Bytové dveře se otevírají do oddělených dispozic s kuchyněmi, obytnými částmi, koupelnami, radiátory a nábytkem; fasáda má skleněná okna, parapety, lodžie, zábradlí a svody. Model zůstává v hranaté pixelové estetice hry, zatímco rozměry průchodů, pater a dispozice vycházejí z obytného domu. Procedurální zvuk přidává déšť a elektrický šum města, kroky, střelbu, zásahy, dveře, rozhraní a motor vozu; lze ho vypnout v nastavení. Hlavní menu i herní rozhraní mají černobílý VHS vzhled.
+## Hratelný svět
 
-## Spuštění
+- Sídliště Mír s paneláky, starší zástavbou, obchodním domem, ulicí, tramvají Tatra T3, zaparkovanými vozy a chodci.
+- Průchozí osmipatrový panelák se vstupním vestibulem, centrálním schodištěm, mezipodestami a chodbami.
+- Dva rozměrnější byty na každém patře, po jednom na každé straně chodby. Každý byt má oddělenou obytnou část s kuchyňským koutem, ložnici a koupelnu. Bytové dveře se otevírají interakcí.
+- Interiéry obsahují parkety a dlažbu, příčky s průchody, zárubně, pootevřené koupelnové dveře, vanu, toaletu, umyvadlo, kuchyňskou linku, lednici, jídelní stůl, židle, sedačku, postel, skříně, radiátory a lokální teplé osvětlení.
+- Zelený hatchback Škoda má pozemní jízdní režim i hover režim. Ve vzduchu se vysunou trysky a skryjí kola; výška, rychlost a baterie se zobrazují v HUD.
+- Příběhová kampaň má pět hlavních kroků, tahové souboje, vedlejší úkol se sešitem střihů, skrýše a dva možné závěry.
 
-Vyžaduje Node.js 20+.
+## Ovládání
 
-```sh
-=======
-# Severní čtvrť — FPS World
-
-A browser-based low-poly residential district built with Three.js and the standalone FPS controller in this repository.
-
-## World
-
-- 20 separate residential lots arranged in a 4 × 5 district.
-- A road grid, asphalt, lane markings, raised curbs, sidewalks and parking bays.
-- 20 individual low-poly houses with varied silhouettes, roof styles, facades, porches, doors, windows and chimneys.
-- Small yards, fences, hedges, flowerbeds, mailboxes and trees.
-- Parked low-poly cars in marked bays and a low-poly tree/hill belt beyond the district edge.
-- Street lamps, benches, bins and a district entrance sign.
-- Per-house and prop collision boxes, plus district boundary walls.
-- Optional import of the supplied Blender house pack as a GLB file. If it is not present, the built-in procedural house set is used automatically.
-
-## Run
-
-Requirements: Node.js 20 or newer.
-
-~~~sh
->>>>>>> 1586982803960b26bef375c749702cba0d795a90
-npm install
-npm run dev
-```
-
-<<<<<<< HEAD
-## Hratelná kampaň
-
-Projdi pěti kroky příběhu: dostaň se přes hlídku k telefonní rozvodně, obnov linku, promluv s mechanickou Mirou, zachraň kurýra s páskou z nepovoleného koncertu a dones ji ke krátkovlnnému vysílači. Závěr má dvě volby — předat pásku Evě, nebo rozmnožit její kopie pro samizdat. Souboje dávají XP a Kčs; XP zvyšují úroveň, maximum HP a energie. Mira prodává obvazy a nabízí vylepšení vz. 61 i ochranné podšívky bundy. Ve třech zásobovacích skrýších můžeš najít obvazy, poukázku na Kčs a zkušenosti; jejich nalezení se ukládá. Mimo hlavní příběh můžeš pomoct Anně vrátit Ivaně zapomenutý sešit střihů z vestibulu domu.
-
-- **WASD / šipky / levý joystick**: pohyb; při jízdě plyn a zatáčení
-- **Myš / pravý joystick**: rozhled pěšky; směrování kamery při jízdě
-- **Space**: skok pěšky
-- **Shift**: běh pěšky; ve voze stoupání
-- **Ctrl**: klesání ve voze
-- **E**: interakce, otevření vstupních dveří, nástup/výstup, rozhovor, zahájení souboje, použití terminálu
-- **1–4** nebo **Enter**: akce v tahovém souboji
-- **Gamepad**: levá páčka pohyb/řízení, pravá rozhled, směrový kříž výběr; **A** potvrdit, **X** interakce, **RT** stoupat ve voze, **LT** klesat, **RB** obvazy; **Start** pauza. Ovládá také menu, rozhovory a tahové souboje.
-- **Esc**: pauza a uvolnění myši
-- **Dotyk/gamepad**: základní pohyb a akce z controlleru `akcizur/14`
-
-Hra ukládá pozici, stav úkolu, postavu, vůz i zvolený konec do lokálního save slotu. Jde o rozpracovaný kampaňový prototyp; další čtvrti, postavy, zvuk, animace a vedlejší úkoly jsou dalšími kroky vývoje.
-=======
-Build and preview the static site:
-
-~~~sh
-npm test
-npm run build
-npm run preview
-~~~
-
-## Controls
-
-| Input | Action |
+| Vstup | Akce |
 | --- | --- |
-| W / A / S / D or arrows | Move |
-| Shift | Sprint |
-| Space | Jump |
-| Mouse | Look (click the world to capture the pointer) |
-| E | Interact with nearby home markers / district sign |
-| Escape | Pause / resume |
-| Touch | Left joystick to move, drag right side to look, action buttons |
-| Gamepad | Left stick move, right stick look, A jump, X interact, triggers sprint, Start / B pause |
+| W / S nebo šipky nahoru / dolů | Plyn a zpomalení, po zastavení také zpátečka |
+| A / D nebo šipky vlevo / vpravo | Řízení vozu |
+| Myš při zamčeném ukazateli | Plynulé směrové řízení vozidla |
+| Levá páčka gamepadu | Plyn a řízení |
+| Pravá páčka gamepadu | Směrové řízení vozidla / rozhled pěšky |
+| Shift | Běh pěšky; ve voze stoupání |
+| Ctrl | Klesání ve voze |
+| Space | Skok pěšky |
+| E | Interakce, otevření dveří, nástup a výstup z vozu |
+| 1–4 / Enter | Akce v tahovém souboji |
+| Esc | Pauza a uvolnění myši |
+| Dotyk | Levý joystick pro pohyb, pravá oblast pro rozhled/řízení, akční tlačítka |
+| Gamepad | Levá páčka pohyb/řízení, pravá páčka směr, RT stoupání, LT klesání, A potvrzení, X interakce, Start pauza |
 
-## Optional Blender model pack
+Pozemní režim má nižší rychlostní limit než hover režim. Při změně směru plyn nejprve brzdí a teprve po zastavení zařadí opačný směr. Hover režim používá tlumený vertikální pohyb, omezení výšky a spotřebu baterie; při slabé baterii zahájí nouzové klesání.
 
-Place the exported model at:
+## Spuštění a sestavení
 
-~~~text
-public/models/LowPoly_House_20_Pack_Selected.glb
-~~~
+Vyžaduje Node.js 20 nebo novější. Instalace a spuštění:
 
-The supplied pack exports six scene roots named `house_1`, `house_2`, `house_3`, `house_4`, `house_6` and `house_8`. The world reuses these six authored variants across all twenty lots, fits the source transforms to a consistent house footprint, grounds each model and applies a per-lot facade tint. The built-in procedural houses remain available as a fallback, so the world starts even when the GLB is not present. The GLB is an optional local asset and must be copied to the path above before it can appear in the deployed world.
+    npm ci
+    npm test
+    npm run dev
 
-## Project layout
+Produkční sestavení a lokální náhled:
 
-~~~text
-src/
-  core/
-    player-controller.js
-    input-controller.js
-  world/
-    world.js
-  main.js
-public/
-  models/
-    LowPoly_House_20_Pack_Selected.glb  (optional)
-tests/
-  player-controller.test.js
-~~~
+    npm run build
+    npm run preview
 
-The movement controller is kept separate from the world builder so another level can reuse the same FPS movement, touch, keyboard, mouse and gamepad input.
+GitHub Pages workflow je v .github/workflows/pages.yml.
 
-## Source relationship
+## Struktura projektu
 
-The first-person movement architecture is based on the approach in [akcizur/DFLAT](https://github.com/akcizur/DFLAT). This repository is a reusable controller and test world, not the DFLAT game.
->>>>>>> 1586982803960b26bef375c749702cba0d795a90
+    src/
+      core/
+        game-audio.js
+        input-controller.js
+        player-controller.js
+        story-rules.js
+        vehicle-controller.js
+      world/
+        apartment-interior.js
+      main.js
+    public/models/skoda-favorit/
+    tests/
+      apartment-interior.test.js
+      input-controller.test.js
+      player-controller.test.js
+      story-rules.test.js
+      vehicle-controller.test.js
+
+## Technické poznámky
+
+vehicle-controller.js odděluje fyziku jízdy a letu od vykreslovací smyčky. Řeší akceleraci, brzdění před zpátečkou, rychlostně závislé zatáčení, tlumení výšky, baterii, otočenou kolizní obálku a subkrokované kolize s možností klouzání podél překážky. apartment-interior.js vytváří dispozice a vybavení bytů odděleně od generování fasády. Pevné příčky a hlavní vybavení mají kolizní objemy, průchody místnostmi zůstávají volné.
+
+Automatické testy se spouštějí příkazem npm test. Kontrola syntaxe JavaScriptu nevyžaduje spuštění grafického enginu; plný vizuální playtest se provádí v prohlížeči s WebGL.

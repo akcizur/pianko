@@ -2,12 +2,10 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { createPlayerController } from "./core/player-controller.js";
 import { bindInput } from "./core/input-controller.js";
-<<<<<<< HEAD
 import { createGameAudio } from "./core/game-audio.js";
 import { advanceNeighborQuestStep, isCourierEncounterActive, normalizeNeighborQuestStep } from "./core/story-rules.js";
-=======
-import { buildResidentialWorld } from "./world/world.js";
->>>>>>> 1586982803960b26bef375c749702cba0d795a90
+import { moveVehicleWithCollisions, stepVehicleDynamics, vehicleAabb } from "./core/vehicle-controller.js";
+import { buildApartmentInterior } from "./world/apartment-interior.js";
 
 const gameAudio=createGameAudio();
 const unlockGameAudio=()=>gameAudio.unlock();
@@ -36,7 +34,6 @@ let activeFoe=foe;
 let combatSelection = 0;
 
 const scene = new THREE.Scene();
-<<<<<<< HEAD
 scene.background = new THREE.Color(0x536170);
 scene.fog = new THREE.Fog(0x536170, 74, 156);
 const camera = new THREE.PerspectiveCamera(74, 1, 0.05, 220);
@@ -129,6 +126,9 @@ function buildWalkablePanelak(x,z,width,depth,height,inward){
   const concrete=0x727c7e,inner=0xaaa79c,doorWidth=1.34;
   const stairX=frontX-inward*4.25,halfFlight=8,run=.24,flightLength=halfFlight*run;
   const landingX=stairX-inward*flightLength,apartmentDoors=[];
+  const insideFront=frontX-inward*(wall+.05),insideBack=backX+inward*(wall+.05);
+  const minHallX=Math.min(insideFront,insideBack),maxHallX=Math.max(insideFront,insideBack);
+  const apartmentXs=[x];
   block("panelák — zadní obvodová stěna",backX,0,z,wall,height,depth,concrete,true);
   for(const sideZ of [-1,1])block("panelák — štítová stěna",x,0,z+sideZ*endZ,width,height,wall,concrete,true);
 
@@ -173,9 +173,6 @@ function buildWalkablePanelak(x,z,width,depth,height,inward){
 
     // The shared corridor runs from the entrance to the rear stair core. Apartment doors open from it on both sides.
     const hallHalf=1.42;
-    const insideFront=frontX-inward*(wall+.05),insideBack=backX+inward*(wall+.05);
-    const minHallX=Math.min(insideFront,insideBack),maxHallX=Math.max(insideFront,insideBack);
-    const apartmentXs=[2.35,7.15].map(distance=>frontX-inward*distance).sort((a,b)=>a-b);
     for(const sideZ of [-1,1]){
       const wallZ=z+sideZ*hallHalf;let wallCursor=minHallX;
       for(const doorX of apartmentXs){
@@ -207,41 +204,7 @@ function buildWalkablePanelak(x,z,width,depth,height,inward){
         const unitX=apartmentXs[unit],tone=(unit+story+(sideZ>0?1:0))%3;
         const unitMinX=unit===0?minHallX:(apartmentXs[unit-1]+unitX)/2;
         const unitMaxX=unit===apartmentXs.length-1?maxHallX:(unitX+apartmentXs[unit+1])/2;
-        const unitWidth=unitMaxX-unitMinX,bathWallZ=z+sideZ*3.15,bathDoorWidth=.7;
-        const bathDoorLeft=unitX-bathDoorWidth/2,bathDoorRight=unitX+bathDoorWidth/2;
-        if(bathDoorLeft-unitMinX>.05)block("bytová příčka koupelny",(unitMinX+bathDoorLeft)/2,base,bathWallZ,bathDoorLeft-unitMinX,storyHeight,.12,inner,true);
-        if(unitMaxX-bathDoorRight>.05)block("bytová příčka koupelny",(bathDoorRight+unitMaxX)/2,base,bathWallZ,unitMaxX-bathDoorRight,storyHeight,.12,inner,true);
-        const bathDoor=new THREE.Group();bathDoor.name="koupelnové dveře";bathDoor.position.set(bathDoorLeft,base+.04,bathWallZ);bathDoor.rotation.y=-sideZ*.52;scene.add(bathDoor);
-        const bathLeaf=new THREE.Mesh(new THREE.BoxGeometry(bathDoorWidth,2.04,.05),material(0x74624d,.8));bathLeaf.position.set(bathDoorWidth/2,1.02,0);bathLeaf.castShadow=true;bathDoor.add(bathLeaf);
-        const bathHandle=new THREE.Mesh(new THREE.SphereGeometry(.028,8,6),material(0xb9a67e,.45));bathHandle.position.set(bathDoorWidth-.1,1.01,.045);bathDoor.add(bathHandle);
-        for(const hinge of [-1,1])block("koupelnová zárubeň",unitX+hinge*(bathDoorWidth/2+.045),base+.04,bathWallZ,.075,2.13,.16,0x837c6f,false);
-        block("koupelnová zárubeň — nadpraží",unitX,base+2.14,bathWallZ,bathDoorWidth+.16,.08,.16,0x837c6f,false);
-        block("panelák — koupelnová podlaha",unitX,base+.02,z+sideZ*2.32,unitWidth-.14,.035,1.62,0x777b77,false);
-        block("panelák — smaltovaná vana",unitX+inward*1.2,base+.25,z+sideZ*2.2,.9,.48,1.25,0xd6d2c4,false);
-        block("panelák — umyvadlo",unitX-inward*.95,base+.77,z+sideZ*1.92,.56,.12,.42,0xd7d3c7,false);
-        block("panelák — podstavec umyvadla",unitX-inward*.95,base+.08,z+sideZ*1.92,.46,.72,.35,0x8b8476,false);
-        block("panelák — toaleta",unitX-inward*.08,base+.22,z+sideZ*2.78,.46,.42,.62,0xd8d5ca,false);
-        block("panelák — koupelnové zrcadlo",unitX-inward*.95,base+1.53,bathWallZ-sideZ*.08,.54,.62,.045,0x9da9a7,false);
-        block("bytová skříň",unitX-inward*1.2,base+.18,z+sideZ*4.25,.82,1.7,.42,[0x62564a,0x736451,0x514b43][(unit+story)%3],false);
-        block("panelák — kuchyňská linka",unitX-inward*.54,base+.82,z+sideZ*5.08,1.5,.86,.48,[0x77796f,0x756b5a,0x81745e][tone],false);
-        block("panelák — kuchyňská pracovní deska",unitX-inward*.54,base+1.29,z+sideZ*5.08,1.56,.075,.52,0xc4b79d,false);
-        block("panelák — kuchyňský dřez",unitX-inward*.84,base+1.34,z+sideZ*5.08,.33,.045,.25,0x858e8c,false);
-        block("panelák — sporák",unitX-inward*.2,base+1.34,z+sideZ*5.08,.38,.06,.4,0x555b5a,false);
-        block("panelák — jídelní stůl",unitX-inward*.72,base+.72,z+sideZ*3.62,.9,.12,.72,[0x795f45,0x695740,0x856c4f][tone],false);
-        for(const chair of [-1,1])block("panelák — židle",unitX-inward*(.72+chair*.58),base+.38,z+sideZ*3.62,.28,.75,.3,0x63533f,false);
-        if(tone===0){
-          block("panelák — postel",unitX+inward*.62,base+.34,z+sideZ*4.35,1.3,.42,.92,0x625d55,false);
-          block("panelák — přikrývka",unitX+inward*.62,base+.58,z+sideZ*4.35,1.18,.12,.84,0x505b61,false);
-          block("panelák — polštář",unitX+inward*.62,base+.67,z+sideZ*4.0,.46,.12,.34,0xc2b9a6,false);
-        }else{
-          block("panelák — pohovka",unitX+inward*.62,base+.42,z+sideZ*4.4,1.38,.55,.68,[0x625649,0x596065][tone-1],false);
-          block("panelák — opěradlo pohovky",unitX+inward*.62,base+.72,z+sideZ*4.65,1.38,.38,.18,[0x51483e,0x4d5659][tone-1],false);
-          block("panelák — konferenční stolek",unitX+inward*.62,base+.45,z+sideZ*3.72,.7,.1,.45,0x725c43,false);
-        }
-        block("panelák — radiátor v bytě",unitX+inward*.82,base+.26,z+sideZ*5.82,.8,.5,.12,0x888e8a,false);
-        block("panelák — televizní stolek",unitX-inward*1.6,base+.38,z+sideZ*3.8,.72,.72,.35,0x61594d,false);
-        block("panelák — televizor Tesla",unitX-inward*1.6,base+1.13,z+sideZ*3.8,.62,.52,.13,0x2c3030,false);
-        block("panelák — koberec",unitX+inward*.62,base+.02,z+sideZ*4.25,1.55,.035,1.55,[0x716455,0x58606a,0x755649][tone],false);
+        buildApartmentInterior({THREE,scene,block,material,x:unitX,z,base,storyHeight,sideZ,unitMinX,unitMaxX,unitX,tone});
       }
     }
     block("panelák — osvětlení chodby",frontX-inward*2.25,top-.38,z,.18,.07,.46,0xffd28a,false,0xb97631,.62);
@@ -585,9 +548,10 @@ for(const x of [-.72,.72])for(const z of [-1.27,1.27]){
   const flame=new THREE.Mesh(new THREE.ConeGeometry(.27,.9,8),thrusterMaterial);flame.rotation.x=Math.PI;flame.position.set(x,.12,z);flame.visible=false;stateCar.add(flame);thrusters.push(flame);
 }
 stateCar.position.set(2.5,0,6);scene.add(stateCar);
-const vehicle={x:savedVehicleSafe?saved.vehicle.x:2.5,z:savedVehicleSafe?saved.vehicle.z:10.5,yaw:savedVehicleSafe&&Number.isFinite(saved.vehicle.yaw)?saved.vehicle.yaw:0,speed:0,altitude:savedVehicleSafe?THREE.MathUtils.clamp(Number(saved.vehicle.altitude)||0,0,42):0,verticalSpeed:0,battery:savedVehicleSafe?THREE.MathUtils.clamp(Number(saved.vehicle.battery??100)||0,0,100):100,occupied:savedInVehicle};
-const vehicleCollider={name:"zelený hatchback",minX:vehicle.x-1.08,maxX:vehicle.x+1.08,minZ:vehicle.z-2.12,maxZ:vehicle.z+2.12,minY:vehicle.altitude,maxY:vehicle.altitude+2.35,enabled:!vehicle.occupied};colliders.push(vehicleCollider);
-function syncVehicleCollider(){vehicleCollider.minX=vehicle.x-1.08;vehicleCollider.maxX=vehicle.x+1.08;vehicleCollider.minZ=vehicle.z-2.12;vehicleCollider.maxZ=vehicle.z+2.12;vehicleCollider.minY=vehicle.altitude;vehicleCollider.maxY=vehicle.altitude+2.35;}
+const vehicle={x:savedVehicleSafe?saved.vehicle.x:2.5,z:savedVehicleSafe?saved.vehicle.z:10.5,yaw:savedVehicleSafe&&Number.isFinite(saved.vehicle.yaw)?saved.vehicle.yaw:0,speed:0,altitude:savedVehicleSafe?THREE.MathUtils.clamp(Number(saved.vehicle.altitude)||0,0,42):0,verticalSpeed:0,battery:savedVehicleSafe?THREE.MathUtils.clamp(Number(saved.vehicle.battery??100)||0,0,100):100,occupied:savedInVehicle,lookSteer:0,lookSteerUntil:0};
+const vehicleCollider={name:"zelený hatchback",...vehicleAabb(vehicle.x,vehicle.z,vehicle.yaw),minY:vehicle.altitude,maxY:vehicle.altitude+2.35,enabled:!vehicle.occupied};colliders.push(vehicleCollider);
+const vehicleCameraPosition=new THREE.Vector3(),vehicleLookTarget=new THREE.Vector3();
+function syncVehicleCollider(){Object.assign(vehicleCollider,vehicleAabb(vehicle.x,vehicle.z,vehicle.yaw));vehicleCollider.minY=vehicle.altitude;vehicleCollider.maxY=vehicle.altitude+2.35;}
 stateCar.position.set(vehicle.x,vehicle.altitude,vehicle.z);
 for(const flame of thrusters)flame.visible=vehicle.altitude>.8;
 $("vehicleHud").hidden=!vehicle.occupied;
@@ -819,57 +783,6 @@ function makeResident(data){
     gameAudio.ui();showToast(resident.name+" · „"+line+"“");
   }};
   resident.interactable=interactable;return resident;
-=======
-scene.background = new THREE.Color(0xa8b8bf);
-scene.fog = new THREE.Fog(0xa8b8bf, 92, 176);
-
-const camera = new THREE.PerspectiveCamera(74, 1, 0.05, 220);
-
-const renderer = new THREE.WebGLRenderer({
-  antialias: true,
-  alpha: false,
-  powerPreference: "high-performance"
-});
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.domElement.id = "screenCanvas";
-renderer.domElement.setAttribute("aria-label", "Residential district first-person world");
-renderer.domElement.tabIndex = 0;
-mount.appendChild(renderer.domElement);
-
-scene.add(new THREE.HemisphereLight(0xe4edf1, 0x565c58, 2.0));
-
-const sun = new THREE.DirectionalLight(0xfff1d8, 2.15);
-sun.position.set(-42, 72, 34);
-sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-sun.shadow.camera.left = -76;
-sun.shadow.camera.right = 76;
-sun.shadow.camera.top = 76;
-sun.shadow.camera.bottom = -76;
-sun.shadow.camera.near = 1;
-sun.shadow.camera.far = 180;
-sun.shadow.bias = -0.00018;
-scene.add(sun);
-
-const state = { started: true, paused: false };
-
-function showToast(message) {
-  toast.textContent = message;
-  toast.classList.add("visible");
-  window.clearTimeout(showToast.timeout);
-  showToast.timeout = window.setTimeout(() => toast.classList.remove("visible"), 2000);
-}
-
-function resize() {
-  const width = Math.max(1, mount.clientWidth);
-  const height = Math.max(1, mount.clientHeight);
-  camera.aspect = width / height;
-  camera.updateProjectionMatrix();
-  renderer.setSize(width, height, false);
->>>>>>> 1586982803960b26bef375c749702cba0d795a90
 }
 const residents=[
   {id:"anna",name:"PANÍ ANNA",x:-7.25,z:24,direction:-1,speed:.42,route:[{x:-6.9,z:19,wait:1},{x:-7.3,z:13,wait:8,face:-1.1},{x:-7.05,z:17,wait:2},{x:-7.25,z:24,wait:5,face:1.1}],coat:0x655b4f,trousers:0x48433e,skin:0xb88c6b,hair:0x514238,scarf:0x9b4637,bag:true,lines:["Večer hrají v bytě na konci chodby. Jen potichu.","V pekárně dnes měli ještě teplý chleba.","Syn sousedů si šije zvony podle Burdy."]},
@@ -937,7 +850,6 @@ const savedPlayerSafe=saved.player&&Math.abs(saved.player.x)<=20.2&&saved.player
 if (!controller.setSpawn(savedPlayerSafe?saved.player:{x:0,z:8,yaw:0})) controller.setSpawn({x:0,z:8,yaw:0});
 mission.complete=mission.stage>=5;
 
-<<<<<<< HEAD
 function enterVehicle(){
   input.clear();controller.setAnalogMove(0,0);vehicle.occupied=true;vehicleCollider.enabled=false;state.inVehicle=true;vehicle.speed=0;showToast("ZELENÝ HATCHBACK · SHIFT STOUPÁ · CTRL KLESÁ · E VYSTOUPIT");
   gameAudio.door(true);
@@ -1002,7 +914,11 @@ const input=bindInput({element:renderer.domElement,controller,state,onInteract:i
     renderSettings();
   }else if(command==="confirm")activateMenuItem(items[menuSelection]);
   else if(command==="back"&&menuPage!=="main")setMenuPage("main");
-},onPauseChange(paused){pauseScreen.hidden=!paused;renderer.domElement.classList.toggle("is-paused",paused);},onVehicleLook(dx){vehicle.yaw-=dx*2.8;}});
+},onPauseChange(paused){pauseScreen.hidden=!paused;renderer.domElement.classList.toggle("is-paused",paused);},onVehicleLook(dx,_dy,source="mouse"){
+  if(source==="gamepad")vehicle.lookSteer=THREE.MathUtils.clamp(-dx*60/2.2,-1,1);
+  else vehicle.lookSteer=THREE.MathUtils.clamp(vehicle.lookSteer-dx*(source==="touch"?15:45),-1,1);
+  vehicle.lookSteerUntil=gameTime+(source==="gamepad"?.08:.16);
+}});
 const dialoguePanel=$("dialoguePanel");
 const endingPanel=$("endingPanel");
 let dialogueSelection=0,endingSelection=0,endingMode=false,endingChosen=false;
@@ -1232,46 +1148,40 @@ window.addEventListener("keydown",e=>{
 },{capture:true});
 function resize(){const w=Math.max(1,mount.clientWidth),h=Math.max(1,mount.clientHeight);camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h,false);}
 const resizeObserver=new ResizeObserver(resize);resizeObserver.observe(mount);resize();
-let previousTime=0,gameTime=0,nextAutosave=6,nextFootstep=0;
+let previousTime=0,gameTime=0,nextAutosave=6,nextFootstep=0,nextVehicleImpact=0;
 renderer.setAnimationLoop(time=>{
   const dt=previousTime?Math.min((time-previousTime)/1000,.05):0;previousTime=time;gameTime+=dt;
   let playerMoved=false;
   if(state.started&&!state.paused&&!state.combat)totalPlaySeconds+=dt;
   const clockSeconds=Math.floor(totalPlaySeconds),clockHours=String(Math.floor(clockSeconds/3600)).padStart(2,"0"),clockMinutes=String(Math.floor(clockSeconds/60)%60).padStart(2,"0"),clockRemainder=String(clockSeconds%60).padStart(2,"0");
   $("menuClock").textContent=`${clockHours}:${clockMinutes}:${clockRemainder}`;
-  if(state.started&&!state.paused&&!state.combat){
+  if(state.started&&!state.paused&&!state.combat&&!state.dialogue){
     if(vehicle.occupied){
       const keys=controller.keysDown,analog=controller.getAnalogMove();
       const throttle=THREE.MathUtils.clamp(Number(Boolean(keys.KeyW||keys.ArrowUp))-Number(Boolean(keys.KeyS||keys.ArrowDown))+analog.y,-1,1);
-      const steer=THREE.MathUtils.clamp(Number(Boolean(keys.KeyD||keys.ArrowRight))-Number(Boolean(keys.KeyA||keys.ArrowLeft))+analog.x,-1,1);
+      const keyboardSteer=Number(Boolean(keys.KeyD||keys.ArrowRight))-Number(Boolean(keys.KeyA||keys.ArrowLeft));
+      if(gameTime>vehicle.lookSteerUntil)vehicle.lookSteer*=Math.exp(-8.5*dt);
+      const steer=THREE.MathUtils.clamp(keyboardSteer+analog.x+vehicle.lookSteer,-1,1);
       const climb=Number(Boolean(keys.ShiftLeft||keys.ShiftRight))-Number(Boolean(keys.ControlLeft||keys.ControlRight));
-      const airborne=vehicle.altitude>.8;
-      const effectiveClimb=vehicle.battery<12&&climb>0?0:climb;
-      vehicle.speed+=throttle*(airborne?8.5:7.2)*dt;if(!throttle)vehicle.speed*=Math.max(0,1-dt*(airborne ? .42 : 1.05));vehicle.speed=THREE.MathUtils.clamp(vehicle.speed,-4.5,airborne?20:17);
-      vehicle.yaw+=steer*dt*(.25+Math.min(1,Math.abs(vehicle.speed)/7))*(vehicle.speed<-.1?-1:1);
+      const dynamics=stepVehicleDynamics(vehicle,{throttle,steer,lift:climb},dt);
+      if(dynamics.batteryLow)showToast("BATERIE SLÁBNE · ZAČNI KLESAT");
+      if(dynamics.batteryEmpty)showToast("BATERIE VYBITÁ · NOUZOVÉ KLESÁNÍ");
+      if(dynamics.landed)showToast("NOUZOVÉ PŘISTÁNÍ · POHON SE DOBÍJÍ");
       const nx=vehicle.x+Math.sin(vehicle.yaw)*vehicle.speed*dt,nz=vehicle.z-Math.cos(vehicle.yaw)*vehicle.speed*dt;
-      const collisionHeight=vehicle.altitude+2.0;
-      const blocked=carColliders.some(c=>c!==vehicleCollider&&c.enabled!==false&&c.minY<collisionHeight&&c.maxY>vehicle.altitude&&nx+1.1>c.minX&&nx-1.1<c.maxX&&nz+2.1>c.minZ&&nz-2.1<c.maxZ);
       const flightX=vehicle.altitude>2.6,sideLimit=flightX?22.2:7.2;
-      if(!blocked){vehicle.x=THREE.MathUtils.clamp(nx,-sideLimit,sideLimit);vehicle.z=THREE.MathUtils.clamp(nz,flightX?-99:-96,flightX?31:29);}else vehicle.speed*= -.14;
-      vehicle.verticalSpeed=THREE.MathUtils.clamp(vehicle.verticalSpeed+effectiveClimb*8*dt,-5,5);
-      if(!effectiveClimb)vehicle.verticalSpeed*=Math.exp(-2.5*dt);
-      if(vehicle.battery<12&&vehicle.altitude>.05)vehicle.verticalSpeed=Math.min(vehicle.verticalSpeed,-2.6);
-      const oldAltitude=vehicle.altitude;
-      const oldBattery=vehicle.battery;
-      vehicle.altitude=THREE.MathUtils.clamp(vehicle.altitude+vehicle.verticalSpeed*dt,0,42);
-      if(vehicle.altitude===0||vehicle.altitude===42)vehicle.verticalSpeed=0;
-      if(vehicle.battery>0&&vehicle.altitude>.55)vehicle.battery=Math.max(0,vehicle.battery-dt*(.42+Math.abs(vehicle.speed)*.035+(effectiveClimb>0?.45:0)));
-      else if(vehicle.altitude<=.55)vehicle.battery=Math.min(100,vehicle.battery+dt*1.4);
-      if(oldBattery>12&&vehicle.battery<=12&&vehicle.altitude>.55)showToast("BATERIE SLÁBNE · ZAČNI KLESAT");
-      if(vehicle.battery===0&&oldAltitude>.55&&vehicle.altitude<=.55)showToast("BATERIE VYBITÁ · VOZIDLO PŘISTÁLO");
+      const collision=moveVehicleWithCollisions(vehicle,nx,nz,colliders,{selfCollider:vehicleCollider,bounds:{minX:-sideLimit,maxX:sideLimit,minZ:flightX?-99:-96,maxZ:flightX?31:29}});
+      if((collision.blockedX||collision.blockedZ)&&gameTime>=nextVehicleImpact){gameAudio.impact();nextVehicleImpact=gameTime+.22;}
       const inAir=vehicle.altitude>.8;
-      stateCar.position.set(vehicle.x,vehicle.altitude,vehicle.z);syncVehicleCollider();stateCar.rotation.set(THREE.MathUtils.clamp(-vehicle.verticalSpeed*.012,-.08,.08),vehicle.yaw,THREE.MathUtils.clamp(-steer*.035,-.05,.05));
-      wheels.forEach(w=>w.rotation.x+=vehicle.speed*dt*1.7);
+      stateCar.position.set(vehicle.x,vehicle.altitude,vehicle.z);syncVehicleCollider();
+      stateCar.rotation.set(THREE.MathUtils.clamp(-vehicle.verticalSpeed*.012,-.08,.08),vehicle.yaw,THREE.MathUtils.clamp(-steer*.035,-.05,.05));
+      wheels.forEach(w=>w.rotation.x+=vehicle.speed*dt/.34);
+      if(typeof importedWheelBones!=="undefined")importedWheelBones.forEach(bone=>bone.rotation.x+=vehicle.speed*dt/.33);
+      if(typeof importedFrontAxle!=="undefined"&&importedFrontAxle)importedFrontAxle.rotation.y=-steer*.28;
       for(const wheel of [...wheels,...wheelHubs])wheel.visible=!inAir;
       thrusters.forEach((flame,index)=>{flame.visible=inAir;flame.scale.setScalar(.78+.22*Math.sin(gameTime*13+index));});
-      camera.position.set(vehicle.x-Math.sin(vehicle.yaw)*6.2,vehicle.altitude+3.1,vehicle.z+Math.cos(vehicle.yaw)*6.2);
-      camera.lookAt(vehicle.x+Math.sin(vehicle.yaw)*2,vehicle.altitude+1.05,vehicle.z-Math.cos(vehicle.yaw)*2);
+      vehicleCameraPosition.set(vehicle.x-Math.sin(vehicle.yaw)*6.2,vehicle.altitude+3.1,vehicle.z+Math.cos(vehicle.yaw)*6.2);
+      vehicleLookTarget.set(vehicle.x+Math.sin(vehicle.yaw)*2,vehicle.altitude+1.05,vehicle.z-Math.cos(vehicle.yaw)*2);
+      camera.position.lerp(vehicleCameraPosition,1-Math.exp(-7.5*dt));camera.lookAt(vehicleLookTarget);
       $("speedValue").textContent=String(Math.round(Math.abs(vehicle.speed)*3.6)).padStart(3,"0");
       $("altitudeValue").textContent=String(Math.round(vehicle.altitude)).padStart(2,"0");
       $("batteryValue").textContent=String(Math.round(vehicle.battery)).padStart(2,"0");
@@ -1341,75 +1251,3 @@ renderer.setAnimationLoop(time=>{
 });
 updateMission();updateStats();
 window.addEventListener("beforeunload",()=>{saveGame();input.destroy();resizeObserver.disconnect();renderer.setAnimationLoop(null);renderer.dispose();});
-=======
-async function start() {
-  hint.textContent = "BUILDING RESIDENTIAL DISTRICT…";
-
-  try {
-    const world = await buildResidentialWorld(scene, { showToast });
-    const controller = createPlayerController({
-      camera,
-      colliders: world.colliders,
-      interactables: world.interactables,
-      state,
-      ui: { showToast },
-      navigation: {
-        bounds: { minX: -61, maxX: 61, minZ: -61, maxZ: 61 }
-      }
-    });
-
-    controller.setSpawn({ x: 0, z: 58, yaw: 0 });
-
-    const input = bindInput({
-      element: renderer.domElement,
-      controller,
-      state,
-      onInteract: () => controller.doInteract(),
-      onPauseChange(paused) {
-        pauseScreen.hidden = !paused;
-        renderer.domElement.classList.toggle("is-paused", paused);
-      }
-    });
-
-    const resizeObserver = new ResizeObserver(resize);
-    resizeObserver.observe(mount);
-    resize();
-
-    let previousTime = 0;
-    renderer.setAnimationLoop(time => {
-      const deltaTime = previousTime ? Math.min((time - previousTime) / 1000, 0.05) : 0;
-      previousTime = time;
-
-      const nearby = controller.update(deltaTime);
-      world.update(time);
-
-      coordinates.textContent =
-        "X " + controller.player.x.toFixed(1) + " · Z " + controller.player.z.toFixed(1);
-
-      hint.textContent = nearby
-        ? "E / TAP TO INTERACT · WASD MOVE · SHIFT RUN · SPACE JUMP"
-        : "20 HOMES · WASD MOVE · SHIFT RUN · SPACE JUMP · MOUSE LOOK · ESC PAUSE";
-
-      renderer.render(scene, camera);
-    });
-
-    window.addEventListener("beforeunload", () => {
-      input.destroy();
-      resizeObserver.disconnect();
-      renderer.setAnimationLoop(null);
-      world.dispose();
-      renderer.dispose();
-    });
-
-    showToast(world.usingImportedModels
-      ? "SEVERNÍ ČTVRŤ · BLENDER HOUSE PACK LOADED"
-      : "SEVERNÍ ČTVRŤ · 20 LOW-POLY HOMES");
-  } catch (error) {
-    console.error(error);
-    hint.textContent = "WORLD INITIALIZATION FAILED · CHECK CONSOLE";
-    showToast("World could not be initialized.");
-  }
-}
-
-start();
->>>>>>> 1586982803960b26bef375c749702cba0d795a90

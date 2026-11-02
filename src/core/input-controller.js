@@ -188,7 +188,7 @@ export function bindInput({
   listen(document, "mousemove", event => {
     if (document.pointerLockElement !== element || state.paused) return;
     if (state.inVehicle) {
-      if (state.started) onVehicleLook(event.movementX * sensitivity.mouseX, event.movementY * sensitivity.mouseY);
+      if (state.started) onVehicleLook(event.movementX * sensitivity.mouseX, event.movementY * sensitivity.mouseY, "mouse");
       return;
     }
     player.yaw -= event.movementX * sensitivity.mouseX;
@@ -251,7 +251,7 @@ export function bindInput({
       lookPointer.x = event.clientX;
       lookPointer.y = event.clientY;
       if (state.inVehicle) {
-        if (state.started) onVehicleLook(dx * sensitivity.touchX, dy * sensitivity.touchY);
+        if (state.started) onVehicleLook(dx * sensitivity.touchX, dy * sensitivity.touchY, "touch");
         return;
       }
       player.yaw -= dx * sensitivity.touchX;
@@ -372,7 +372,7 @@ export function bindInput({
         const rightX = deadZone(pad.axes[2]);
         const rightY = deadZone(pad.axes[3]);
         if (state.inVehicle) {
-          if (state.started) onVehicleLook(rightX * sensitivity.gamepadLook / 60, rightY * sensitivity.gamepadLook / 60);
+          if (state.started) onVehicleLook(rightX * sensitivity.gamepadLook / 60, rightY * sensitivity.gamepadLook / 60, "gamepad");
         } else {
           player.yaw -= rightX * sensitivity.gamepadLook / 60;
           player.pitch = clamp(player.pitch + rightY * sensitivity.gamepadLook / 60, -0.95, 1.25);
