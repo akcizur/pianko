@@ -37,6 +37,46 @@ style.textContent = `
     .touch-actions button { width: 58px !important; height: 52px !important; font-size: 10px; }
   }
 
+  /* Portrait phones: reserve a dedicated, unobstructed movement pad. */
+  @media (orientation: portrait) and (pointer: coarse) {
+    .touch-ui {
+      position: fixed !important;
+      inset: 0 !important;
+      height: 100vh !important;
+      height: 100dvh !important;
+      overflow: hidden;
+    }
+    .move-stick {
+      z-index: 4 !important;
+      left: max(16px, env(safe-area-inset-left)) !important;
+      bottom: max(34px, calc(env(safe-area-inset-bottom) + 24px)) !important;
+      width: 148px !important;
+      height: 148px !important;
+    }
+    .stick-knob {
+      width: 58px !important;
+      height: 58px !important;
+      margin: -29px 0 0 -29px !important;
+    }
+    .look-zone {
+      z-index: 1 !important;
+      left: 44% !important;
+      right: 0 !important;
+      top: 12% !important;
+      bottom: 12% !important;
+      width: auto !important;
+    }
+    .touch-actions {
+      z-index: 5 !important;
+      right: max(14px, env(safe-area-inset-right)) !important;
+      bottom: max(34px, calc(env(safe-area-inset-bottom) + 24px)) !important;
+    }
+    .touch-actions button {
+      width: 56px !important;
+      height: 52px !important;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     #screenCanvas { filter: none; }
   }
