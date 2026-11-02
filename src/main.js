@@ -40,7 +40,8 @@ const camera = new THREE.PerspectiveCamera(74, 1, 0.05, 220);
 scene.add(camera);
 if(savedInVehicle){camera.fov=80;camera.updateProjectionMatrix();}
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.7));
+const touchDevice=matchMedia("(pointer: coarse)").matches;
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, touchDevice ? 1.35 : 1.7));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.12;
