@@ -10,7 +10,7 @@
 html, body, #app { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 body { background: #090a0b; }
 button { font: inherit; }
-#app { position: relative; isolation: isolate; }
+#app { position: relative; isolation: isolate; height: 100vh; height: 100dvh; }
 #game { position: absolute; inset: 0; touch-action: none; }
 #screenCanvas { display: block; width: 100%; height: 100%; outline: none; touch-action: none; }
 .hud {
