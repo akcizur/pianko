@@ -1,0 +1,1415 @@
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { createPlayerController } from "./core/player-controller.js";
+import { bindInput } from "./core/input-controller.js";
+<<<<<<< HEAD
+import { createGameAudio } from "./core/game-audio.js";
+import { advanceNeighborQuestStep, isCourierEncounterActive, normalizeNeighborQuestStep } from "./core/story-rules.js";
+=======
+import { buildResidentialWorld } from "./world/world.js";
+>>>>>>> 1586982803960b26bef375c749702cba0d795a90
+
+const gameAudio=createGameAudio();
+const unlockGameAudio=()=>gameAudio.unlock();
+window.addEventListener("pointerdown",unlockGameAudio,{once:true,capture:true});
+window.addEventListener("keydown",unlockGameAudio,{once:true,capture:true});
+const $ = id => document.getElementById(id);
+const mount = $("game"), coordinates = $("coordinates"), toast = $("toast"), hint = $("hint");
+const pauseScreen = $("pauseScreen"), combatPanel = $("combatPanel");
+const SAVE_KEY = "mir12-save-v1";
+function readSave() {
+  try { return JSON.parse(localStorage.getItem(SAVE_KEY) || "null") || {}; }
+  catch { return {}; }
+}
+const saved = readSave();
+let neighborQuestStep=normalizeNeighborQuestStep(saved.neighborQuestStep);
+const savedVehicleSafe=saved.vehicle&&Math.abs(saved.vehicle.x)<=23&&saved.vehicle.z>-101&&saved.vehicle.z<34;
+const savedInVehicle=Boolean(saved.inVehicle&&savedVehicleSafe);
+let totalPlaySeconds=Number(saved.playSeconds)||0;
+let endingChoice=saved.ending||null;
+const mission = { stage: Math.max(0, Math.min(5, saved.missionStage || 0)), complete: false };
+const state = { started: false, paused: false, combat: false, dialogue: false, inVehicle: savedInVehicle };
+const stats = { hp: 74, maxHp: 74, energy: 32, maxEnergy: 32, xp: 0, level: 1, credits: 120, medkits: 2, weaponLevel:0, armorLevel:0, guard: false, ...saved.stats };
+const foe = { hp: 42, maxHp: 42, defeated: Boolean(saved.foeDefeated), busy: false };
+const secondFoe = { hp: 68, maxHp: 68, defeated: Boolean(saved.courierDefeated), busy: false };
+let activeFoe=foe;
+let combatSelection = 0;
+
+const scene = new THREE.Scene();
+<<<<<<< HEAD
+scene.background = new THREE.Color(0x536170);
+scene.fog = new THREE.Fog(0x536170, 74, 156);
+const camera = new THREE.PerspectiveCamera(74, 1, 0.05, 220);
+scene.add(camera);
+if(savedInVehicle){camera.fov=80;camera.updateProjectionMatrix();}
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.7));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.12;
+renderer.domElement.id = "screenCanvas";
+renderer.domElement.setAttribute("aria-label", "Mír 12 — 3D herní scéna");
+renderer.domElement.tabIndex = 0;
+mount.appendChild(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0x9eafc1, 0x3d3d38, 1.25));
+const sun = new THREE.DirectionalLight(0xe4c9a1, .72);
+sun.position.set(-18, 8, 15); scene.add(sun);
+const fill = new THREE.PointLight(0xffb468, 7, 38); fill.position.set(4.8, 4, -5); scene.add(fill);
+
+const colliders = [];
+const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+const mats = new Map();
+function material(color, roughness = .86, emissive = 0, intensity = 0) {
+  const key = `${color}/${roughness}/${emissive}/${intensity}`;
+  if (!mats.has(key)) mats.set(key, new THREE.MeshStandardMaterial({ color, roughness, emissive, emissiveIntensity: intensity }));
+  return mats.get(key);
+}
+const facadeMaterials={
+  windowDark:material(0x27343a,.3,0x111a1f,.08),
+  windowLit:material(0xe7b46a,.62,0x9a5927,.34),
+  frame:material(0xa6aaa6,.82),
+  joint:material(0x596266,.96),
+  slab:material(0x727a79,.9),
+  rail:material(0x485153,.62),
+  pipe:material(0x4a5354,.74),
+  glass:new THREE.MeshPhysicalMaterial({color:0xa7bcc2,roughness:.14,metalness:.08,transparent:true,opacity:.36,side:THREE.DoubleSide,depthWrite:false}),
+  laundry:new THREE.MeshStandardMaterial({color:0xffffff,roughness:.95})
+};
+const facadeInstances=new Map();
+function queueFacadePart(type,x,y,z,w,h,d,color=null){
+  if(!facadeInstances.has(type))facadeInstances.set(type,[]);
+  facadeInstances.get(type).push({x,y,z,w,h,d,color});
+}
+function flushFacadeParts(){
+  for(const [type,parts] of facadeInstances){
+    const mesh=new THREE.InstancedMesh(boxGeo,facadeMaterials[type],parts.length);
+    mesh.name=`fasádní prvky · ${type}`;mesh.castShadow=false;mesh.receiveShadow=true;
+    const position=new THREE.Vector3(),scale=new THREE.Vector3(),rotation=new THREE.Quaternion(),matrix=new THREE.Matrix4();
+    for(let index=0;index<parts.length;index++){
+      const part=parts[index];position.set(part.x,part.y,part.z);scale.set(part.w,part.h,part.d);matrix.compose(position,rotation,scale);mesh.setMatrixAt(index,matrix);
+      if(part.color!==null)mesh.setColorAt(index,new THREE.Color(part.color));
+    }
+    mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
+    mesh.computeBoundingBox();mesh.computeBoundingSphere();scene.add(mesh);
+  }
+  facadeInstances.clear();
+}
+const weaponPivot=new THREE.Group();weaponPivot.position.set(.29,-.24,-.52);weaponPivot.visible=false;camera.add(weaponPivot);
+const vz61=new THREE.Group();weaponPivot.add(vz61);
+function weaponPart(w,h,d,color,x,y,z){const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material(color,.46));mesh.position.set(x,y,z);vz61.add(mesh);return mesh;}
+weaponPart(.19,.12,.3,0x353636,0,0,0);
+weaponPart(.17,.045,.24,0x252728,0,.075,-.025);
+weaponPart(.075,.075,.34,0x292b2b,0,.015,-.28);
+weaponPart(.1,.09,.07,0x17191a,0,.015,-.48);
+weaponPart(.06,.04,.08,0x55534e,0,.105,-.35);
+weaponPart(.07,.045,.07,0x55534e,0,.1,.12);
+weaponPart(.09,.22,.1,0x413a32,0,-.16,.08).rotation.x=-.17;
+weaponPart(.1,.2,.11,0x302e2b,0,-.22,-.015);
+weaponPart(.06,.14,.24,0x303233,.13,.105,.08).rotation.x=-.12;
+const gunBarrel=new THREE.Mesh(new THREE.CylinderGeometry(.029,.029,.29,10),material(0x282a2b,.38));gunBarrel.rotation.x=Math.PI/2;gunBarrel.position.set(0,.01,-.28);vz61.add(gunBarrel);
+const muzzleFlash=new THREE.Mesh(new THREE.PlaneGeometry(.16,.13),new THREE.MeshBasicMaterial({color:0xffd68a,transparent:true,opacity:.95,side:THREE.DoubleSide,toneMapped:false}));muzzleFlash.position.set(0,.02,-.52);muzzleFlash.visible=false;vz61.add(muzzleFlash);
+let weaponRecoil=0,muzzleTimer=0;
+function block(name, x, y, z, w, h, d, color, solid = true, emissive = 0, intensity = 0) {
+  const mesh = new THREE.Mesh(boxGeo, material(color, .88, emissive, intensity));
+  mesh.name = name; mesh.position.set(x, y + h / 2, z); mesh.scale.set(w, h, d); mesh.castShadow = h > 2; mesh.receiveShadow = true; scene.add(mesh);
+  if (solid) colliders.push({ name, minX:x-w/2, maxX:x+w/2, minZ:z-d/2, maxZ:z+d/2, minY:y, maxY:y+h });
+  return mesh;
+}
+function beamBetween(name,start,end,size,color){
+  const direction=new THREE.Vector3(end.x-start.x,end.y-start.y,end.z-start.z);
+  const mesh=new THREE.Mesh(new THREE.BoxGeometry(size,direction.length(),size),material(color,.72));
+  mesh.name=name;mesh.position.set((start.x+end.x)/2,(start.y+end.y)/2,(start.z+end.z)/2);
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction.normalize());scene.add(mesh);return mesh;
+}
+function buildWalkablePanelak(x,z,width,depth,height,inward){
+  const wall=.32,storyCount=Math.round(height/2.9),storyHeight=height/storyCount;
+  const frontX=x+inward*width/2,frontWallX=frontX-inward*wall/2;
+  const backX=x-inward*(width/2-wall/2),endZ=z+depth/2-wall/2;
+  const concrete=0x727c7e,inner=0xaaa79c,doorWidth=1.34;
+  const stairX=frontX-inward*4.25,halfFlight=8,run=.24,flightLength=halfFlight*run;
+  const landingX=stairX-inward*flightLength,apartmentDoors=[];
+  block("panelák — zadní obvodová stěna",backX,0,z,wall,height,depth,concrete,true);
+  for(const sideZ of [-1,1])block("panelák — štítová stěna",x,0,z+sideZ*endZ,width,height,wall,concrete,true);
+
+  for(let story=0;story<storyCount;story++){
+    const base=story*storyHeight,top=base+storyHeight;
+    block(`panelák — železobetonová podlaha ${story+1}. patra`,x,base-.16,z,width,.16,depth,0x777a76,false);
+    const openings=[];
+    for(let column=-2;column<=2;column++){
+      if(story===0&&column===0){openings.push({kind:"door",z,width:doorWidth,bottom:base,top:base+2.18});continue;}
+      openings.push({kind:"window",column,z:z+column*2.25,width:1.28,bottom:base+.68,top:base+2.13});
+    }
+    openings.sort((a,b)=>a.z-b.z);
+    let cursor=z-depth/2;
+    for(const opening of openings){
+      const left=opening.z-opening.width/2,right=opening.z+opening.width/2;
+      if(left-cursor>.05)block("panelák — fasádní pilíř",frontWallX,base,(cursor+left)/2,wall,storyHeight,left-cursor,concrete,true);
+      if(opening.bottom>base+.03)block("panelák — okenní parapet",frontWallX,base,opening.z,wall,opening.bottom-base,opening.width,concrete,true);
+      if(top-opening.top>.03)block("panelák — nadpraží",frontWallX,opening.top,opening.z,wall,top-opening.top,opening.width,concrete,true);
+
+      if(opening.kind==="window"){
+        const centerY=(opening.bottom+opening.top)/2,paneX=frontX+inward*.09,frameX=frontX+inward*.16;
+        queueFacadePart("glass",paneX,centerY,opening.z,.055,opening.top-opening.bottom,opening.width-.08);
+        queueFacadePart("frame",frameX,centerY,opening.z-opening.width/2-.035,.08,opening.top-opening.bottom+.12,.07);
+        queueFacadePart("frame",frameX,centerY,opening.z+opening.width/2+.035,.08,opening.top-opening.bottom+.12,.07);
+        queueFacadePart("frame",frameX,opening.bottom-.015,opening.z,.08,.075,opening.width+.16);
+        queueFacadePart("frame",frameX,opening.top+.015,opening.z,.08,.075,opening.width+.16);
+        queueFacadePart("frame",frameX,centerY,opening.z,.08,opening.top-opening.bottom,.045);
+        queueFacadePart("slab",frontX+inward*.22,opening.bottom-.08,opening.z,.24,.12,opening.width+.22);
+        colliders.push({name:"panelák — zasklené okno",minX:paneX-.15,maxX:paneX+.15,minZ:opening.z-opening.width/2,maxZ:opening.z+opening.width/2,minY:opening.bottom,maxY:opening.top});
+        block("panelák — radiátor pod oknem",frontX-inward*.42,opening.bottom+.05,opening.z,.16,.42,.88,0x858b88,false);
+        if(story>0&&Math.abs(opening.column)===2&&story<storyCount*.65&&story%3!==1){
+          queueFacadePart("slab",frontX+inward*.48,base+.04,opening.z,.9,.14,1.76);
+          queueFacadePart("rail",frontX+inward*.94,base+.62,opening.z,.07,.065,1.76);
+          for(const end of [-1,1])queueFacadePart("rail",frontX+inward*.74,base+.39,opening.z+end*.82,.48,.62,.07);
+          for(let baluster=-2;baluster<=2;baluster++)queueFacadePart("rail",frontX+inward*.94,base+.38,opening.z+baluster*.31,.065,.58,.065);
+          if((story+opening.column)%2===0)queueFacadePart("laundry",frontX+inward*.7,base+1.1,opening.z+.16,.07,.57,.4,[0xbab29f,0x78889a,0x914f42,0xc7c3ad][Math.abs(opening.column+story)%4]);
+        }
+      }
+      cursor=right;
+    }
+    if(z+depth/2-cursor>.05)block("panelák — fasádní pilíř",frontWallX,base,(cursor+z+depth/2)/2,wall,storyHeight,z+depth/2-cursor,concrete,true);
+
+    // The shared corridor runs from the entrance to the rear stair core. Apartment doors open from it on both sides.
+    const hallHalf=1.42;
+    const insideFront=frontX-inward*(wall+.05),insideBack=backX+inward*(wall+.05);
+    const minHallX=Math.min(insideFront,insideBack),maxHallX=Math.max(insideFront,insideBack);
+    const apartmentXs=[2.35,7.15].map(distance=>frontX-inward*distance).sort((a,b)=>a-b);
+    for(const sideZ of [-1,1]){
+      const wallZ=z+sideZ*hallHalf;let wallCursor=minHallX;
+      for(const doorX of apartmentXs){
+        const gapStart=doorX-.48,gapEnd=doorX+.48;
+        if(gapStart-wallCursor>.08)block("panelák — příčka chodby",(wallCursor+gapStart)/2,base,wallZ,gapStart-wallCursor,storyHeight,.14,inner,true);
+        const apartmentDoor=new THREE.Group();
+        apartmentDoor.name=`bytové dveře ${story+1}.${sideZ<0?"A":"B"}`;
+        apartmentDoor.position.set(doorX-.43,base+.04,wallZ+sideZ*.06);scene.add(apartmentDoor);
+        const doorLeaf=new THREE.Mesh(new THREE.BoxGeometry(.86,2.08,.055),material(story===0?0x69503d:0x75604c,.72));
+        doorLeaf.position.set(.43,1.04,0);doorLeaf.castShadow=true;doorLeaf.receiveShadow=true;apartmentDoor.add(doorLeaf);
+        const doorPanel=new THREE.Mesh(new THREE.BoxGeometry(.62,.72,.015),material(story===0?0x765b42:0x846d53,.86));
+        doorPanel.position.set(.43,.55,.037);apartmentDoor.add(doorPanel);
+        const doorHandle=new THREE.Mesh(new THREE.SphereGeometry(.035,8,6),material(0xc0ad79,.4));
+        doorHandle.position.set(.73,1.03,.052);apartmentDoor.add(doorHandle);
+        const apartmentDoorCollider={name:apartmentDoor.name,minX:doorX-.43,maxX:doorX+.43,minZ:wallZ+sideZ*.06-.08,maxZ:wallZ+sideZ*.06+.08,minY:base+.04,maxY:base+2.12,enabled:true};
+        colliders.push(apartmentDoorCollider);
+        apartmentDoors.push({x:doorX,z:wallZ+sideZ*.06+sideZ*.46,doorPivot:apartmentDoor,doorCollider:apartmentDoorCollider,openAngle:-sideZ*Math.PI/2,open:false});
+        for(const hinge of [-1,1])block("bytová zárubeň",doorX+hinge*.47,base+.04,wallZ+sideZ*.1,.07,2.2,.1,0x858073,false);
+        block("bytová zárubeň — nadpraží",doorX,base+2.17,wallZ+sideZ*.1,1.01,.08,.1,0x858073,false);
+        wallCursor=gapEnd;
+      }
+      if(maxHallX-wallCursor>.08)block("panelák — příčka chodby",(wallCursor+maxHallX)/2,base,wallZ,maxHallX-wallCursor,storyHeight,.14,inner,true);
+      const roomDepth=depth/2-wall-hallHalf,roomCenterZ=z+sideZ*(hallHalf+roomDepth/2);
+      for(let divider=0;divider<apartmentXs.length-1;divider++){
+        const dividerX=(apartmentXs[divider]+apartmentXs[divider+1])/2;
+        block("panelák — vnitřní příčka bytu",dividerX,base,roomCenterZ,.12,storyHeight,roomDepth,0x99968c,true);
+      }
+      for(let unit=0;unit<apartmentXs.length;unit++){
+        const unitX=apartmentXs[unit],tone=(unit+story+(sideZ>0?1:0))%3;
+        const unitMinX=unit===0?minHallX:(apartmentXs[unit-1]+unitX)/2;
+        const unitMaxX=unit===apartmentXs.length-1?maxHallX:(unitX+apartmentXs[unit+1])/2;
+        const unitWidth=unitMaxX-unitMinX,bathWallZ=z+sideZ*3.15,bathDoorWidth=.7;
+        const bathDoorLeft=unitX-bathDoorWidth/2,bathDoorRight=unitX+bathDoorWidth/2;
+        if(bathDoorLeft-unitMinX>.05)block("bytová příčka koupelny",(unitMinX+bathDoorLeft)/2,base,bathWallZ,bathDoorLeft-unitMinX,storyHeight,.12,inner,true);
+        if(unitMaxX-bathDoorRight>.05)block("bytová příčka koupelny",(bathDoorRight+unitMaxX)/2,base,bathWallZ,unitMaxX-bathDoorRight,storyHeight,.12,inner,true);
+        const bathDoor=new THREE.Group();bathDoor.name="koupelnové dveře";bathDoor.position.set(bathDoorLeft,base+.04,bathWallZ);bathDoor.rotation.y=-sideZ*.52;scene.add(bathDoor);
+        const bathLeaf=new THREE.Mesh(new THREE.BoxGeometry(bathDoorWidth,2.04,.05),material(0x74624d,.8));bathLeaf.position.set(bathDoorWidth/2,1.02,0);bathLeaf.castShadow=true;bathDoor.add(bathLeaf);
+        const bathHandle=new THREE.Mesh(new THREE.SphereGeometry(.028,8,6),material(0xb9a67e,.45));bathHandle.position.set(bathDoorWidth-.1,1.01,.045);bathDoor.add(bathHandle);
+        for(const hinge of [-1,1])block("koupelnová zárubeň",unitX+hinge*(bathDoorWidth/2+.045),base+.04,bathWallZ,.075,2.13,.16,0x837c6f,false);
+        block("koupelnová zárubeň — nadpraží",unitX,base+2.14,bathWallZ,bathDoorWidth+.16,.08,.16,0x837c6f,false);
+        block("panelák — koupelnová podlaha",unitX,base+.02,z+sideZ*2.32,unitWidth-.14,.035,1.62,0x777b77,false);
+        block("panelák — smaltovaná vana",unitX+inward*1.2,base+.25,z+sideZ*2.2,.9,.48,1.25,0xd6d2c4,false);
+        block("panelák — umyvadlo",unitX-inward*.95,base+.77,z+sideZ*1.92,.56,.12,.42,0xd7d3c7,false);
+        block("panelák — podstavec umyvadla",unitX-inward*.95,base+.08,z+sideZ*1.92,.46,.72,.35,0x8b8476,false);
+        block("panelák — toaleta",unitX-inward*.08,base+.22,z+sideZ*2.78,.46,.42,.62,0xd8d5ca,false);
+        block("panelák — koupelnové zrcadlo",unitX-inward*.95,base+1.53,bathWallZ-sideZ*.08,.54,.62,.045,0x9da9a7,false);
+        block("bytová skříň",unitX-inward*1.2,base+.18,z+sideZ*4.25,.82,1.7,.42,[0x62564a,0x736451,0x514b43][(unit+story)%3],false);
+        block("panelák — kuchyňská linka",unitX-inward*.54,base+.82,z+sideZ*5.08,1.5,.86,.48,[0x77796f,0x756b5a,0x81745e][tone],false);
+        block("panelák — kuchyňská pracovní deska",unitX-inward*.54,base+1.29,z+sideZ*5.08,1.56,.075,.52,0xc4b79d,false);
+        block("panelák — kuchyňský dřez",unitX-inward*.84,base+1.34,z+sideZ*5.08,.33,.045,.25,0x858e8c,false);
+        block("panelák — sporák",unitX-inward*.2,base+1.34,z+sideZ*5.08,.38,.06,.4,0x555b5a,false);
+        block("panelák — jídelní stůl",unitX-inward*.72,base+.72,z+sideZ*3.62,.9,.12,.72,[0x795f45,0x695740,0x856c4f][tone],false);
+        for(const chair of [-1,1])block("panelák — židle",unitX-inward*(.72+chair*.58),base+.38,z+sideZ*3.62,.28,.75,.3,0x63533f,false);
+        if(tone===0){
+          block("panelák — postel",unitX+inward*.62,base+.34,z+sideZ*4.35,1.3,.42,.92,0x625d55,false);
+          block("panelák — přikrývka",unitX+inward*.62,base+.58,z+sideZ*4.35,1.18,.12,.84,0x505b61,false);
+          block("panelák — polštář",unitX+inward*.62,base+.67,z+sideZ*4.0,.46,.12,.34,0xc2b9a6,false);
+        }else{
+          block("panelák — pohovka",unitX+inward*.62,base+.42,z+sideZ*4.4,1.38,.55,.68,[0x625649,0x596065][tone-1],false);
+          block("panelák — opěradlo pohovky",unitX+inward*.62,base+.72,z+sideZ*4.65,1.38,.38,.18,[0x51483e,0x4d5659][tone-1],false);
+          block("panelák — konferenční stolek",unitX+inward*.62,base+.45,z+sideZ*3.72,.7,.1,.45,0x725c43,false);
+        }
+        block("panelák — radiátor v bytě",unitX+inward*.82,base+.26,z+sideZ*5.82,.8,.5,.12,0x888e8a,false);
+        block("panelák — televizní stolek",unitX-inward*1.6,base+.38,z+sideZ*3.8,.72,.72,.35,0x61594d,false);
+        block("panelák — televizor Tesla",unitX-inward*1.6,base+1.13,z+sideZ*3.8,.62,.52,.13,0x2c3030,false);
+        block("panelák — koberec",unitX+inward*.62,base+.02,z+sideZ*4.25,1.55,.035,1.55,[0x716455,0x58606a,0x755649][tone],false);
+      }
+    }
+    block("panelák — osvětlení chodby",frontX-inward*2.25,top-.38,z,.18,.07,.46,0xffd28a,false,0xb97631,.62);
+    const corridorLight=new THREE.PointLight(0xffc982,.32,5,2);corridorLight.position.set(frontX-inward*2.25,top-.55,z);scene.add(corridorLight);
+    queueFacadePart("joint",frontX+inward*.035,top-.035,z,.035,.035,depth-.18);
+
+    if(story<storyCount-1){
+      const rise=storyHeight/16;
+      for(let step=0;step<halfFlight;step++){
+        const stairY=base+rise*(step+1)-.08;
+        const firstX=stairX-inward*(step*run+run/2),secondX=stairX-inward*(halfFlight*run)+inward*(step*run+run/2);
+        block("schodiště — kamenný stupeň",firstX,stairY,z-.72,.27,.16,1.28,0x77766f,false);
+        block("schodiště — kamenný stupeň",secondX,base+storyHeight/2+rise*(step+1)-.08,z+.72,.27,.16,1.28,0x77766f,false);
+        if(step%2===0){
+          block("schodišťové zábradlí — sloupek",firstX,stairY+.18,z-1.35,.065,.58,.065,0x5a605f,false);
+          block("schodišťové zábradlí — středový sloupek",firstX,stairY+.18,z,.065,.58,.065,0x5a605f,false);
+          block("schodišťové zábradlí — sloupek",secondX,base+storyHeight/2+rise*(step+1)+.1,z+1.35,.065,.58,.065,0x5a605f,false);
+          block("schodišťové zábradlí — středový sloupek",secondX,base+storyHeight/2+rise*(step+1)+.1,z,.065,.58,.065,0x5a605f,false);
+        }
+      }
+      block("schodišťová podesta",landingX,base+storyHeight/2-.08,z,.88,.16,2.72,0x77766f,false);
+      beamBetween("schodišťové madlo",{x:stairX,y:base+.56,z:z-1.35},{x:landingX,y:base+storyHeight/2+.36,z:z-1.35},.07,0x565c5a);
+      beamBetween("schodišťové středové madlo",{x:stairX,y:base+.56,z},{x:landingX,y:base+storyHeight/2+.36,z},.07,0x565c5a);
+      beamBetween("schodišťové madlo",{x:landingX,y:base+storyHeight/2+.36,z:z+1.35},{x:stairX,y:base+storyHeight-.22,z:z+1.35},.07,0x565c5a);
+      beamBetween("schodišťové středové madlo",{x:landingX,y:base+storyHeight/2+.36,z},{x:stairX,y:base+storyHeight-.22,z},.07,0x565c5a);
+    }
+  }
+
+  for(const pipeZ of [-depth/2+.35,depth/2-.35])queueFacadePart("pipe",frontX+inward*.16,height/2,z+pipeZ,.08,height,.08);
+
+  const doorPivot=new THREE.Group();doorPivot.name="vstupní dveře paneláku";
+  doorPivot.position.set(frontX+inward*.055,0,z-doorWidth/2);scene.add(doorPivot);
+  const entranceLeaf=new THREE.Mesh(new THREE.BoxGeometry(.09,2.14,doorWidth-.04),material(0x554338,.72));
+  entranceLeaf.position.set(0,1.07,(doorWidth-.04)/2);entranceLeaf.castShadow=true;doorPivot.add(entranceLeaf);
+  const entranceWindow=new THREE.Mesh(new THREE.BoxGeometry(.025,.56,.72),facadeMaterials.glass);entranceWindow.position.set(inward*.055,1.5,(doorWidth-.04)/2);doorPivot.add(entranceWindow);
+  const entranceHandle=new THREE.Mesh(new THREE.SphereGeometry(.045,8,6),material(0xb79a59,.4));entranceHandle.position.set(inward*.085,1.05,doorWidth-.22);doorPivot.add(entranceHandle);
+  for(const sideDoor of [-1,1])block("vchod — kamenná zárubeň",frontX+inward*.14,0,z+sideDoor*(doorWidth/2+.09),.26,2.26,.15,0x9b9b91,false);
+  block("vchod — nadpraží",frontX+inward*.14,2.18,z,.26,.12,doorWidth+.18,0x9b9b91,false);
+  block("panelák — vstupní schod",frontX+inward*.44,0,z,.7,.16,doorWidth+.3,0x777975,false);
+  block("panelák — vstupní stříška",frontX+inward*.5,2.38,z,1.12,.14,doorWidth+.42,0x555d60,false);
+  block("panelák — světlo nad vchodem",frontX+inward*.25,2.48,z,.14,.09,.3,0xffd18a,false,0xb8742a,.72);
+  block("panelák — domovní zvonky",frontX+inward*.23,1.14,z+doorWidth*.63,.08,.48,.25,0x787c78,false);
+  for(let button=0;button<6;button++)block("vchod — zvonkové tlačítko",frontX+inward*.28,1.31,z+doorWidth*.63-.17+button*.068,.04,.035,.035,button===0?0xc5b99d:0xa2a49f,false);
+  for(let box=0;box<6;box++)block("domovní schránka",frontX-inward*.48,1.08,z-.58+box*.23,.12,.19,.19,[0x777d7b,0x908b7d][box%2],false);
+  const doorCollider={name:"zavřené vstupní dveře",minX:frontX-.16,maxX:frontX+.16,minZ:z-doorWidth/2,maxZ:z+doorWidth/2,enabled:true};colliders.push(doorCollider);
+  return {frontX,inward,z,storyHeight,storyCount,stairX,landingX,flightLength,apartmentDoors,interactX:frontX+inward*.44,doorPivot,doorCollider,openAngle:-inward*Math.PI/2,open:false};
+}
+function plane(w, d, color, x=0, y=0, z=0, roughness=.9, metalness=0) {
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w,d), new THREE.MeshStandardMaterial({color,roughness,metalness}));
+  mesh.rotation.x=-Math.PI/2; mesh.position.set(x,y,z); scene.add(mesh); return mesh;
+}
+function puddle(x,z,width,depth,rotation=0) {
+  const shape=new THREE.Shape();
+  shape.moveTo(-.5,-.12);shape.lineTo(-.34,-.38);shape.lineTo(.12,-.46);shape.lineTo(.47,-.22);
+  shape.lineTo(.4,.2);shape.lineTo(.08,.42);shape.lineTo(-.35,.3);shape.closePath();
+  const mesh=new THREE.Mesh(new THREE.ShapeGeometry(shape),new THREE.MeshStandardMaterial({
+    color:0x28323a,roughness:.16,metalness:.24,transparent:true,opacity:.76,side:THREE.DoubleSide,depthWrite:false
+  }));
+  mesh.name="mělká kaluž";mesh.rotation.set(-Math.PI/2,rotation,0);mesh.scale.set(width,depth,1);mesh.position.set(x,.006,z);scene.add(mesh);return mesh;
+}
+
+function printedSign(name, x, y, z, width, height, title, subtitle, rotationY=0, paper="#e8e0cd", ink="#3d3931") {
+  const canvas=document.createElement("canvas");canvas.width=768;canvas.height=320;
+  const ctx=canvas.getContext("2d");
+  ctx.fillStyle=paper;ctx.fillRect(0,0,768,320);
+  ctx.strokeStyle=ink;ctx.lineWidth=10;ctx.strokeRect(14,14,740,292);
+  ctx.fillStyle=ink;ctx.textAlign="center";ctx.textBaseline="middle";
+  ctx.font="bold 58px 'Arial Narrow', sans-serif";ctx.fillText(title.toLocaleUpperCase("cs-CZ"),384,125,700);
+  ctx.font="bold 28px monospace";ctx.fillText(subtitle.toLocaleUpperCase("cs-CZ"),384,224,700);
+  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
+  const signMesh=new THREE.Mesh(new THREE.PlaneGeometry(width,height),new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide,toneMapped:false}));
+  signMesh.name=name;signMesh.position.set(x,y,z);signMesh.rotation.y=rotationY;scene.add(signMesh);return signMesh;
+}
+function propagandaPoster(x,y,z,width,height,rotationY=0) {
+  const canvas=document.createElement("canvas");canvas.width=384;canvas.height=576;
+  const ctx=canvas.getContext("2d");ctx.fillStyle="#e5ddc9";ctx.fillRect(0,0,384,576);
+  ctx.fillStyle="#9e2e2a";ctx.fillRect(0,0,384,154);ctx.fillStyle="#f4ead1";
+  ctx.font="bold 42px sans-serif";ctx.textAlign="center";ctx.fillText("SPARTAKIÁDA",192,62);ctx.font="bold 34px monospace";ctx.fillText("1975",192,117);
+  ctx.fillStyle="#d4b44b";ctx.beginPath();ctx.arc(190,250,52,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle="#304c6b";ctx.lineWidth=24;ctx.lineCap="round";
+  for(const [ox,oy] of [[-80,0],[0,6],[80,0]]){ctx.beginPath();ctx.moveTo(190+ox,302+oy);ctx.lineTo(190+ox,420+oy);ctx.moveTo(190+ox,330+oy);ctx.lineTo(142+ox,376+oy);ctx.moveTo(190+ox,330+oy);ctx.lineTo(238+ox,376+oy);ctx.moveTo(190+ox,420+oy);ctx.lineTo(150+ox,505+oy);ctx.moveTo(190+ox,420+oy);ctx.lineTo(230+ox,505+oy);ctx.stroke();}
+  ctx.fillStyle="#413d35";ctx.font="bold 21px sans-serif";ctx.textAlign="center";ctx.fillText("MLÁDÍ · PRÁCE · RADOST",192,548);
+  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
+  const mesh=new THREE.Mesh(new THREE.PlaneGeometry(width,height),new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide,toneMapped:false}));
+  mesh.name="plakát Spartakiáda 1975";mesh.position.set(x,y,z);mesh.rotation.y=rotationY;scene.add(mesh);return mesh;
+}
+
+// Sídliště Mír, 1975: paneláky, stará zástavba, tramvajový most a ručně lepené plakáty.
+plane(150,150,0x666a69,0,-.09,0);
+plane(10.5,150,0x363c42,0,-.025,-20,.34,.12);
+puddle(-2.8,-12,2.8,1.1,-.18);puddle(2.1,-31,1.9,.7,.24);puddle(-1.1,-49,3.1,.85,-.08);puddle(3.2,-71,2.2,.8,.17);
+let apartmentEntry=null;
+for (const side of [-1,1]) {
+  plane(3.5,150,0x8e8879,side*7,-.005,-20);
+  for (let z=11; z>=-76; z-=17) {
+    const height=16+((Math.abs(z*7+side*19)%9));
+    const width=9.2+((Math.abs(z+side*11)%3));
+    const x=side*14.2;
+    const oldTown=side===-1&&z===11;
+    const departmentStore=side===1&&z===-40;
+    const specialPanelak=side===-1&&z===-6;
+    const buildingVariant=Math.abs(Math.floor(z/17)+side+8)%4;
+    const color=oldTown?0x776b60:departmentStore?0x747a7b:[0x737b7d,0x80827d,0x697277,0x89877f][buildingVariant];
+    if(specialPanelak){
+      apartmentEntry=buildWalkablePanelak(x,z,width,13,height,-side);
+      printedSign("domovní cedule vchodu",apartmentEntry.frontX+apartmentEntry.inward*.22,2.72,z+1.02,.82,.34,"VCHOD 12","DŮM MÍR",apartmentEntry.inward*Math.PI/2,"#ddd7c8","#33393a");
+    }
+    else block(departmentStore?"obchodní dům Mír":oldTown?"oprýskaný činžovní dům":`panelák ${side} ${z}`,x,0,z,departmentStore?13:width,departmentStore?12:oldTown?11:height,departmentStore?15:13,color);
+    if(departmentStore) {
+      const faceX=x-side*6.55;
+      block("obchodní dům — římsa",x,8.4,z,14,.38,16,0x5f615d,false);
+      block("obchodní dům — patro",x,4.8,z,13.3,.32,15.5,0xaca28e,false);
+      for(let n=-2;n<=2;n++)block("prosklená výloha",faceX,2.05,z+n*2.25,.08,3.45,1.95,0x3b4b4a,false);
+      for(let n=-2;n<=2;n++)block("výloha — teplé světlo",faceX-side*.06,2.1,z+n*2.25,.035,2.9,1.55,0x9c7955,false,0x6b4b2c,.18);
+      printedSign("nápis obchodní dům Mír",faceX-side*.12,6.8,z,6.2,1.2,"OBCHODNÍ DŮM MÍR","POTRAVINY · TEXTIL · DOMÁCÍ POTŘEBY",side===1?-Math.PI/2:Math.PI/2,"#ded4bd","#762c25");
+    } else if(!specialPanelak) {
+      const inward=-side,faceX=x-side*(width/2);
+      const facadeDepth=13;
+      for(let floorIndex=0,floor=1.05;floor<height-1.4;floorIndex++,floor+=2.9) {
+        queueFacadePart("joint",faceX+inward*.035,floor-.17,z,.035,.035,facadeDepth-.18);
+        for(let col=-2;col<=2;col++) {
+          const wz=z+col*2.25;
+          const windowPattern=Math.abs(Math.floor(z*3+floorIndex*7+col*13)+side*5)%6;
+          const lit=windowPattern<2,windowY=floor+.68,windowH=1.36,windowW=1.14;
+          queueFacadePart(lit?"windowLit":"windowDark",faceX+inward*.065,windowY,wz,.055,windowH,windowW);
+          queueFacadePart("glass",faceX+inward*.12,windowY,wz,.045,windowH-.06,windowW-.08);
+          const frameX=faceX+inward*.17;
+          queueFacadePart("frame",frameX,windowY,wz-windowW/2-.035,.08,windowH+.1,.07);
+          queueFacadePart("frame",frameX,windowY,wz+windowW/2+.035,.08,windowH+.1,.07);
+          queueFacadePart("frame",frameX,floor+.035,wz,.08,.075,windowW+.14);
+          queueFacadePart("frame",frameX,floor+1.34,wz,.08,.075,windowW+.14);
+          queueFacadePart("frame",frameX,windowY,wz,.08,windowH,.04);
+          queueFacadePart("slab",faceX+inward*.2,floor-.045,wz,.22,.11,windowW+.2);
+          if(Math.abs(col)===2&&floor<height*.65&&(floorIndex+buildingVariant+2)%3!==1) {
+            queueFacadePart("slab",faceX+inward*.48,floor+.04,wz,.9,.14,1.76);
+            queueFacadePart("rail",faceX+inward*.94,floor+.62,wz,.07,.065,1.76);
+            for(const end of [-1,1])queueFacadePart("rail",faceX+inward*.74,floor+.39,wz+end*.82,.48,.62,.07);
+            for(let baluster=-2;baluster<=2;baluster++)queueFacadePart("rail",faceX+inward*.94,floor+.38,wz+baluster*.31,.065,.58,.065);
+            if((floorIndex+col+buildingVariant)%2===0){
+              queueFacadePart("laundry",faceX+inward*.7,floor+.92,wz+.16,.07,.57,.4,[0xbab29f,0x78889a,0x914f42,0xc7c3ad][Math.abs(col+floorIndex)%4]);
+            }
+          }
+        }
+      }
+      for(const jointZ of [-4.7,-1.55,1.55,4.7])queueFacadePart("joint",faceX+inward*.035,height/2,z+jointZ,.035,height, .035);
+      for(const pipeZ of [-6.15,6.15])queueFacadePart("pipe",faceX+inward*.16,height/2,z+pipeZ,.08,height,.08);
+      const entryZ=z+5.1;
+      block("panelák — vchodové dveře",faceX+inward*.09,0,entryZ,.11,2.14,1.08,0x393d3d,false);
+      for(const jamb of [-1,1])block("panelák — kamenná zárubeň",faceX+inward*.15,0,entryZ+jamb*.6,.22,2.24,.13,0x93948e,false);
+      block("panelák — stříška vchodu",faceX+inward*.42,2.3,entryZ,.88,.13,1.45,0x606769,false);
+      block("panelák — domovní zvonky",faceX+inward*.16,1.2,entryZ+1.05,.08,.4,.24,0x8b8b80,false);
+      if(oldTown) {
+        for(let n=-2;n<=2;n++)block("činžovní dům — oprýskaná omítka",faceX+inward*.09,5.7,z+n*1.65,.12,2.1,1.1,[0xb9a489,0x73665a,0xc2b49d][(n+5)%3],false);
+      }
+      if(z===-23&&side===-1)propagandaPoster(faceX+inward*.12,6.3,z-1.1,1.1,1.8,Math.PI/2);
+      if(z===-57&&side===1)printedSign("smaltovaná cedule Potraviny",faceX+inward*.12,5.1,z,2.8,.65,"POTRAVINY","8.00—18.00",-Math.PI/2,"#d7d0b9","#a2382e");
+    }
+    if(!departmentStore)block("panelák — střešní římsa",x,height,z,width+.35,.42,13.25,0x555d60,false);
+    if(!departmentStore){
+      block("panelák — výlez na střechu",x,height+.42,z,2.5,.72,2.8,0x666d6d,false);
+      for(const vent of [-1,1])block("panelák — větrací komínek",x+vent*2.1,height+.42,z+3.8,.36,1.1,.36,0x595f5e,false);
+    }
+    // Trees, sodium lamps and telephone poles repeat along the block.
+    if(z%34!==0) {
+      const tx=side*5.3, tz=z+5;
+      block("kmen",tx,0,tz,.36,2,.36,0x574438,false);
+      const crown=block("koruna",tx,2,tz,2.1,2.4,2.1,0x4b5e45,false);
+      crown.material=material(0x53664b,.96);
+    }
+    block("stožár veřejného osvětlení",side*8.5,0,z+2,.13,5,.13,0x4b4c48,false);
+    block("žluté pouliční svítidlo",side*8.5,4.65,z+2,.72,.2,.42,0xf0c06a,false,0x9f6828,.35);
+  }
+}
+// A second, more distant row closes the skyline when viewed from the hovering car.
+for(const side of [-1,1])for(let z=11;z>=-76;z-=17){
+  const x=side*30.7,width=12.5,height=24+Math.abs(Math.floor(z*3+side*11)%13),depth=13.5;
+  block("vzdálený panelový blok",x,0,z,width,height,depth,[0x626d72,0x70797b,0x657074][Math.abs(Math.floor(z/17)+side)%3],true);
+  const inward=-side,faceX=x+inward*(width/2-.045);
+  for(let floor=1.1,floorIndex=0;floor<height-1.35;floorIndex++,floor+=2.75){
+    queueFacadePart("joint",faceX-inward*.015,floor-.25,z,.04,.04,depth-.35);
+    for(let column=-2;column<=2;column++){
+      const windowZ=z+column*2.35,lit=Math.abs(floorIndex*7+column*5+Math.floor(z)+side*3)%7<2;
+      queueFacadePart(lit?"windowLit":"windowDark",faceX,floor+.48,windowZ,.05,1.18,1.3);
+      queueFacadePart("glass",faceX+inward*.045,floor+.48,windowZ,.04,1.1,1.22);
+    }
+  }
+  block("vzdálený panelák — střešní římsa",x,height-.2,z,width+.24,.4,depth+.25,0x505a5d,false);
+}
+flushFacadeParts();
+// Worn asphalt, painted crossings and embedded tram rails.
+for(let z=20;z>-84;z-=7) block("oprýskaná středová čára",0,.004,z,.11,.018,3.1,0xb9b5a7,false);
+for(let z=-3;z>-72;z-=34) {
+  for(let i=-4;i<=4;i++) block("přechod",i*.85,.006,z, .48,.02,2.2,0xd9d8c7,false);
+}
+block("tramvajový most",0,12,-60,47,1.4,4.5,0x777975,false);
+for(const x of [-.72,.72])block("tramvajová kolejnice",x,13.43,-60,47,.07,.08,0x393a38,false);
+for(let x=-22;x<=22;x+=1.6)block("tramvajový pražec",x,13.41,-60,.09,.05,2,0x746d5e,false);
+for(let x=-22;x<=22;x+=4) block("zábradlí mostu",x,13,-60,.14,.75,4.2,0x9a9a8e,false);
+block("telefonní ústředna",-2,0,-91,7,19,7,0x88857b,false);
+for(let y=12;y<29;y+=3){block("stožár antény",-2,y,-87.1,.12,1.4,.12,0x4c4c49,false);block("anténa — příčka",-2,y+.55,-87.1,3.5,.09,.1,0x555651,false);}
+for(let side of [-1,1])for(let z=-30;z>=-66;z-=18){
+  block("telefonní sloup",side*8.7,0,z,.14,8,.14,0x594e3f,false);
+  for(let arm=-1;arm<=1;arm++)block("telefonní příčka",side*8.7,7.15+arm*.48,z,2,.08,.08,0x554c40,false);
+}
+
+// The neighborhood pub and Mira's repair bench: warm bulbs, enamel signs and a radio.
+block("hostinec — tmavé dveře",5.5,0,-3.7,.12,2.4,1.1,0x30302d,false);
+block("hostinec — výloha",5.55,1,-5.2,.12,2,2.1,0x554b3d,false,0x3a2510,.18);
+printedSign("hostinec U Mostu",5.62,4.9,-4.55,3.5,.85,"HOSTINEC U MOSTU","PIVO · LIMO · VEČERKA",-Math.PI/2,"#e3d6bd","#8b3026");
+for(let bulb=0;bulb<7;bulb++)block("žárovka výlohy",5.66,3.92,-6.4+bulb*.55,.11,.16,.16,0xffcf74,false,0xb27230,.45);
+block("hospoda — rádio",4.7,.83,-4.8,.46,.42,.35,0x624835,false);
+const mechanic=new THREE.Group();
+const miraCoat=new THREE.Mesh(new THREE.BoxGeometry(.7,1.05,.42),material(0x704b3c));miraCoat.position.y=1.0;mechanic.add(miraCoat);
+const miraCollar=new THREE.Mesh(new THREE.BoxGeometry(.86,.18,.49),material(0xd7c4a2));miraCollar.position.set(0,1.42,-.02);mechanic.add(miraCollar);
+const miraHead=new THREE.Mesh(new THREE.BoxGeometry(.46,.48,.46),material(0xb99274));miraHead.position.y=1.78;mechanic.add(miraHead);
+const miraHair=new THREE.Mesh(new THREE.BoxGeometry(.57,.24,.53),material(0x282727));miraHair.position.y=2.05;mechanic.add(miraHair);
+mechanic.position.set(4.8,0,-4.8);scene.add(mechanic);
+colliders.push({name:"Mira",minX:4.35,maxX:5.25,minZ:-5.1,maxZ:-4.5,enabled:true});
+
+// A period Tatra T3 tram crosses the overpass above the street.
+const tram=new THREE.Group();
+function tramPart(w,h,d,color,x,y,z,roughness=.65){const part=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material(color,roughness));part.position.set(x,y,z);tram.add(part);return part;}
+tramPart(11.5,2.35,2.25,0xb7aa8c,0,1.45,0);
+tramPart(11.55,.44,2.28,0x9b352e,0,.42,0);
+tramPart(11.55,.2,2.3,0xe2d4b6,0,2.68,0);
+for(let x=-4.45;x<=4.45;x+=1.48)tramPart(1.15,1.05,2.31,0x394444,x,1.62,-.01,.35);
+tramPart(.1,2.2,.1,0x46403a,-5.72,1.5,0);tramPart(.1,2.2,.1,0x46403a,5.72,1.5,0);
+for(const x of [-4.15,4.15])for(const z of [-.82,.82]){const wheel=new THREE.Mesh(new THREE.CylinderGeometry(.34,.34,.16,12),material(0x292a28));wheel.rotation.x=Math.PI/2;wheel.position.set(x,.24,z);tram.add(wheel);}
+tramPart(1.8,.5,.08,0xe8ddc4,0,1.7,-1.18,.4);
+tram.position.set(-7,13.45,-60);scene.add(tram);
+const tramCollider={name:"projíždějící tramvaj T3",minX:tram.position.x-5.75,maxX:tram.position.x+5.75,minZ:-61.15,maxZ:-58.85,minY:13.35,maxY:16.25,enabled:true};colliders.push(tramCollider);
+for(const side of [-1,1])block("trolejové vedení",side*.72,17.4,-60,47,.035,.035,0x4d4a43,false);
+
+const stateCar=new THREE.Group();
+const fallbackCar=new THREE.Group();stateCar.add(fallbackCar);
+const importedCar=new THREE.Group();stateCar.add(importedCar);
+const cabinInterior=new THREE.Group();cabinInterior.visible=false;stateCar.add(cabinInterior);
+const carPaint=0x4d7652,carRoof=0x5b835f,carTrim=0x303432;
+const carGlass=new THREE.MeshPhysicalMaterial({color:0x738787,roughness:.2,metalness:.12,transparent:true,opacity:.5,side:THREE.DoubleSide,depthWrite:false});
+function carPart(w,h,d,color,x,y,z,roughness=.68){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material(color,roughness));m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;fallbackCar.add(m);return m;}
+function cabinPart(w,h,d,color,x,y,z,roughness=.68){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material(color,roughness));m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;cabinInterior.add(m);return m;}
+function carWindow(w,h,d,x,y,z,tilt=0){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),carGlass);m.position.set(x,y,z);m.rotation.x=tilt;m.castShadow=false;fallbackCar.add(m);return m;}
+function carPlate(z,front=false){
+  const canvas=document.createElement("canvas");canvas.width=512;canvas.height=128;
+  const ctx=canvas.getContext("2d");ctx.fillStyle="#ecebe4";ctx.fillRect(0,0,512,128);ctx.strokeStyle="#252925";ctx.lineWidth=8;ctx.strokeRect(4,4,504,120);
+  ctx.fillStyle="#3868a0";ctx.fillRect(12,12,40,104);ctx.fillStyle="#fff";ctx.font="bold 19px sans-serif";ctx.textAlign="center";ctx.fillText("ČS",32,72);
+  ctx.fillStyle="#202320";ctx.font="bold 58px monospace";ctx.fillText("B 091 518",282,83);
+  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
+  const plate=new THREE.Mesh(new THREE.PlaneGeometry(.78,.2),new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide,toneMapped:false}));
+  plate.position.set(0,.87,z);if(front)plate.rotation.y=Math.PI;fallbackCar.add(plate);
+}
+// Green five-door hatchback with visible cabin and period luggage details.
+carPart(2.06,.58,4.08,carPaint,0,.88,0,.48);
+carPart(1.9,.17,1.18,carRoof,0,1.21,-1.37,.46);
+carPart(1.88,.17,.98,carRoof,0,1.2,1.53,.46);
+carPart(2.02,.14,1.72,carRoof,0,2.19,.07,.46);
+carPart(1.82,.25,.22,carPaint,0,1.52,-1.05,.5);
+carPart(1.8,.3,.26,carPaint,0,1.54,1.17,.5);
+
+// Framed, lightly tinted glazing keeps the cabin readable from the chase camera.
+carWindow(1.55,.58,.045,0,1.83,-.97,.4);
+carWindow(1.48,.55,.045,0,1.82,1.28,-.36);
+for(const side of [-1,1]){
+  // Real cutouts: glass sits outside the door line, leaving the seats visible.
+  carPart(.11,.34,1.78,carPaint,side*1.015,1.34,.12,.5);
+  carWindow(.045,.5,.78,side*1.085,1.84,-.39);
+  carWindow(.045,.5,.67,side*1.085,1.84,.54);
+  carPart(.075,.61,.09,carPaint,side*1.045,1.86,-.94,.5);
+  carPart(.08,.65,.09,carTrim,side*1.055,1.83,.11,.58);
+  carPart(.14,.7,.12,carPaint,side*1.035,1.78,1.05,.5);
+  carPart(.075,.54,.09,carPaint,side*1.045,1.84,1.14,.5);
+  carPart(.065,.045,1.72,carTrim,side*1.065,1.56,.05,.62);
+  carPart(.05,.035,1.68,carTrim,side*1.04,2.08,.07,.62);
+  carPart(.05,.055,.32,0xb9b6a6,side*1.04,1.46,-.12,.48);
+  carPart(.04,.065,.13,carTrim,side*1.08,1.54,-.83,.62);
+  carPart(.2,.13,.24,carRoof,side*1.17,1.56,-.82,.48);
+  carPart(.05,.035,1.72,0x343a36,side*1.02,.87,.02,.66);
+  carPart(.055,.025,.07,0x4b4d47,side*1.075,1.38,-.06,.62);
+  carPart(.055,.025,.07,0x4b4d47,side*1.075,1.38,.77,.62);
+}
+carPart(1.58,.045,.075,carTrim,0,2.28,.08,.58);
+
+// Cabin: front seats, rear bench, steering wheel, dashboard and a few things in the boot.
+carPart(1.62,.1,2.02,0x2f3533,0,.87,.08,.86);
+for(const seatX of [-.43,.43]){
+  carPart(.46,.16,.48,0x4a4c45,seatX,1.04,-.06,.84);
+  carPart(.44,.61,.17,0x4a4c45,seatX,1.39,.2,.84);
+  carPart(.31,.2,.14,0x454741,seatX,1.81,.27,.84);
+}
+carPart(1.28,.16,.42,0x454741,0,1.07,.91,.86);
+carPart(1.3,.42,.16,0x4c4d47,0,1.36,1.04,.86);
+carPart(1.45,.25,.29,0x303533,0,1.43,-.72,.76);
+carPart(.42,.08,.2,0x9b9077,0,1.57,-.73,.6);
+carPart(.38,.3,.27,0x485c55,-.39,1.53,-.08,.86);
+carPart(.29,.34,.3,0xb48a6b,-.39,1.84,-.1,.88);
+carPart(.32,.1,.34,0x3c342c,-.39,2.01,-.1,.9);
+const steeringWheel=new THREE.Mesh(new THREE.TorusGeometry(.235,.035,6,16),material(0x252927,.55));
+steeringWheel.position.set(-.43,1.52,-.53);stateCar.add(steeringWheel);
+carPart(.07,.22,.07,0x292d2a,-.43,1.35,-.62,.7);
+carPart(.08,.25,.08,0x46463f,.08,1.13,.03,.76);
+carPart(.34,.27,.35,0x70624d,-.43,1.04,1.55,.9);
+carPart(.32,.21,.28,0x5d574b,.4,1.01,1.57,.9);
+
+// Front grille, lamps, segmented tail lights, bumpers, trim and readable plates.
+carPart(2.12,.16,.14,carTrim,0,.64,-2.08,.62);
+carPart(2.12,.16,.14,carTrim,0,.64,2.08,.62);
+carPart(.78,.3,.075,0x272c2b,0,.98,-2.075,.78);
+for(let slat=0;slat<4;slat++)carPart(.68,.025,.025,0x9b9d91,0,.88+slat*.068,-2.12,.56);
+for(const side of [-1,1]){
+  carPart(.38,.26,.09,0xf0e7c4,side*.72,1.08,-2.08,.42);
+  carPart(.08,.24,.09,0xb48d56,side*.45,1.08,-2.075,.52);
+  carPart(.28,.28,.1,0xb5362d,side*.74,1.04,2.08,.48);
+  carPart(.28,.13,.11,0xd39145,side*.74,.84,2.08,.52);
+  carPart(.24,.09,.1,0xe9e0c8,side*.74,1.2,2.08,.5);
+  carPart(.44,.11,.05,carTrim,side*.73,1.35,-2.1,.68);
+  carPart(.44,.065,.05,carTrim,side*.73,1.34,2.1,.68);
+}
+carPart(.1,.11,.08,0xb5b6a5,0,1.12,-2.13,.42);
+carPart(.08,.08,.06,0xb5b6a5,0,1.16,2.13,.42);
+carPlate(-2.16,true);carPlate(2.16,false);
+for(const side of [-1,1]){const wiper=carPart(.64,.025,.035,carTrim,side*.36,2.035,-.78,.62);wiper.rotation.z=side*.12;}
+const rearWiper=carPart(.62,.025,.035,carTrim,.08,1.67,1.55,.62);rearWiper.rotation.z=-.18;
+const wheels=[],wheelHubs=[];
+for(const x of [-1.03,1.03])for(const z of [-1.28,1.28]){
+  const wheel=new THREE.Mesh(new THREE.CylinderGeometry(.38,.38,.25,12),material(0x292b29,.96));
+  wheel.rotation.z=Math.PI/2;wheel.position.set(x,.48,z);wheel.castShadow=true;stateCar.add(wheel);wheels.push(wheel);
+  for(const side of [-1,1]){
+    const rim=new THREE.Mesh(new THREE.CylinderGeometry(.22,.22,.045,12),material(0xb8b7aa,.52,.03,.05));
+    rim.position.set(0,side*.13,0);wheel.add(rim);wheelHubs.push(rim);
+    const cap=new THREE.Mesh(new THREE.CylinderGeometry(.075,.075,.055,10),material(0x777d71,.48));
+    cap.position.set(0,side*.16,0);wheel.add(cap);wheelHubs.push(cap);
+    for(let spokeIndex=0;spokeIndex<6;spokeIndex++){
+      const spoke=new THREE.Mesh(new THREE.BoxGeometry(.04,.018,.29),material(0xc4c2b4,.46));
+      spoke.position.set(0,side*.155,0);spoke.rotation.y=spokeIndex*Math.PI/3;wheel.add(spoke);wheelHubs.push(spoke);
+    }
+  }
+}
+const thrusters=[];
+const thrusterMaterial=new THREE.MeshBasicMaterial({color:0x41dfff,transparent:true,opacity:.82,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false});
+for(const x of [-.72,.72])for(const z of [-1.27,1.27]){
+  const flame=new THREE.Mesh(new THREE.ConeGeometry(.27,.9,8),thrusterMaterial);flame.rotation.x=Math.PI;flame.position.set(x,.12,z);flame.visible=false;stateCar.add(flame);thrusters.push(flame);
+}
+stateCar.position.set(2.5,0,6);scene.add(stateCar);
+const vehicle={x:savedVehicleSafe?saved.vehicle.x:2.5,z:savedVehicleSafe?saved.vehicle.z:10.5,yaw:savedVehicleSafe&&Number.isFinite(saved.vehicle.yaw)?saved.vehicle.yaw:0,speed:0,altitude:savedVehicleSafe?THREE.MathUtils.clamp(Number(saved.vehicle.altitude)||0,0,42):0,verticalSpeed:0,battery:savedVehicleSafe?THREE.MathUtils.clamp(Number(saved.vehicle.battery??100)||0,0,100):100,occupied:savedInVehicle};
+const vehicleCollider={name:"zelený hatchback",minX:vehicle.x-1.08,maxX:vehicle.x+1.08,minZ:vehicle.z-2.12,maxZ:vehicle.z+2.12,minY:vehicle.altitude,maxY:vehicle.altitude+2.35,enabled:!vehicle.occupied};colliders.push(vehicleCollider);
+function syncVehicleCollider(){vehicleCollider.minX=vehicle.x-1.08;vehicleCollider.maxX=vehicle.x+1.08;vehicleCollider.minZ=vehicle.z-2.12;vehicleCollider.maxZ=vehicle.z+2.12;vehicleCollider.minY=vehicle.altitude;vehicleCollider.maxY=vehicle.altitude+2.35;}
+stateCar.position.set(vehicle.x,vehicle.altitude,vehicle.z);
+for(const flame of thrusters)flame.visible=vehicle.altitude>.8;
+$("vehicleHud").hidden=!vehicle.occupied;
+  if(vehicle.occupied){$("touchUI").querySelector('[data-touch-action="jump"]').textContent="STOUPAT";$("touchUI").querySelector('[data-touch-action="run"]').textContent="KLESAT";}
+
+// Parked yellow-and-white Veřejná bezpečnost patrol car at the curb.
+const vbCar=new THREE.Group();
+function vbPart(w,h,d,color,x,y,z){const part=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material(color,.72));part.position.set(x,y,z);vbCar.add(part);return part;}
+vbPart(2.02,.66,4.0,0xe2ddc9,0,.93,0);
+vbPart(1.72,.72,1.9,0xddd8c7,0,1.5,.05);
+vbPart(1.49,.5,.07,0x3a4849,0,1.56,-.91);vbPart(1.49,.48,.07,0x3a4849,0,1.56,1.01);
+for(const side of [-1,1]){
+  vbPart(.08,.48,1.35,0xd1b744,side*.92,1.02,0);
+  vbPart(.16,.12,.35,0xe8dcb5,side*1.01,1.3,-1.45);
+  const mirror=new THREE.Mesh(new THREE.BoxGeometry(.14,.13,.22),material(0x474740));mirror.position.set(side*1.03,1.38,-.7);vbCar.add(mirror);
+}
+vbPart(.28,.26,.1,0xe8ddb8,-.68,1.02,-2.02);vbPart(.28,.26,.1,0xe8ddb8,.68,1.02,-2.02);
+vbPart(.25,.25,.1,0xa13c32,-.68,1.02,2.02);vbPart(.25,.25,.1,0xa13c32,.68,1.02,2.02);
+vbPart(.92,.12,.4,0x8a8980,0,1.95,.04);
+vbPart(.36,.18,.13,0x9d3a32,-.22,2.1,.04);vbPart(.36,.18,.13,0xeee3c9,.22,2.1,.04);
+for(const x of [-1.02,1.02])for(const z of [-1.25,1.25]){const wheel=new THREE.Mesh(new THREE.CylinderGeometry(.36,.36,.2,12),material(0x292927,.95));wheel.rotation.z=Math.PI/2;wheel.position.set(x,.48,z);vbCar.add(wheel);}
+vbCar.position.set(-5.9,0,-29);scene.add(vbCar);
+colliders.push({name:"zaparkovaný vůz Veřejné bezpečnosti",minX:-6.96,maxX:-4.84,minZ:-31.1,maxZ:-26.9,minY:0,maxY:2.25,enabled:true});
+printedSign("označení vozu Veřejné bezpečnosti",-4.82,1.08,-29,.62,.34,"VB","VEŘEJNÁ BEZPEČNOST",Math.PI/2,"#eee8d8","#403a31");
+
+const carColliders=colliders;
+const avatarTarget={x:-1.2,z:-18};
+function makeEnemy() {
+  const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.BoxGeometry(.72,1.1,.44),material(0x62624f));body.position.y=1.03;g.add(body);
+  const shoulders=new THREE.Mesh(new THREE.BoxGeometry(.88,.22,.5),material(0x66654f));shoulders.position.y=1.43;g.add(shoulders);
+  const belt=new THREE.Mesh(new THREE.BoxGeometry(.76,.13,.46),material(0x302e29));belt.position.y=.64;g.add(belt);
+  const head=new THREE.Mesh(new THREE.BoxGeometry(.5,.48,.48),material(0x9a765d));head.position.y=1.85;g.add(head);
+  const cap=new THREE.Mesh(new THREE.BoxGeometry(.59,.17,.58),material(0x44463c));cap.position.set(0,2.12,0);g.add(cap);
+  const brim=new THREE.Mesh(new THREE.BoxGeometry(.62,.07,.25),material(0x3c3d35));brim.position.set(0,2.07,-.2);g.add(brim);
+  const collar=new THREE.Mesh(new THREE.BoxGeometry(.82,.14,.48),material(0xb1a487));collar.position.set(0,1.43,-.02);g.add(collar);
+  for(const x of [-.22,.22]){const leg=new THREE.Mesh(new THREE.CylinderGeometry(.18,.29,.78,6),material(0x32332e));leg.position.set(x,.36,0);g.add(leg);}
+  for(const x of [-.47,.47]){const arm=new THREE.Mesh(new THREE.BoxGeometry(.2,.82,.3),material(0x5b5b49));arm.position.set(x,1.02,0);g.add(arm);}
+  g.position.set(avatarTarget.x,0,avatarTarget.z);scene.add(g);return g;
+}
+const enemyMesh=makeEnemy();
+if (foe.defeated) scene.remove(enemyMesh);
+const enemyCollider={name:"vyvrhel",minX:avatarTarget.x-.42,maxX:avatarTarget.x+.42,minZ:avatarTarget.z-.34,maxZ:avatarTarget.z+.34,enabled:!foe.defeated};
+colliders.push(enemyCollider);
+let activeEnemyMesh=enemyMesh,activeEnemyCollider=enemyCollider;
+const courierGuard=new THREE.Group();
+const guardBody=new THREE.Mesh(new THREE.BoxGeometry(.68,1.03,.42),material(0x353f43));guardBody.position.y=.99;courierGuard.add(guardBody);
+const guardCollar=new THREE.Mesh(new THREE.BoxGeometry(.85,.16,.48),material(0xb3a78e));guardCollar.position.set(0,1.38,-.02);courierGuard.add(guardCollar);
+const guardHead=new THREE.Mesh(new THREE.BoxGeometry(.46,.46,.44),material(0xa7846b));guardHead.position.y=1.76;courierGuard.add(guardHead);
+const guardHair=new THREE.Mesh(new THREE.BoxGeometry(.56,.22,.5),material(0x292724));guardHair.position.y=2.02;courierGuard.add(guardHair);
+for(const x of [-.21,.21]){const leg=new THREE.Mesh(new THREE.CylinderGeometry(.17,.29,.78,6),material(0x30333a));leg.position.set(x,.36,0);courierGuard.add(leg);}
+for(const x of [-.45,.45]){const arm=new THREE.Mesh(new THREE.BoxGeometry(.19,.8,.28),material(0x3e484c));arm.position.set(x,1,0);courierGuard.add(arm);}
+courierGuard.position.set(-1.8,0,-68);if(isCourierEncounterActive(mission.stage,secondFoe.defeated))scene.add(courierGuard);
+const courierCollider={name:"útočník kurýra",minX:-2.22,maxX:-1.38,minZ:-68.34,maxZ:-67.66,enabled:isCourierEncounterActive(mission.stage,secondFoe.defeated)};colliders.push(courierCollider);
+const courier=new THREE.Group();
+const courierBody=new THREE.Mesh(new THREE.BoxGeometry(.62,1,.38),material(0x57646c));courierBody.position.y=.9;courier.add(courierBody);
+const courierCollar=new THREE.Mesh(new THREE.BoxGeometry(.78,.14,.45),material(0xc9b89b));courierCollar.position.set(0,1.28,-.02);courier.add(courierCollar);
+const courierHead=new THREE.Mesh(new THREE.BoxGeometry(.42,.42,.42),material(0xb58a69));courierHead.position.y=1.62;courier.add(courierHead);
+const courierHair=new THREE.Mesh(new THREE.BoxGeometry(.52,.23,.48),material(0x3c332a));courierHair.position.y=1.9;courier.add(courierHair);
+for(const x of [-.2,.2]){const leg=new THREE.Mesh(new THREE.CylinderGeometry(.16,.27,.75,6),material(0x3e5360));leg.position.set(x,.35,0);courier.add(leg);}
+courier.position.set(2.8,0,-72);if(mission.stage>=3)scene.add(courier);
+const courierSceneActive=isCourierEncounterActive(mission.stage,secondFoe.defeated);courierGuard.visible=courierSceneActive;courier.visible=mission.stage>=3;
+const courierBeacon=new THREE.Mesh(new THREE.TorusGeometry(.85,.04,8,32),material(0xffffff,.4,0xffffff,.55));courierBeacon.rotation.x=Math.PI/2;courierBeacon.position.set(2.8,.1,-72);courierBeacon.visible=courierSceneActive;scene.add(courierBeacon);
+const miraBeacon=new THREE.Mesh(new THREE.TorusGeometry(.72,.035,8,28),material(0xffffff,.4,0xffffff,.4));miraBeacon.rotation.x=Math.PI/2;miraBeacon.position.set(4.8,.08,-4.8);miraBeacon.visible=mission.stage===2;scene.add(miraBeacon);
+
+const relay=block("telefonní rozvodna",0,0,-43,.8,2.2,.72,0x777166,false);
+relay.material=material(0x706a5f,.78);
+block("rozvodna — smaltovaný panel",0,1.2,-42.56,.52,.62,.06,0xd5ccb5,false);
+for(let n=0;n<3;n++)block("rozvodna — kontrolka",-.16+n*.16,1.27,-42.51,.055,.08,.035,[0x9b302b,0xa4823b,0x60765d][n],false,[0x43201a,0x443719,0x273a28][n],.25);
+const markerRing=new THREE.Mesh(new THREE.TorusGeometry(1.1,.045,8,40),material(0x5de8d7,.4,0x2cf3d8,1.8));markerRing.rotation.x=Math.PI/2;markerRing.position.set(0,.12,-43);scene.add(markerRing);
+markerRing.visible=mission.stage===1;
+const archiveTerminal=block("krátkovlnný vysílač",-2,0,-85,.85,2.1,.72,0x5f5e58,false);
+archiveTerminal.material=material(0x57564f,.68);
+block("vysílač — stupnice",-2,1.24,-84.6,.5,.48,.06,0xd1c5a6,false,0x8d7640,.18);
+const towerBeacon=new THREE.Mesh(new THREE.TorusGeometry(1,.045,8,32),material(0xffffff,.4,0xffffff,.55));towerBeacon.rotation.x=Math.PI/2;towerBeacon.position.set(-2,.1,-85);towerBeacon.visible=mission.stage===4;scene.add(towerBeacon);
+
+function showToast(message) {
+  toast.textContent=message;toast.classList.add("visible");clearTimeout(showToast.timeout);
+  showToast.timeout=setTimeout(()=>toast.classList.remove("visible"),2300);
+}
+function makeSupplyCache(name,x,z,tone){
+  const cache=new THREE.Group();cache.name=name;
+  const body=new THREE.Mesh(new THREE.BoxGeometry(.68,.38,.52),material(tone,.92));body.position.y=.26;body.castShadow=true;cache.add(body);
+  const lid=new THREE.Mesh(new THREE.BoxGeometry(.72,.09,.56),material(0x77746b,.88));lid.position.y=.49;lid.castShadow=true;cache.add(lid);
+  for(const strapZ of [-.17,.17]){
+    const strap=new THREE.Mesh(new THREE.BoxGeometry(.73,.045,.055),material(0xb9ad91,.82));strap.position.set(0,.31,strapZ);cache.add(strap);
+  }
+  const seal=new THREE.Mesh(new THREE.BoxGeometry(.22,.13,.025),material(0xd5c8a4,.8));seal.position.set(0,.38,.268);cache.add(seal);
+  const marker=new THREE.Mesh(new THREE.TorusGeometry(.58,.025,6,22),material(0xf0eee4,.55,0xffffff,.3));marker.rotation.x=Math.PI/2;marker.position.y=.045;cache.add(marker);
+  cache.position.set(x,0,z);scene.add(cache);return cache;
+}
+const savedSupplyIds=new Set(Array.isArray(saved.collectedSupplies)?saved.collectedSupplies:[]);
+const supplies=[
+  {id:"bandages-street",label:"BALÍČEK OBVAZŮ",x:-4.5,z:-32,medkits:1,credits:0,xp:15,tone:0x776448},
+  {id:"voucher-courtyard",label:"POUKÁZKA 60 KČS",x:-2.9,z:-54.4,medkits:0,credits:60,xp:15,tone:0x6b6659},
+  {id:"mechanic-crate",label:"DÍLENSKÁ BEDNA",x:4.2,z:-77.5,medkits:1,credits:0,xp:20,tone:0x66574a}
+].map(item=>({...item,collected:savedSupplyIds.has(item.id),group:makeSupplyCache(item.label,item.x,item.z,item.tone),interactable:null}));
+for(const supply of supplies)supply.group.visible=!supply.collected;
+function saveGame() {
+  const p=controller?.player;
+  try { localStorage.setItem(SAVE_KEY,JSON.stringify({
+    missionStage:mission.stage,foeDefeated:foe.defeated,courierDefeated:secondFoe.defeated,ending:endingChoice,inVehicle:state.inVehicle,
+    neighborQuestStep,
+    stats:{hp:stats.hp,maxHp:stats.maxHp,energy:stats.energy,maxEnergy:stats.maxEnergy,xp:stats.xp,level:stats.level,credits:stats.credits,medkits:stats.medkits,weaponLevel:stats.weaponLevel,armorLevel:stats.armorLevel},
+    player:p?{x:p.x,z:p.z,elevation:p.elevation,yaw:p.yaw}:null,
+    collectedSupplies:supplies.filter(supply=>supply.collected).map(supply=>supply.id),
+    panelak:apartmentEntry?{entranceOpen:apartmentEntry.open,doors:apartmentEntry.apartmentDoors.map(door=>door.open)}:null,
+    vehicle:{x:vehicle.x,z:vehicle.z,yaw:vehicle.yaw,altitude:vehicle.altitude,battery:vehicle.battery},playSeconds:totalPlaySeconds
+  }));const continueButton=document.getElementById("continueOption");if(continueButton)continueButton.disabled=false; } catch { showToast("POSTUP SE NEPODAŘILO ULOŽIT"); }
+}
+function awardXP(amount) {
+  stats.xp+=amount;
+  let levels=0;
+  while(stats.xp>=100){stats.xp-=100;stats.level++;stats.maxHp+=8;stats.maxEnergy+=4;stats.hp=Math.min(stats.maxHp,stats.hp+18);stats.energy=stats.maxEnergy;levels++;}
+  if(levels) showToast(`NOVÁ ÚROVEŇ ${stats.level} · VITALITA +${levels*8}`);
+}
+function updateMission() {
+  const title=$("missionTitle"),text=$("missionText"),index=$("missionIndex"),progress=$("missionProgress");
+  if(mission.stage===0){title.textContent="Ticho v bloku";text.textContent="Dostaň se přes hlídku k telefonní rozvodně. Někdo přerušil spojení.";index.textContent="01 / 05";progress.style.width="15%";}
+  else if(mission.stage===1){title.textContent="Telefonní ústředna";text.textContent="Obnov linku v rozvodně pod sídlištěm.";index.textContent="02 / 05";progress.style.width="34%";}
+  else if(mission.stage===2){title.textContent="Zpráva od Evy";text.textContent="Vrať se do hostince a promluv s mechanickou Mirou.";index.textContent="03 / 05";progress.style.width="53%";}
+  else if(mission.stage===3){title.textContent="Kurýr pod mostem";text.textContent="Najdi kurýra s páskou z nepovoleného koncertu a dostaň ho z nebezpečí.";index.textContent="04 / 05";progress.style.width="72%";}
+  else if(mission.stage===4){title.textContent="Páska pro Evropu";text.textContent="Dones nahrávku ke krátkovlnnému vysílači a rozhodni, komu bude patřit.";index.textContent="05 / 05";progress.style.width="91%";}
+  else {title.textContent="Po půlnoci";text.textContent=endingChoice==="public"?"Kopie pásky kolují po bytech. Zakázaná hudba překročila hranice bloku.":"Eva ukryla originál. Lidé z hostince mají čas připravit další kopie.";index.textContent="HOTOVO";progress.style.width="100%";}
+  const found=supplies.filter(supply=>supply.collected).length,sideObjective=$("supplyProgress");
+  sideObjective.textContent=found===supplies.length?"ZÁSOBY NALEZENY · "+found+" / "+supplies.length:"ZTRACENÉ ZÁSOBY · "+found+" / "+supplies.length;
+  sideObjective.classList.toggle("complete",found===supplies.length);
+  const neighborObjective=$("neighborObjective");
+  neighborObjective.textContent=["SOUSEDÉ · ZEPTEJ SE ANNY","SOUSEDÉ · SEŠIT VE VESTIBULU","SOUSEDÉ · DONES SEŠIT IVANĚ","SOUSEDÉ · HOTOVO"][neighborQuestStep];
+  neighborObjective.classList.toggle("complete",neighborQuestStep===3);
+}
+function updateObjectivePointer(){
+  const targets=[
+    {label:"HLÍDKA",x:avatarTarget.x,z:avatarTarget.z},
+    {label:"ROZVODNA",x:0,z:-43},
+    {label:"MIRA",x:4.8,z:-4.8},
+    {label:"KURÝR",x:-1.8,z:-68},
+    {label:"VYSÍLAČ",x:-2,z:-85}
+  ];
+  const target=targets[mission.stage],pointer=$("objectivePointer");
+  if(!target){pointer.hidden=true;return;}
+  pointer.hidden=false;
+  const origin=state.inVehicle?vehicle:controller.player;
+  const dx=target.x-origin.x,dz=target.z-origin.z;
+  const distance=Math.hypot(dx,dz),bearing=Math.atan2(dx,-dz);
+  const facing=state.inVehicle?vehicle.yaw:controller.player.yaw;
+  const relative=Math.atan2(Math.sin(bearing-facing),Math.cos(bearing-facing));
+  const arrow=Math.abs(relative)<Math.PI/4?"↑":Math.abs(relative)>Math.PI*3/4?"↓":relative>0?"→":"←";
+  $("objectiveArrow").textContent=arrow;
+  $("objectiveReadout").textContent=`${target.label} · ${Math.round(distance)} M`;
+}
+function updateStats(){
+  $("loadoutValue").textContent="VZ. 61 · "+["ZÁKLAD","ÚPRAVA I","ÚPRAVA II"][Math.min(stats.weaponLevel,2)]+" / BUNDA · "+["I","II","III"][Math.min(stats.armorLevel,2)];
+  $("attackHint").textContent=(14+stats.weaponLevel*3)+"–"+(20+stats.weaponLevel*3)+" poškození · 0 EN";
+  $("aimHint").textContent=(24+stats.weaponLevel*5)+"–"+(32+stats.weaponLevel*5)+" poškození · 8 EN";
+  $("weaponOffer").textContent=stats.weaponLevel>=2?"ŠKORPION · MAX":"VYLEPŠIT ŠKORPION · "+(stats.weaponLevel===0?130:190)+" KČS";
+  $("armorOffer").textContent=stats.armorLevel>=2?"PODŠÍVKA · MAX":"PODŠÍT BUNDU · "+(stats.armorLevel===0?120:180)+" KČS";
+  $("enemyName").textContent=activeFoe===foe?"HLÍDKA VEŘEJNÉ BEZPEČNOSTI":"MUŽ V CIVILU";
+  $("enemyLevel").textContent=activeFoe===foe?"HLÍDKA · LVL 02":"SLEDOVAČ KURÝRA · LVL 04";
+  $("enemyBar").style.width=Math.max(0,activeFoe.hp/activeFoe.maxHp*100)+"%";
+  $("enemyHP").textContent=Math.max(0,activeFoe.hp)+" / "+activeFoe.maxHp+" HP";
+  $("level").textContent=String(stats.level).padStart(2,"0");
+  $("hpBar").style.width=`${stats.hp/stats.maxHp*100}%`;$("hpValue").textContent=`${stats.hp} / ${stats.maxHp}`;
+  $("energyBar").style.width=`${stats.energy/stats.maxEnergy*100}%`;$("energyValue").textContent=`${stats.energy} / ${stats.maxEnergy}`;
+  $("xpValue").textContent=`${stats.xp} / 100`;$("creditValue").textContent=String(stats.credits);$("medkitValue").textContent=`× ${stats.medkits}`;
+  $("enemyBar").style.width=`${Math.max(0,activeFoe.hp/activeFoe.maxHp*100)}%`;$("enemyHP").textContent=`${Math.max(0,activeFoe.hp)} / ${activeFoe.maxHp} HP`;
+}
+function collectSupply(supply){
+  if(supply.collected||state.inVehicle||state.combat||state.dialogue||state.paused)return;
+  supply.collected=true;supply.group.visible=false;supply.interactable.enabled=false;gameAudio.reward();
+  stats.medkits+=supply.medkits;stats.credits+=supply.credits;awardXP(supply.xp);
+  updateStats();updateMission();saveGame();
+  const reward=[supply.medkits?"+".concat(supply.medkits," OBVAZY"):null,supply.credits?"+".concat(supply.credits," KČS"):null,"+".concat(supply.xp," XP")].filter(Boolean).join(" · ");
+  showToast(supply.label+" · "+reward);
+}
+
+const relayInteractable={id:"relay",x:0,z:-43,range:2.6,enabled:mission.stage===1,action(){
+  if(mission.stage<1){showToast("ROZVODNA JE STÁLE ZAMČENÁ");return;}
+  mission.stage=2;mission.complete=false;mechanicInteractable.enabled=true;miraBeacon.visible=true;awardXP(45);stats.credits+=140;stats.energy=stats.maxEnergy;updateMission();updateStats();saveGame();
+  markerRing.visible=false;
+  showToast("TELEFONNÍ LINKA OBNOVENA · +45 XP · +140 KČS");
+}};
+const enemyInteractable={id:"street-enemy",x:avatarTarget.x,z:avatarTarget.z,range:2.8,enabled:!foe.defeated,action:()=>{activeFoe=foe;activeEnemyMesh=enemyMesh;activeEnemyCollider=enemyCollider;startCombat();}};
+const mechanicInteractable={id:"mira",x:4.8,z:-4.8,range:2.5,enabled:mission.stage===2,action:()=>openMechanicDialogue()};
+const courierInteractable={id:"courier-ambush",x:-1.8,z:-68,range:3.1,enabled:isCourierEncounterActive(mission.stage,secondFoe.defeated),action:()=>{activeFoe=secondFoe;activeEnemyMesh=courierGuard;activeEnemyCollider=courierCollider;startCombat();}};
+const towerInteractable={id:"archive-tower",x:-2,z:-85,range:3,enabled:mission.stage===4,action:()=>openEndingChoice()};
+const supplyInteractables=supplies.map(supply=>{
+  const interactable={id:supply.id,x:supply.x,z:supply.z,range:1.8,enabled:!supply.collected,action:()=>collectSupply(supply)};
+  supply.interactable=interactable;return interactable;
+});
+function makeResident(data){
+  const group=new THREE.Group();group.name=data.name;
+  const addBox=(w,h,d,color,x,y,z)=>{const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material(color,.9));mesh.position.set(x,y,z);mesh.castShadow=true;group.add(mesh);return mesh;};
+  addBox(.49,.7,.32,data.coat,0,1.08,0);
+  addBox(.52,.13,.36,data.scarf,0,1.42,-.015);
+  addBox(.38,.34,.31,data.trousers,0,.57,0);
+  addBox(.34,.4,.34,data.skin,0,1.7,-.015);
+  addBox(.4,.18,.39,data.hair,0,1.94,0);
+  addBox(.42,.09,.39,data.hair,0,1.82,.025);
+  for(const eyeX of [-.09,.09])addBox(.035,.035,.02,0x252420,eyeX,1.74,-.19);
+  addBox(.06,.07,.075,data.skin,0,1.66,-.205);
+  const arms=[],legs=[];
+  for(const side of [-1,1]){
+    const arm=new THREE.Group();arm.position.set(side*.3,1.34,0);group.add(arm);
+    const sleeve=new THREE.Mesh(new THREE.BoxGeometry(.17,.57,.2),material(data.coat,.9));sleeve.position.y=-.29;sleeve.castShadow=true;arm.add(sleeve);arms.push(arm);
+    const leg=new THREE.Group();leg.position.set(side*.13,.43,0);group.add(leg);
+    const trouserLeg=new THREE.Mesh(new THREE.BoxGeometry(.18,.55,.23),material(data.trousers,.9));trouserLeg.position.y=-.24;trouserLeg.castShadow=true;leg.add(trouserLeg);
+    const shoe=new THREE.Mesh(new THREE.BoxGeometry(.2,.12,.31),material(0x302b27,.9));shoe.position.set(0,-.51,-.035);shoe.castShadow=true;leg.add(shoe);legs.push(leg);
+  }
+  if(data.bag){
+    addBox(.23,.32,.15,0x665340,-.31,1.08,.12);
+    addBox(.3,.07,.08,0x3f3931,-.27,1.29,.05);
+  }
+  const direction=data.direction??1;
+  group.position.set(data.x,0,data.z);group.rotation.y=direction>0?Math.PI:0;scene.add(group);
+  const collider={name:data.name,minX:data.x-.32,maxX:data.x+.32,minZ:data.z-.24,maxZ:data.z+.24,minY:0,maxY:1.85,enabled:true};
+  colliders.push(collider);
+  const resident={...data,group,collider,arms,legs,routeIndex:0,waitTimer:0,heading:direction>0?Math.PI:0,idleYaw:direction>0?Math.PI:0,lineIndex:0,interactable:null,phase:Math.random()*Math.PI*2};
+  const interactable={id:"resident-"+data.id,x:data.x,z:data.z,range:1.55,enabled:true,action:()=>{
+    if(neighborQuestStep===0&&resident.id==="anna"){
+      neighborQuestStep=advanceNeighborQuestStep(neighborQuestStep,"talk","anna");updateMission();saveGame();gameAudio.ui();showToast("PANÍ ANNA: „Ivana nechala sešit střihů ve vestibulu. Odneseš jí ho?“");return;
+    }
+    if(neighborQuestStep===1&&resident.id==="anna"){gameAudio.ui();showToast("PANÍ ANNA: „Modrý sešit bude u schránek ve vstupní chodbě.“");return;}
+    if(neighborQuestStep===2&&resident.id==="ivana"){
+      neighborQuestStep=advanceNeighborQuestStep(neighborQuestStep,"talk","ivana");stats.credits+=35;awardXP(20);updateStats();updateMission();saveGame();gameAudio.reward();showToast("IVANA: „Díky, máma z něj zase ušije kabát.“ · +35 KČS · +20 XP");return;
+    }
+    if(neighborQuestStep===2&&resident.id==="anna"){gameAudio.ui();showToast("PANÍ ANNA: „Ivana čeká na svůj sešit střihů.“");return;}
+    const line=resident.lines[resident.lineIndex%resident.lines.length];resident.lineIndex++;
+    gameAudio.ui();showToast(resident.name+" · „"+line+"“");
+  }};
+  resident.interactable=interactable;return resident;
+=======
+scene.background = new THREE.Color(0xa8b8bf);
+scene.fog = new THREE.Fog(0xa8b8bf, 92, 176);
+
+const camera = new THREE.PerspectiveCamera(74, 1, 0.05, 220);
+
+const renderer = new THREE.WebGLRenderer({
+  antialias: true,
+  alpha: false,
+  powerPreference: "high-performance"
+});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.domElement.id = "screenCanvas";
+renderer.domElement.setAttribute("aria-label", "Residential district first-person world");
+renderer.domElement.tabIndex = 0;
+mount.appendChild(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0xe4edf1, 0x565c58, 2.0));
+
+const sun = new THREE.DirectionalLight(0xfff1d8, 2.15);
+sun.position.set(-42, 72, 34);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -76;
+sun.shadow.camera.right = 76;
+sun.shadow.camera.top = 76;
+sun.shadow.camera.bottom = -76;
+sun.shadow.camera.near = 1;
+sun.shadow.camera.far = 180;
+sun.shadow.bias = -0.00018;
+scene.add(sun);
+
+const state = { started: true, paused: false };
+
+function showToast(message) {
+  toast.textContent = message;
+  toast.classList.add("visible");
+  window.clearTimeout(showToast.timeout);
+  showToast.timeout = window.setTimeout(() => toast.classList.remove("visible"), 2000);
+}
+
+function resize() {
+  const width = Math.max(1, mount.clientWidth);
+  const height = Math.max(1, mount.clientHeight);
+  camera.aspect = width / height;
+  camera.updateProjectionMatrix();
+  renderer.setSize(width, height, false);
+>>>>>>> 1586982803960b26bef375c749702cba0d795a90
+}
+const residents=[
+  {id:"anna",name:"PANÍ ANNA",x:-7.25,z:24,direction:-1,speed:.42,route:[{x:-6.9,z:19,wait:1},{x:-7.3,z:13,wait:8,face:-1.1},{x:-7.05,z:17,wait:2},{x:-7.25,z:24,wait:5,face:1.1}],coat:0x655b4f,trousers:0x48433e,skin:0xb88c6b,hair:0x514238,scarf:0x9b4637,bag:true,lines:["Večer hrají v bytě na konci chodby. Jen potichu.","V pekárně dnes měli ještě teplý chleba.","Syn sousedů si šije zvony podle Burdy."]},
+  {id:"karel",name:"KAREL",x:7.25,z:-10,direction:-1,speed:.48,route:[{x:7.1,z:-14,wait:1},{x:6.75,z:-20,wait:7,face:1.3},{x:7.35,z:-17,wait:2},{x:7.25,z:-10,wait:4,face:-1.3}],coat:0x52605c,trousers:0x343c40,skin:0xc09270,hair:0x34302a,scarf:0xb5a78e,bag:false,lines:["Tramvaj zase stojí u výhybky.","V Tuzexu mají džíny. Ale bez bonů jsou k ničemu.","Včera hráli v rádiu písničku a náhle ji přerušili."]},
+  {id:"ivana",name:"IVANA",x:7.25,z:-25,direction:-1,speed:.38,route:[{x:6.85,z:-27,wait:2},{x:6.75,z:-29,wait:11,face:-1.4},{x:7.15,z:-28,wait:2},{x:7.25,z:-25,wait:6,face:1.4}],coat:0x77463a,trousers:0x635345,skin:0xc39776,hair:0x302722,scarf:0xd1c3a6,bag:false,lines:["Máma mi přešívá kabát po sestře.","U výměníku nechal někdo bednu. Vypadá nedotčeně.","Na dvoře si děti kreslí křídou, i když prší."]},
+  {id:"milan",name:"MILAN",x:7.25,z:-37,direction:1,speed:.45,route:[{x:7.35,z:-43,wait:1},{x:7.05,z:-49,wait:12,face:1.2},{x:6.8,z:-46,wait:3},{x:7.25,z:-37,wait:5,face:-1.2}],coat:0x4c555c,trousers:0x383a38,skin:0xa87e62,hair:0x282522,scarf:0x8c8d7f,bag:true,lines:["Večer se scházíme u mostu. Bez plakátů, beze jmen.","V tomhle domě je pořád slyšet výtah.","Nové boty z výlohy zmizely dřív, než otevřeli."]},
+  {id:"eva",name:"EVA",x:7.25,z:-59,direction:1,speed:.43,route:[{x:6.8,z:-63,wait:1},{x:6.75,z:-71,wait:8,face:-1.2},{x:7.3,z:-68,wait:2},{x:7.25,z:-59,wait:6,face:1.2}],coat:0x6b5145,trousers:0x4c4b49,skin:0xc49372,hair:0x5a3c2b,scarf:0x9b9180,bag:true,lines:["Když se člověk dívá z okna, celé sídliště svítí.","Někdo tu hledal kurýra. Ptal se na kazetu.","Mám doma střih z Burdy. Chceš si ho půjčit?"]},
+  {id:"josef",name:"JOSEF",x:-7.25,z:-77,direction:1,speed:.4,route:[{x:-7.05,z:-82,wait:2},{x:-7.3,z:-89,wait:10,face:1.1},{x:-6.85,z:-85,wait:3},{x:-7.25,z:-77,wait:5,face:-1.1}],coat:0x665f4e,trousers:0x3b4140,skin:0xb18468,hair:0x39352d,scarf:0x958a70,bag:false,lines:["Vysílač na konci ulice je slyšet až v noci.","Lidé si půjčují desky po bytech. Aspoň tak se něco dozvíme.","Při dešti je v přízemí vždycky cítit mokrý beton."]}
+].map(makeResident);
+const residentInteractables=residents.map(resident=>resident.interactable);
+const patternBook=new THREE.Group();patternBook.name="modrý sešit střihů";
+const patternPages=new THREE.Mesh(new THREE.BoxGeometry(.3,.045,.22),material(0xd7d0bd,.94));patternPages.position.y=.12;patternBook.add(patternPages);
+const patternCover=new THREE.Mesh(new THREE.BoxGeometry(.33,.035,.25),material(0x536b78,.86));patternCover.position.set(0,.15,0);patternCover.castShadow=true;patternBook.add(patternCover);
+const patternSpine=new THREE.Mesh(new THREE.BoxGeometry(.035,.04,.25),material(0x394d59,.86));patternSpine.position.set(-.145,.15,0);patternBook.add(patternSpine);
+const patternMarker=new THREE.Mesh(new THREE.TorusGeometry(.48,.025,6,24),material(0xffffff,.55,0xffffff,.3));patternMarker.rotation.x=Math.PI/2;patternMarker.position.y=.045;patternBook.add(patternMarker);
+patternBook.position.set(-10.2,0,-6);patternBook.visible=neighborQuestStep===1;scene.add(patternBook);
+const patternInteractable={id:"sešit-střihů",x:-10.2,z:-6,range:1.65,enabled:neighborQuestStep===1,action(){
+  const next=advanceNeighborQuestStep(neighborQuestStep,"pickup","pattern");if(next===neighborQuestStep)return;
+  neighborQuestStep=next;patternBook.visible=false;patternInteractable.enabled=false;gameAudio.reward();updateMission();saveGame();showToast("SEŠIT STŘIHŮ VZAT · DONES HO IVANĚ");
+}};
+const apartmentDoorInteractable=apartmentEntry?{id:"vstup-paneláku",x:apartmentEntry.interactX,z:apartmentEntry.z,minY:0,maxY:2.3,levelY:0,range:2.1,enabled:true,action(item,player){
+  if(apartmentEntry.open&&Math.hypot(player.x-item.x,player.z-item.z)<.72){showToast("USTUP OD DVEŘÍ, AŤ JE MŮŽU ZAVŘÍT");return;}
+  apartmentEntry.open=!apartmentEntry.open;apartmentEntry.doorPivot.rotation.y=apartmentEntry.open?apartmentEntry.openAngle:0;apartmentEntry.doorCollider.enabled=!apartmentEntry.open;
+  gameAudio.door(apartmentEntry.open);showToast(apartmentEntry.open?"VSTUPNÍ DVEŘE OTEVŘENY":"VSTUPNÍ DVEŘE ZAVŘENY");saveGame();
+}}:null;
+const interactables=[enemyInteractable,relayInteractable,mechanicInteractable,courierInteractable,towerInteractable,patternInteractable,...supplyInteractables,...residentInteractables];
+if(apartmentDoorInteractable)interactables.push(apartmentDoorInteractable);
+if(apartmentEntry)for(const door of apartmentEntry.apartmentDoors)interactables.push({id:door.doorPivot.name,x:door.x,z:door.z,minY:door.doorCollider.minY,maxY:door.doorCollider.maxY,levelY:door.doorCollider.minY-.04,range:1.45,enabled:true,action(item,player){
+  if(door.open&&Math.hypot(player.x-item.x,player.z-item.z)<.82){showToast("USTUP OD DVEŘÍ, AŤ JE MŮŽU ZAVŘÍT");return;}
+  door.open=!door.open;door.doorPivot.rotation.y=door.open?door.openAngle:0;door.doorCollider.enabled=!door.open;
+  gameAudio.door(door.open);showToast(door.open?"BYT OTEVŘEN":"BYT ZAVŘEN");saveGame();
+}});
+const navigation={bounds:{minX:-20.4,maxX:20.4,minZ:-92,maxZ:29}};
+if(apartmentEntry)navigation.elevationAt=(x,z,elevation)=>{
+  const {z:centerZ,stairX,landingX,inward,flightLength,storyHeight,storyCount}=apartmentEntry;
+  const clampStory=index=>Math.max(0,Math.min(storyCount-2,index));
+  const progress=(value)=>Math.max(0,Math.min(1,value));
+  const firstProgress=(stairX-x)*inward/flightLength;
+  if(Math.abs(z-(centerZ-.72))<.5&&firstProgress>=-.12&&firstProgress<=1.12){
+    const story=clampStory(Math.floor(elevation/storyHeight+.25));
+    return story*storyHeight+progress(firstProgress)*storyHeight/2;
+  }
+  const secondProgress=(x-landingX)*inward/flightLength;
+  if(Math.abs(z-(centerZ+.72))<.5&&secondProgress>=-.12&&secondProgress<=1.12){
+    const story=clampStory(Math.floor(elevation/storyHeight-.5+1e-4));
+    return story*storyHeight+storyHeight/2+progress(secondProgress)*storyHeight/2;
+  }
+  if(Math.abs(x-landingX)<.62&&Math.abs(z-centerZ)<.62){
+    const storyIndex=(elevation-storyHeight/2)/storyHeight;
+    const story=Math.round(storyIndex);
+    if(Math.abs(storyIndex-story)>.08)return false;
+    const clampedStory=clampStory(story);
+    return clampedStory*storyHeight+storyHeight/2;
+  }
+  return elevation;
+};
+const controller=createPlayerController({camera,colliders,interactables,state,ui:{showToast},navigation});
+if(apartmentEntry&&saved.panelak){
+  if(saved.panelak.entranceOpen){apartmentEntry.open=true;apartmentEntry.doorPivot.rotation.y=apartmentEntry.openAngle;apartmentEntry.doorCollider.enabled=false;}
+  for(let index=0;index<apartmentEntry.apartmentDoors.length;index++)if(saved.panelak.doors?.[index]){
+    const door=apartmentEntry.apartmentDoors[index];door.open=true;door.doorPivot.rotation.y=door.openAngle;door.doorCollider.enabled=false;
+  }
+}
+const savedPlayerSafe=saved.player&&Math.abs(saved.player.x)<=20.2&&saved.player.z>-88&&saved.player.z<25;
+if (!controller.setSpawn(savedPlayerSafe?saved.player:{x:0,z:8,yaw:0})) controller.setSpawn({x:0,z:8,yaw:0});
+mission.complete=mission.stage>=5;
+
+<<<<<<< HEAD
+function enterVehicle(){
+  input.clear();controller.setAnalogMove(0,0);vehicle.occupied=true;vehicleCollider.enabled=false;state.inVehicle=true;vehicle.speed=0;showToast("ZELENÝ HATCHBACK · SHIFT STOUPÁ · CTRL KLESÁ · E VYSTOUPIT");
+  gameAudio.door(true);
+  camera.fov=80;camera.updateProjectionMatrix();$("vehicleHud").hidden=false;
+  $("touchUI").querySelector('[data-touch-action="jump"]').textContent="STOUPAT";
+  $("touchUI").querySelector('[data-touch-action="run"]').textContent="KLESAT";
+  saveGame();
+}
+function exitVehicle(){
+  if(vehicle.altitude>.7){showToast("PŘISTAŇ PŘED VYSTOUPENÍM · CTRL KLESAT");return false;}
+  const sideX=Math.cos(vehicle.yaw)*1.8,sideZ=Math.sin(vehicle.yaw)*1.8;
+  const exits=[
+    {x:vehicle.x+sideX,z:vehicle.z+sideZ,yaw:vehicle.yaw},
+    {x:vehicle.x-sideX,z:vehicle.z-sideZ,yaw:vehicle.yaw},
+    {x:vehicle.x+Math.sin(vehicle.yaw)*2.5,z:vehicle.z-Math.cos(vehicle.yaw)*2.5,yaw:vehicle.yaw},
+    {x:vehicle.x-Math.sin(vehicle.yaw)*2.5,z:vehicle.z+Math.cos(vehicle.yaw)*2.5,yaw:vehicle.yaw}
+  ];
+  if(!exits.some(spawn=>controller.setSpawn(spawn))){showToast("KOLEM VOZU NENÍ BEZPEČNÉ MÍSTO K VYSTOUPENÍ");return false;}
+  input.clear();
+  vehicle.occupied=false;state.inVehicle=false;vehicle.speed=0;vehicle.altitude=0;vehicle.verticalSpeed=0;stateCar.position.y=0;vehicleCollider.enabled=true;syncVehicleCollider();controller.setAnalogMove(0,0);
+  gameAudio.door(false);
+  camera.fov=74;camera.updateProjectionMatrix();$("vehicleHud").hidden=true;
+  $("touchUI").querySelector('[data-touch-action="jump"]').textContent="SKOK";
+  $("touchUI").querySelector('[data-touch-action="run"]').textContent="BĚH";
+  saveGame();showToast("VYSTOUPIL JSI Z VOZU");
+  return true;
+}
+function interact(){
+  if(!state.started||state.combat||state.dialogue||state.paused)return;
+  if(vehicle.occupied){exitVehicle();return;}
+  const p=controller.player;
+  if(Math.hypot(p.x-vehicle.x,p.z-vehicle.z)<3.8){enterVehicle();return;}
+  if(controller.doInteract())gameAudio.confirm();
+}
+const input=bindInput({element:renderer.domElement,controller,state,onInteract:interact,onCombatAction(command){
+  gameAudio.unlock();
+  if(command==="up"){combatSelection=(combatSelection+3)%4;selectCombat();}
+  else if(command==="down"){combatSelection=(combatSelection+1)%4;selectCombat();}
+  else if(command==="confirm")action(["attack","aim","guard","heal"][combatSelection]);
+  else action(command);
+},onDialogueAction(command){
+  gameAudio.unlock();
+  if(endingMode){
+    if(command==="up"||command==="down"){endingSelection=(endingSelection+1)%2;selectEnding();}
+    else if(command==="confirm")finishEnding(endingSelection===0?"eva":"public");
+    return;
+  }
+  if(command==="up"){dialogueSelection=(dialogueSelection+4)%5;selectDialogue();}
+  else if(command==="down"){dialogueSelection=(dialogueSelection+1)%5;selectDialogue();}
+  else if(command==="confirm")chooseDialogue(["accept","buy","weapon","armor","leave"][dialogueSelection]);
+  else if(command==="back")closeDialogue();
+},onMenuAction(command){
+  gameAudio.unlock();
+  const items=currentMenuItems();
+  if(command==="up"){menuSelection=(menuSelection+items.length-1)%items.length;selectMenuItem();}
+  else if(command==="down"){menuSelection=(menuSelection+1)%items.length;selectMenuItem();}
+  else if(command==="left"||command==="right"){
+    const item=items[menuSelection];
+    if(item?.dataset.setting==="sensitivity")userSettings.sensitivity=((userSettings.sensitivity-1+(command==="right"?1:9))%10)+1;
+    else if(item?.dataset.setting==="crt")userSettings.crt=!userSettings.crt;
+    else if(item?.dataset.setting==="sound")userSettings.sound=!userSettings.sound;
+    renderSettings();
+  }else if(command==="confirm")activateMenuItem(items[menuSelection]);
+  else if(command==="back"&&menuPage!=="main")setMenuPage("main");
+},onPauseChange(paused){pauseScreen.hidden=!paused;renderer.domElement.classList.toggle("is-paused",paused);},onVehicleLook(dx){vehicle.yaw-=dx*2.8;}});
+const dialoguePanel=$("dialoguePanel");
+const endingPanel=$("endingPanel");
+let dialogueSelection=0,endingSelection=0,endingMode=false,endingChosen=false;
+function selectDialogue(){[...dialoguePanel.querySelectorAll("[data-dialogue]")].forEach((b,i)=>b.classList.toggle("selected",i===dialogueSelection));gameAudio.ui();}
+function openMechanicDialogue(){
+  if(mission.stage!==2)return;
+  input.clear();state.dialogue=true;dialogueSelection=0;dialoguePanel.hidden=false;document.exitPointerLock?.();
+  $("dialogueText").textContent="„Telefon zase funguje. Pod mostem zadrželi kluka s páskou z koncertu. Jestli ji zabaví, zmizí poslední kopie. Pomůžeš mu? A jestli chceš, upravím ti Škorpion nebo podšiju bundu.“";
+  selectDialogue();
+}
+function closeDialogue(){input.clear();state.dialogue=false;dialoguePanel.hidden=true;}
+function chooseDialogue(choice){
+  if(!state.dialogue||state.paused)return;
+  if(choice==="accept"){
+    mission.stage=3;mechanicInteractable.enabled=false;courierInteractable.enabled=true;
+    courierGuard.visible=true;courierCollider.enabled=true;courier.visible=true;courierBeacon.visible=true;miraBeacon.visible=false;
+    updateMission();saveGame();closeDialogue();showToast("MIRA: „Díky. Kurýr čeká pod tramvajovým mostem.“");return;
+  }
+  if(choice==="buy"){
+    if(stats.credits<75){$("dialogueText").textContent="„Na obvazy ti chybí peníze. Nejdřív pomož kurýrovi.“";return;}
+    stats.credits-=75;stats.medkits++;updateStats();saveGame();
+    $("dialogueText").textContent="„Tady máš balíček obvazů. Kurýra najdeš pod tramvajovým mostem.“";showToast("OBVAZY ZAKOUPENY · −75 KČS");return;
+  }
+  if(choice==="weapon"){
+    if(stats.weaponLevel>=2){$("dialogueText").textContent="„Na Škorpionu už není co ladit. Drž ho čistý a poslouchej pružinu.“";return;}
+    const cost=stats.weaponLevel===0?130:190;
+    if(stats.credits<cost){$("dialogueText").textContent="„Na úpravu Škorpionu ti chybí "+(cost-stats.credits)+" Kčs.“";return;}
+    stats.credits-=cost;stats.weaponLevel++;updateStats();saveGame();
+    $("dialogueText").textContent="„Hotovo. Vz. 61 teď kope jistěji.“";showToast("ŠKORPION VYLEPŠEN · ÚROVEŇ "+stats.weaponLevel);return;
+  }
+  if(choice==="armor"){
+    if(stats.armorLevel>=2){$("dialogueText").textContent="„Bunda už má dvojitou podšívku. Víc by tě jen zpomalilo.“";return;}
+    const cost=stats.armorLevel===0?120:180;
+    if(stats.credits<cost){$("dialogueText").textContent="„Na podšívku ti chybí "+(cost-stats.credits)+" Kčs.“";return;}
+    stats.credits-=cost;stats.armorLevel++;stats.maxHp+=8;stats.hp=Math.min(stats.maxHp,stats.hp+8);updateStats();saveGame();
+    $("dialogueText").textContent="„Podšívka drží. Zásah tolik neprojde a bunda vydrží víc.“";showToast("BUNDA ZPEVNĚNA · −"+(stats.armorLevel*2)+" ZRANĚNÍ");return;
+  }
+  closeDialogue();
+}
+dialoguePanel.querySelectorAll("[data-dialogue]").forEach((button,index)=>{
+  button.addEventListener("mouseenter",()=>{dialogueSelection=index;selectDialogue();});
+  button.addEventListener("click",()=>chooseDialogue(button.dataset.dialogue));
+});
+window.addEventListener("keydown",event=>{
+  if(!state.dialogue||state.paused||endingMode)return;
+  if(event.code==="ArrowDown"){event.preventDefault();dialogueSelection=(dialogueSelection+1)%5;selectDialogue();}
+  else if(event.code==="ArrowUp"){event.preventDefault();dialogueSelection=(dialogueSelection+4)%5;selectDialogue();}
+  else if(event.code==="Enter"){event.preventDefault();chooseDialogue(["accept","buy","weapon","armor","leave"][dialogueSelection]);}
+  else if(["Digit1","Digit2","Digit3","Digit4","Digit5"].includes(event.code)){event.preventDefault();chooseDialogue(["accept","buy","weapon","armor","leave"][Number(event.code.slice(-1))-1]);}
+  else if(event.code==="Escape"){event.preventDefault();closeDialogue();}
+},{capture:true});
+function openEndingChoice(){
+  if(mission.stage!==4)return;
+  input.clear();endingMode=true;endingChosen=false;state.dialogue=true;endingSelection=0;dialoguePanel.hidden=true;endingPanel.hidden=false;document.exitPointerLock?.();
+  $("endingTitle").textContent="POSLEDNÍ ROZHODNUTÍ";
+  $("endingText").textContent="Kurýr přinesl nahrávku zakázané kapely. Rozhodni, zda ji předáš Evě, nebo necháš rozšířit po bytech.";
+  endingPanel.querySelector(".ending-actions").hidden=false;$("endingContinue").hidden=true;selectEnding();
+}
+function selectEnding(){[...endingPanel.querySelectorAll("[data-ending]")].forEach((button,index)=>button.classList.toggle("selected",index===endingSelection));gameAudio.ui();}
+function finishEnding(choice){
+  if(!endingMode||endingChosen||state.paused)return;
+  endingChosen=true;endingChoice=choice;mission.stage=5;mission.complete=true;gameAudio.reward();
+  if(choice==="public"){
+    $("endingTitle").textContent="HLAS Z BYTŮ";$("endingText").textContent="Kopie nahrávky putují mezi lidmi z bloku. Zakázaná kapela hraje v kuchyních a garážích — a už ji nelze umlčet.";
+    awardXP(100);stats.credits+=260;
+  }else{
+    $("endingTitle").textContent="TICHÁ DOHODA";$("endingText").textContent="Eva ukryla originální pásku a předala několik kopií důvěryhodným lidem. Hostinec dnes v noci zůstane v bezpečí, ale pravda se šíří pomalu.";
+    awardXP(85);stats.credits+=180;
+  }
+  endingPanel.querySelector(".ending-actions").hidden=true;$("endingContinue").hidden=false;updateMission();updateStats();saveGame();
+}
+endingPanel.querySelectorAll("[data-ending]").forEach((button,index)=>{
+  button.addEventListener("mouseenter",()=>{endingSelection=index;selectEnding();});
+  button.addEventListener("click",()=>finishEnding(button.dataset.ending));
+});
+window.addEventListener("keydown",event=>{
+  if(!endingMode||endingChosen||state.paused)return;
+  if(event.code==="ArrowDown"||event.code==="ArrowUp"){event.preventDefault();endingSelection=(endingSelection+1)%2;selectEnding();}
+  else if(event.code==="Digit1"||event.code==="Digit2"){event.preventDefault();finishEnding(event.code==="Digit1"?"eva":"public");}
+  else if(event.code==="Enter"){event.preventDefault();finishEnding(endingSelection===0?"eva":"public");}
+},{capture:true});
+$("endingContinue").addEventListener("click",()=>{input.clear();endingPanel.hidden=true;state.dialogue=false;endingMode=false;endingChosen=false;renderer.domElement.focus();});
+
+const menuScreen=$("menuScreen"),menuMain=$("menuMain"),menuSettings=$("menuSettings"),menuControls=$("menuControls"),menuConfirm=$("menuConfirm");
+const menuPages={main:menuMain,settings:menuSettings,controls:menuControls,newconfirm:menuConfirm};
+let menuPage="main",menuSelection=0;
+const settingsKey=SAVE_KEY+"-settings";
+let userSettings={sensitivity:5,crt:true,sound:true};
+try{userSettings={...userSettings,...JSON.parse(localStorage.getItem(settingsKey)||"{}")};}catch{}
+function renderSettings(){
+  $("sensitivityValue").textContent=String(userSettings.sensitivity).padStart(2,"0");$("crtValue").textContent=userSettings.crt?"ZAP":"VYP";
+  $("soundValue").textContent=userSettings.sound?"ZAP":"VYP";gameAudio.setMuted(!userSettings.sound);
+  input.setMouseSensitivity(.00035+userSettings.sensitivity*.00013);
+  document.documentElement.style.setProperty("--crt-line-opacity",userSettings.crt?".17":"0");
+  try{localStorage.setItem(settingsKey,JSON.stringify(userSettings));}catch{}
+}
+function currentMenuItems(){return [...menuPages[menuPage].querySelectorAll("button:not(:disabled)")];}
+function selectMenuItem(){currentMenuItems().forEach((b,i)=>b.classList.toggle("selected",i===menuSelection));gameAudio.ui();}
+function setMenuPage(page){
+  menuPage=page;for(const [name,panel] of Object.entries(menuPages))panel.hidden=name!==page;
+  $("menuSubtitle").textContent=page==="main"?"SÍDLIŠTĚ MÍR · ČESKOSLOVENSKO · 1975":page==="settings"?"OBRAZ · OVLÁDÁNÍ · NASTAVENÍ":page==="controls"?"KLÁVESNICE · MYŠ · OVLADAČ":"POTVRZENÍ · NOVÁ HRA";
+  menuSelection=0;selectMenuItem();
+}
+function closeMenu(){menuScreen.hidden=true;state.started=true;renderer.domElement.focus();renderer.domElement.requestPointerLock?.();}
+function startNewGame(){
+  try{localStorage.removeItem(SAVE_KEY);}catch{}
+  if(apartmentEntry){apartmentEntry.open=false;apartmentEntry.doorPivot.rotation.y=0;apartmentEntry.doorCollider.enabled=true;for(const door of apartmentEntry.apartmentDoors){door.open=false;door.doorPivot.rotation.y=0;door.doorCollider.enabled=true;}}
+  mission.stage=0;mission.complete=false;neighborQuestStep=0;patternBook.visible=false;patternInteractable.enabled=false;endingChoice=null;state.dialogue=false;state.paused=false;state.combat=false;state.inVehicle=false;vehicle.occupied=false;activeFoe=foe;activeEnemyMesh=enemyMesh;activeEnemyCollider=enemyCollider;foe.hp=foe.maxHp;foe.defeated=false;foe.busy=false;secondFoe.hp=secondFoe.maxHp;secondFoe.defeated=false;secondFoe.busy=false;enemyCollider.enabled=true;courierCollider.enabled=false;enemyInteractable.enabled=true;courierInteractable.enabled=false;relayInteractable.enabled=false;mechanicInteractable.enabled=false;towerInteractable.enabled=false;
+  stats.hp=74;stats.maxHp=74;stats.energy=32;stats.maxEnergy=32;stats.xp=0;stats.level=1;stats.credits=120;stats.medkits=2;stats.weaponLevel=0;stats.armorLevel=0;stats.guard=false;totalPlaySeconds=0;
+  scene.add(enemyMesh);scene.add(courierGuard);scene.add(courier);courierGuard.visible=false;courier.visible=false;courierBeacon.visible=false;miraBeacon.visible=false;markerRing.visible=false;towerBeacon.visible=false;endingPanel.hidden=true;dialoguePanel.hidden=true;
+  for(const supply of supplies){supply.collected=false;supply.group.visible=true;supply.interactable.enabled=true;}
+  pauseScreen.hidden=true;renderer.domElement.classList.remove("is-paused");combatPanel.hidden=true;$("vehicleHud").hidden=true;camera.fov=74;camera.updateProjectionMatrix();
+  vehicle.x=2.5;vehicle.z=10.5;vehicle.yaw=0;vehicle.speed=0;vehicle.altitude=0;vehicle.verticalSpeed=0;vehicle.battery=100;vehicleCollider.enabled=true;syncVehicleCollider();stateCar.position.set(vehicle.x,0,vehicle.z);stateCar.rotation.set(0,0,0);for(const flame of thrusters)flame.visible=false;for(const wheel of [...wheels,...wheelHubs])wheel.visible=true;$("touchUI").querySelector('[data-touch-action="jump"]').textContent="SKOK";$("touchUI").querySelector('[data-touch-action="run"]').textContent="BĚH";
+  controller.setSpawn({x:0,z:8,yaw:0});updateMission();updateStats();saveGame();closeMenu();showToast("MÍR 12 · PODZIM 1975");
+}
+function activateMenuItem(item=currentMenuItems()[menuSelection]){
+  if(!item)return;
+  const actionName=item.dataset.menu;
+  gameAudio.confirm();
+  if(menuPage==="main"){
+    if(actionName==="continue")closeMenu();
+    if(actionName==="new")setMenuPage("newconfirm");
+    if(actionName==="settings")setMenuPage("settings");
+    if(actionName==="controls")setMenuPage("controls");
+    return;
+  }
+  if(actionName==="confirm-new"){startNewGame();return;}
+  if(actionName==="back"){setMenuPage("main");return;}
+  if(item.dataset.setting==="sensitivity")userSettings.sensitivity=(userSettings.sensitivity%10)+1;
+  if(item.dataset.setting==="crt")userSettings.crt=!userSettings.crt;
+  if(item.dataset.setting==="sound")userSettings.sound=!userSettings.sound;
+  renderSettings();
+}
+const continueOption=$("continueOption");
+const saveAvailable=Boolean(saved.player||saved.missionStage||saved.playSeconds);
+continueOption.disabled=!saveAvailable;
+  if(!saveAvailable){continueOption.title="Zatím není uložená hra.";menuSelection=0;}
+menuScreen.querySelectorAll("button").forEach(button=>{
+  button.addEventListener("click",()=>{const items=currentMenuItems();const index=items.indexOf(button);if(index>=0)menuSelection=index;activateMenuItem(button);});
+});
+renderSettings();selectMenuItem();
+window.addEventListener("keydown",event=>{
+  if(!state.started&&!menuScreen.hidden){
+    if(event.code==="ArrowDown"||event.code==="KeyS"){event.preventDefault();menuSelection=(menuSelection+1)%currentMenuItems().length;selectMenuItem();}
+    else if(event.code==="ArrowUp"||event.code==="KeyW"){event.preventDefault();menuSelection=(menuSelection+currentMenuItems().length-1)%currentMenuItems().length;selectMenuItem();}
+    else if(event.code==="Enter"||event.code==="Space"){event.preventDefault();activateMenuItem();}
+    else if(event.code==="ArrowLeft"||event.code==="ArrowRight"){
+      const item=currentMenuItems()[menuSelection];if(item?.dataset.setting==="sensitivity"){userSettings.sensitivity=((userSettings.sensitivity-1+(event.code==="ArrowRight"?1:9))%10)+1;renderSettings();}
+      else if(item?.dataset.setting==="crt"){userSettings.crt=!userSettings.crt;renderSettings();}
+      else if(item?.dataset.setting==="sound"){userSettings.sound=!userSettings.sound;renderSettings();}
+    }
+    else if(event.code==="Escape"&&menuPage!=="main"){setMenuPage("main");}
+    return;
+  }
+  if(event.code==="Escape"&&state.paused&&!pauseScreen.hidden){
+    // The input adapter has just released pointer lock; pause overlay stays available.
+  }
+},{capture:true});
+$("pauseMenuButton").addEventListener("click",()=>{
+  saveGame();
+  input.resume();state.started=false;pauseScreen.hidden=true;document.exitPointerLock?.();menuScreen.hidden=false;setMenuPage("main");
+});
+
+function startCombat(){
+  if(activeFoe.defeated||state.combat)return;
+  input.clear();state.combat=true;state.paused=false;activeFoe.busy=false;combatSelection=0;combatPanel.hidden=false;document.exitPointerLock?.();
+  $("combatLog").textContent=activeFoe===foe?"Příslušník VB ti zatarasil cestu. Vyber akci.":"Muž v civilu se otočil proti tobě. Vyber akci.";
+  $("turnState").textContent="TVŮJ TAH";updateStats();selectCombat();
+}
+function selectCombat(){[...combatPanel.querySelectorAll("[data-action]")].forEach((button,i)=>button.classList.toggle("selected",i===combatSelection));gameAudio.ui();}
+function endCombat(){
+  input.clear();state.combat=false;activeFoe.busy=false;combatPanel.hidden=true;
+  if(activeFoe.hp<=0&&activeFoe===foe){
+    gameAudio.reward();foe.defeated=true;scene.remove(enemyMesh);enemyCollider.enabled=false;enemyInteractable.enabled=false;relayInteractable.enabled=true;markerRing.visible=true;mission.stage=1;
+    awardXP(65);stats.credits+=90;stats.energy=Math.min(stats.maxEnergy,stats.energy+8);updateMission();updateStats();saveGame();showToast("HLÍDKA ZASTAVENA · +65 XP · +90 KČS");
+  } else if(activeFoe.hp<=0&&activeFoe===secondFoe){
+    gameAudio.reward();secondFoe.defeated=true;scene.remove(courierGuard);courierCollider.enabled=false;courierInteractable.enabled=false;towerInteractable.enabled=true;towerBeacon.visible=true;mission.stage=4;mission.complete=false;
+    awardXP(110);stats.credits+=180;stats.energy=stats.maxEnergy;courierBeacon.visible=false;updateMission();updateStats();saveGame();
+    showToast("KURÝR ZACHRÁNĚN · +110 XP · +180 KČS · NOVÝ CÍL: VYSÍLAČ");
+  } else {
+    activeFoe.hp=activeFoe.maxHp;stats.hp=Math.max(38,stats.hp);stats.energy=Math.max(10,stats.energy);
+    if(!controller.setSpawn({x:3.4,z:-7.2,yaw:0}))controller.setSpawn({x:0,z:8,yaw:0});
+    updateStats();saveGame();showToast("PORÁŽKA · MIRA TĚ STÁHLA DO BEZPEČÍ · SOUPEŘ SE VRÁTIL");
+  }
+}
+function scheduleCombatStep(delay,callback){
+  setTimeout(()=>{
+    if(!state.combat)return;
+    if(state.paused||!state.started){scheduleCombatStep(100,callback);return;}
+    callback();
+  },delay);
+}
+function enemyTurn(){
+  activeFoe.busy=true;$("turnState").textContent="NEPŘÁTELSKÝ TAH";
+  const rawDamage=stats.guard?4+Math.floor(Math.random()*4):(activeFoe===foe?8:10)+Math.floor(Math.random()*7);
+  const damage=Math.max(2,rawDamage-stats.armorLevel*2);stats.guard=false;
+  scheduleCombatStep(650,()=>{
+    stats.hp=Math.max(0,stats.hp-damage);gameAudio.impact();$("combatLog").textContent=`Nepřítel tě zasáhl za ${damage} bodů poškození.`;updateStats();
+    if(stats.hp===0){$("combatLog").textContent="Padl jsi. Mira tě po ošetření posílá zpátky do boje.";scheduleCombatStep(750,endCombat);return;}
+    activeFoe.busy=false;$("turnState").textContent="TVŮJ TAH";
+  });
+}
+function action(name){
+  if(!state.combat||state.paused||activeFoe.busy)return;
+  if(name==="attack"){const n=14+Math.floor(Math.random()*7)+stats.weaponLevel*3;activeFoe.hp=Math.max(0,activeFoe.hp-n);$("combatLog").textContent="Krátká dávka zasáhla cíl za "+n+" poškození.";}
+  if(name==="aim"){
+    if(stats.energy<8){$("combatLog").textContent="Na přesnou ránu nemáš dost energie.";return;}
+    stats.energy-=8;const n=24+Math.floor(Math.random()*9)+stats.weaponLevel*5;activeFoe.hp=Math.max(0,activeFoe.hp-n);$("combatLog").textContent="Pečlivý výstřel! Cíl utržil "+n+" poškození.";
+  }
+  if(name==="guard"){stats.guard=true;stats.energy=Math.min(stats.maxEnergy,stats.energy+5);$("combatLog").textContent="Zaujal jsi kryt. Příští zásah bude slabší. +5 EN.";}
+  if(name==="heal"){
+    if(stats.medkits<1){$("combatLog").textContent="Nemáš žádné obvazy.";return;}
+    if(stats.hp===stats.maxHp){$("combatLog").textContent="Vitalita je už plná.";return;}
+    stats.medkits--;const old=stats.hp;stats.hp=Math.min(stats.maxHp,stats.hp+28);$("combatLog").textContent="Obvazy obnovily "+(stats.hp-old)+" HP.";
+  }
+  if(name==="attack"||name==="aim"){gameAudio.shot();weaponRecoil=Math.min(.12,weaponRecoil+.075);muzzleTimer=.085;}
+  updateStats();
+  if(activeFoe.hp<=0){activeFoe.busy=true;$("turnState").textContent="CÍL ELIMINOVÁN";scheduleCombatStep(550,endCombat);}else enemyTurn();
+}
+combatPanel.querySelectorAll("[data-action]").forEach((button,index)=>{button.addEventListener("mouseenter",()=>{combatSelection=index;selectCombat();});button.addEventListener("click",()=>action(button.dataset.action));});
+window.addEventListener("keydown",e=>{
+  if(!state.combat||state.paused)return;
+  if(["Digit1","Digit2","Digit3","Digit4"].includes(e.code)){e.preventDefault();action(["attack","aim","guard","heal"][Number(e.code.slice(-1))-1]);}
+  if(e.code==="ArrowDown"||e.code==="KeyS"){combatSelection=(combatSelection+1)%4;selectCombat();}
+  if(e.code==="ArrowUp"||e.code==="KeyW"){combatSelection=(combatSelection+3)%4;selectCombat();}
+  if(e.code==="Enter"){e.preventDefault();action(["attack","aim","guard","heal"][combatSelection]);}
+},{capture:true});
+function resize(){const w=Math.max(1,mount.clientWidth),h=Math.max(1,mount.clientHeight);camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h,false);}
+const resizeObserver=new ResizeObserver(resize);resizeObserver.observe(mount);resize();
+let previousTime=0,gameTime=0,nextAutosave=6,nextFootstep=0;
+renderer.setAnimationLoop(time=>{
+  const dt=previousTime?Math.min((time-previousTime)/1000,.05):0;previousTime=time;gameTime+=dt;
+  let playerMoved=false;
+  if(state.started&&!state.paused&&!state.combat)totalPlaySeconds+=dt;
+  const clockSeconds=Math.floor(totalPlaySeconds),clockHours=String(Math.floor(clockSeconds/3600)).padStart(2,"0"),clockMinutes=String(Math.floor(clockSeconds/60)%60).padStart(2,"0"),clockRemainder=String(clockSeconds%60).padStart(2,"0");
+  $("menuClock").textContent=`${clockHours}:${clockMinutes}:${clockRemainder}`;
+  if(state.started&&!state.paused&&!state.combat){
+    if(vehicle.occupied){
+      const keys=controller.keysDown,analog=controller.getAnalogMove();
+      const throttle=THREE.MathUtils.clamp(Number(Boolean(keys.KeyW||keys.ArrowUp))-Number(Boolean(keys.KeyS||keys.ArrowDown))+analog.y,-1,1);
+      const steer=THREE.MathUtils.clamp(Number(Boolean(keys.KeyD||keys.ArrowRight))-Number(Boolean(keys.KeyA||keys.ArrowLeft))+analog.x,-1,1);
+      const climb=Number(Boolean(keys.ShiftLeft||keys.ShiftRight))-Number(Boolean(keys.ControlLeft||keys.ControlRight));
+      const airborne=vehicle.altitude>.8;
+      const effectiveClimb=vehicle.battery<12&&climb>0?0:climb;
+      vehicle.speed+=throttle*(airborne?8.5:7.2)*dt;if(!throttle)vehicle.speed*=Math.max(0,1-dt*(airborne ? .42 : 1.05));vehicle.speed=THREE.MathUtils.clamp(vehicle.speed,-4.5,airborne?20:17);
+      vehicle.yaw+=steer*dt*(.25+Math.min(1,Math.abs(vehicle.speed)/7))*(vehicle.speed<-.1?-1:1);
+      const nx=vehicle.x+Math.sin(vehicle.yaw)*vehicle.speed*dt,nz=vehicle.z-Math.cos(vehicle.yaw)*vehicle.speed*dt;
+      const collisionHeight=vehicle.altitude+2.0;
+      const blocked=carColliders.some(c=>c!==vehicleCollider&&c.enabled!==false&&c.minY<collisionHeight&&c.maxY>vehicle.altitude&&nx+1.1>c.minX&&nx-1.1<c.maxX&&nz+2.1>c.minZ&&nz-2.1<c.maxZ);
+      const flightX=vehicle.altitude>2.6,sideLimit=flightX?22.2:7.2;
+      if(!blocked){vehicle.x=THREE.MathUtils.clamp(nx,-sideLimit,sideLimit);vehicle.z=THREE.MathUtils.clamp(nz,flightX?-99:-96,flightX?31:29);}else vehicle.speed*= -.14;
+      vehicle.verticalSpeed=THREE.MathUtils.clamp(vehicle.verticalSpeed+effectiveClimb*8*dt,-5,5);
+      if(!effectiveClimb)vehicle.verticalSpeed*=Math.exp(-2.5*dt);
+      if(vehicle.battery<12&&vehicle.altitude>.05)vehicle.verticalSpeed=Math.min(vehicle.verticalSpeed,-2.6);
+      const oldAltitude=vehicle.altitude;
+      const oldBattery=vehicle.battery;
+      vehicle.altitude=THREE.MathUtils.clamp(vehicle.altitude+vehicle.verticalSpeed*dt,0,42);
+      if(vehicle.altitude===0||vehicle.altitude===42)vehicle.verticalSpeed=0;
+      if(vehicle.battery>0&&vehicle.altitude>.55)vehicle.battery=Math.max(0,vehicle.battery-dt*(.42+Math.abs(vehicle.speed)*.035+(effectiveClimb>0?.45:0)));
+      else if(vehicle.altitude<=.55)vehicle.battery=Math.min(100,vehicle.battery+dt*1.4);
+      if(oldBattery>12&&vehicle.battery<=12&&vehicle.altitude>.55)showToast("BATERIE SLÁBNE · ZAČNI KLESAT");
+      if(vehicle.battery===0&&oldAltitude>.55&&vehicle.altitude<=.55)showToast("BATERIE VYBITÁ · VOZIDLO PŘISTÁLO");
+      const inAir=vehicle.altitude>.8;
+      stateCar.position.set(vehicle.x,vehicle.altitude,vehicle.z);syncVehicleCollider();stateCar.rotation.set(THREE.MathUtils.clamp(-vehicle.verticalSpeed*.012,-.08,.08),vehicle.yaw,THREE.MathUtils.clamp(-steer*.035,-.05,.05));
+      wheels.forEach(w=>w.rotation.x+=vehicle.speed*dt*1.7);
+      for(const wheel of [...wheels,...wheelHubs])wheel.visible=!inAir;
+      thrusters.forEach((flame,index)=>{flame.visible=inAir;flame.scale.setScalar(.78+.22*Math.sin(gameTime*13+index));});
+      camera.position.set(vehicle.x-Math.sin(vehicle.yaw)*6.2,vehicle.altitude+3.1,vehicle.z+Math.cos(vehicle.yaw)*6.2);
+      camera.lookAt(vehicle.x+Math.sin(vehicle.yaw)*2,vehicle.altitude+1.05,vehicle.z-Math.cos(vehicle.yaw)*2);
+      $("speedValue").textContent=String(Math.round(Math.abs(vehicle.speed)*3.6)).padStart(3,"0");
+      $("altitudeValue").textContent=String(Math.round(vehicle.altitude)).padStart(2,"0");
+      $("batteryValue").textContent=String(Math.round(vehicle.battery)).padStart(2,"0");
+    }else{
+      const previousX=controller.player.x,previousZ=controller.player.z;
+      controller.update(dt);
+      playerMoved=Math.hypot(controller.player.x-previousX,controller.player.z-previousZ)>.012;
+    }
+  }
+  if(state.started&&!state.combat&&gameTime>=nextAutosave){saveGame();nextAutosave=gameTime+6;}
+  tram.position.x=Math.sin(gameTime*.075)*13;tramCollider.minX=tram.position.x-5.75;tramCollider.maxX=tram.position.x+5.75;
+  supplies.forEach((supply,index)=>{if(!supply.collected){supply.group.position.y=.035+Math.sin(gameTime*1.5+index*1.8)*.055;supply.group.rotation.y=Math.sin(gameTime*.7+index)*.08;}});
+  residents.forEach(resident=>{
+    const person=resident.group;
+    let walking=false;
+    if(resident.waitTimer>0){
+      resident.waitTimer=Math.max(0,resident.waitTimer-dt);
+    }else{
+      const stop=resident.route[resident.routeIndex],dx=stop.x-person.position.x,dz=stop.z-person.position.z,distance=Math.hypot(dx,dz);
+      if(distance<.055){
+        person.position.set(stop.x,0,stop.z);resident.waitTimer=stop.wait;resident.idleYaw=stop.face??resident.heading;resident.routeIndex=(resident.routeIndex+1)%resident.route.length;
+      }else{
+        const step=Math.min(distance,resident.speed*dt);person.position.x+=dx/distance*step;person.position.z+=dz/distance*step;
+        resident.heading=Math.atan2(dx,-dz);walking=true;
+      }
+    }
+    const desiredYaw=walking?resident.heading:resident.idleYaw;
+    let yawDelta=Math.atan2(Math.sin(desiredYaw-person.rotation.y),Math.cos(desiredYaw-person.rotation.y));
+    person.rotation.y+=yawDelta*Math.min(1,dt*(walking?8:2.2));
+    const swing=walking?Math.sin(gameTime*8+resident.phase):Math.sin(gameTime*1.3+resident.phase)*.08;
+    resident.arms[0].rotation.x=swing*(walking ? .36 : .09);resident.arms[1].rotation.x=-swing*(walking ? .36 : .09);
+    resident.legs[0].rotation.x=walking ? -swing*.3 : 0;resident.legs[1].rotation.x=walking ? swing*.3 : 0;
+    resident.collider.minX=person.position.x-.32;resident.collider.maxX=person.position.x+.32;
+    resident.collider.minZ=person.position.z-.24;resident.collider.maxZ=person.position.z+.24;
+    resident.interactable.x=person.position.x;resident.interactable.z=person.position.z;
+  });
+  relay.rotation.y=0;markerRing.rotation.z=gameTime*.25;
+  if(!state.inVehicle&&!state.combat){
+    const p=controller.player;
+    const nearCar=Math.hypot(p.x-vehicle.x,p.z-vehicle.z)<3.8;
+    const nearPanelakDoor=apartmentEntry&&p.elevation<1&&Math.hypot(p.x-apartmentEntry.interactX,p.z-apartmentEntry.z)<2.1;
+    const nearApartmentDoor=apartmentEntry?.apartmentDoors.some(door=>Math.abs(p.elevation-(door.doorCollider.minY-.04))<1&&Math.hypot(p.x-door.x,p.z-door.z)<1.45);
+    const nearEnemy=!foe.defeated&&Math.hypot(p.x-avatarTarget.x,p.z-avatarTarget.z)<2.8;
+    const nearRelay=mission.stage===1&&Math.hypot(p.x,p.z+43)<2.6;
+    const nearMira=mission.stage===2&&Math.hypot(p.x-4.8,p.z+4.8)<2.5;
+    const nearCourier=mission.stage===3&&Math.hypot(p.x+1.8,p.z+68)<3.1;
+    const nearTower=mission.stage===4&&Math.hypot(p.x+2,p.z+85)<3;
+    const nearSupply=supplies.find(supply=>!supply.collected&&Math.hypot(p.x-supply.x,p.z-supply.z)<1.8);
+    const nearResident=residents.find(resident=>Math.hypot(p.x-resident.group.position.x,p.z-resident.group.position.z)<1.55);
+    const nearPattern=neighborQuestStep===1&&Math.hypot(p.x-patternInteractable.x,p.z-patternInteractable.z)<patternInteractable.range;
+    const nearIvanaDelivery=neighborQuestStep===2&&nearResident?.id==="ivana";
+    hint.textContent=nearCar?"E NASTOUPIT · WASD JÍZDA · MYŠ ŘÍZENÍ":nearSupply?"E SEBRAT "+nearSupply.label:nearPattern?"E VZÍT SEŠIT STŘIHŮ":nearPanelakDoor?"E OTEVŘÍT / ZAVŘÍT VSTUPNÍ DVEŘE":nearApartmentDoor?"E OTEVŘÍT / ZAVŘÍT BYTOVÉ DVEŘE":nearEnemy?"E ZAHÁJIT TAHOVÝ SOUBOJ":nearRelay?"E ZAPNOUT TELEFONNÍ ROZVODNU":nearMira?"E PROMLOUVAT S MECHANIČKOU MIROU":nearCourier?"E ZAHÁJIT SOUBOJ · ZACHRAŇ KURÝRA":nearTower?"E ZAHÁJIT ROZHOVOR U VYSÍLAČE":nearIvanaDelivery?"E PŘEDAT SEŠIT · IVANA":nearResident?"E PROMLOUVAT · "+nearResident.name:"WASD POHYB · SHIFT BĚH · SPACE SKOK · MYŠ ROZHLED · E INTERAKCE";
+    }else if(state.inVehicle)hint.textContent=`W / S POHON · A / D ZATÁČENÍ · SHIFT STOUPAT · CTRL KLESAT · ${vehicle.altitude>.7?"E VYSTOUPIT ZAMČENO":"E VYSTOUPIT"}`;
+  const p=controller.player;
+  const buildingFloor=apartmentEntry&&p.elevation>.05?` · DŮM MÍR · ${Math.min(apartmentEntry.storyCount,Math.floor(p.elevation/apartmentEntry.storyHeight)+1)}. PATRO`:"";
+  coordinates.textContent=state.inVehicle?`ALT ${Math.round(vehicle.altitude)} M · ${Math.round(Math.abs(vehicle.speed)*3.6)} KM/H`:`X ${p.x.toFixed(1)} · Z ${p.z.toFixed(1)}${buildingFloor}`;
+  updateObjectivePointer();
+  const walking=playerMoved;
+  if(walking&&state.started&&!state.paused&&!state.combat&&!state.inVehicle&&gameTime>=nextFootstep){gameAudio.step();nextFootstep=gameTime+((controller.keysDown.ShiftLeft||controller.keysDown.ShiftRight)?0.34:0.5);}
+  gameAudio.updateVehicle(vehicle.speed,state.inVehicle&&state.started&&!state.paused);
+  weaponPivot.visible=state.started&&!state.paused&&!state.inVehicle&&!state.dialogue;
+  weaponRecoil*=Math.exp(-dt*12);muzzleTimer=Math.max(0,muzzleTimer-dt);
+  weaponPivot.position.set(.29,-.24+(walking&&!state.combat?Math.sin(gameTime*10)*.008:Math.sin(gameTime*1.4)*.002),-.52+weaponRecoil);
+  weaponPivot.rotation.set(-.025-weaponRecoil*.45,.035,-.025);
+  muzzleFlash.visible=muzzleTimer>0;
+  renderer.render(scene,camera);
+});
+updateMission();updateStats();
+window.addEventListener("beforeunload",()=>{saveGame();input.destroy();resizeObserver.disconnect();renderer.setAnimationLoop(null);renderer.dispose();});
+=======
+async function start() {
+  hint.textContent = "BUILDING RESIDENTIAL DISTRICT…";
+
+  try {
+    const world = await buildResidentialWorld(scene, { showToast });
+    const controller = createPlayerController({
+      camera,
+      colliders: world.colliders,
+      interactables: world.interactables,
+      state,
+      ui: { showToast },
+      navigation: {
+        bounds: { minX: -61, maxX: 61, minZ: -61, maxZ: 61 }
+      }
+    });
+
+    controller.setSpawn({ x: 0, z: 58, yaw: 0 });
+
+    const input = bindInput({
+      element: renderer.domElement,
+      controller,
+      state,
+      onInteract: () => controller.doInteract(),
+      onPauseChange(paused) {
+        pauseScreen.hidden = !paused;
+        renderer.domElement.classList.toggle("is-paused", paused);
+      }
+    });
+
+    const resizeObserver = new ResizeObserver(resize);
+    resizeObserver.observe(mount);
+    resize();
+
+    let previousTime = 0;
+    renderer.setAnimationLoop(time => {
+      const deltaTime = previousTime ? Math.min((time - previousTime) / 1000, 0.05) : 0;
+      previousTime = time;
+
+      const nearby = controller.update(deltaTime);
+      world.update(time);
+
+      coordinates.textContent =
+        "X " + controller.player.x.toFixed(1) + " · Z " + controller.player.z.toFixed(1);
+
+      hint.textContent = nearby
+        ? "E / TAP TO INTERACT · WASD MOVE · SHIFT RUN · SPACE JUMP"
+        : "20 HOMES · WASD MOVE · SHIFT RUN · SPACE JUMP · MOUSE LOOK · ESC PAUSE";
+
+      renderer.render(scene, camera);
+    });
+
+    window.addEventListener("beforeunload", () => {
+      input.destroy();
+      resizeObserver.disconnect();
+      renderer.setAnimationLoop(null);
+      world.dispose();
+      renderer.dispose();
+    });
+
+    showToast(world.usingImportedModels
+      ? "SEVERNÍ ČTVRŤ · BLENDER HOUSE PACK LOADED"
+      : "SEVERNÍ ČTVRŤ · 20 LOW-POLY HOMES");
+  } catch (error) {
+    console.error(error);
+    hint.textContent = "WORLD INITIALIZATION FAILED · CHECK CONSOLE";
+    showToast("World could not be initialized.");
+  }
+}
+
+start();
+>>>>>>> 1586982803960b26bef375c749702cba0d795a90

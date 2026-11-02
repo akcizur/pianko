@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="cs">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<<<<<<< HEAD
+    <meta name="theme-color" content="#090a0b" />
+    <meta name="description" content="MÍR 12 — příběhová RPG FPS hra z Československa roku 1975." />
+    <link rel="stylesheet" href="./styles.css" />
+    <title>MÍR 12 — Rok 1975</title>
+  </head>
+  <body>
+    <main id="app">
+      <div id="game" aria-label="Městská FPS hra Mír 12"></div>
+      <header class="hud">
+        <div class="hud-brand">MÍR 12 <span> / SÍDLIŠTĚ · 1975</span></div>
+        <div class="hud-status" id="coordinates">X 0.00 · Z 0.00</div>
+      </header>
+      <div class="crosshair" aria-hidden="true"></div>
+      <div class="hint" id="hint">WASD pohyb · SHIFT běh · SPACE skok · MYŠ rozhled · E interakce · ESC pauza</div>
+=======
+    <meta name="theme-color" content="#a8b8bf" />
+    <meta name="description" content="Severní čtvrť — low-poly obytný svět a samostatný first-person controller." />
+    <title>Severní čtvrť / FPS World</title>
+  </head>
+  <body>
+    <main id="app">
+      <div id="game" aria-label="První osoba — obytná čtvrť"></div>
+      <header class="hud">
+        <div class="hud-brand">SEVERNÍ ČTVRŤ <span> / RESIDENTIAL DISTRICT</span></div>
+        <div class="hud-status" id="coordinates">X 0.0 · Z 0.0</div>
+      </header>
+      <div class="crosshair" aria-hidden="true"></div>
+      <div class="hint" id="hint">WASD POHYB · SHIFT BĚH · SPACE SKOK · MYŠ POHLED · E INTERAKCE · ESC PAUZA</div>
+>>>>>>> 1586982803960b26bef375c749702cba0d795a90
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+      <section class="mission-card" aria-live="polite">
+        <div class="mission-kicker">AKTUÁLNÍ ÚKOL <span id="missionIndex">01 / 05</span></div>
+        <h2 id="missionTitle">Ticho v bloku</h2>
+        <p id="missionText">V ulici se objevil člověk, který nechce, abys došel k telefonní ústředně.</p>
+        <div class="side-objective" id="neighborObjective">SOUSEDÉ · ZEPTEJ SE ANNY</div>
+        <div class="side-objective" id="supplyProgress">ZTRACENÉ ZÁSOBY · 0 / 3</div>
+        <div class="objective-pointer" id="objectivePointer" aria-live="off"><b id="objectiveArrow">↑</b><span id="objectiveReadout">HLÍDKA · 26 M</span></div>
+        <div class="mission-track"><i id="missionProgress"></i></div>
+      </section>
+      <section class="status-card" aria-label="Stav postavy">
+        <div class="status-head"><span>VIKTOR „ŠEDÝ“</span><span>LVL <b id="level">01</b></span></div>
+        <div class="status-line"><span>HP</span><i><b id="hpBar"></b></i><strong id="hpValue">74 / 74</strong></div>
+        <div class="status-line"><span>EN</span><i><b id="energyBar"></b></i><strong id="energyValue">32 / 32</strong></div>
+        <div class="status-foot"><span>XP <b id="xpValue">0 / 100</b></span><span>KČS <b id="creditValue">120</b></span><span>OBV <b id="medkitValue">× 2</b></span></div>
+        <div class="status-loadout" id="loadoutValue">VZ. 61 · ZÁKLAD / BUNDA · I</div>
+      </section>
+      <div class="vehicle-hud" id="vehicleHud" aria-label="Telemetrie vozidla" hidden>
+        <div class="vehicle-metric"><small>ALT</small><b id="altitudeValue">00</b><span>M</span></div>
+        <div class="vehicle-metric"><small>SPEED</small><b id="speedValue">000</b><span>KM/H</span></div>
+        <div class="vehicle-metric"><small>BATTERY</small><b id="batteryValue">100</b><span>%</span></div>
+        <i>HATCHBACK</i>
+      </div>
+      <section class="combat-panel" id="combatPanel" aria-label="Tahový souboj" hidden>
+        <div class="combat-head"><span>TAHOVÝ SOUBOJ · SÍDLIŠTĚ MÍR</span><b id="turnState">TVŮJ TAH</b></div>
+        <div class="enemy-row"><span class="enemy-glyph">VB</span><div><small id="enemyLevel">HLÍDKA · LVL 02</small><strong id="enemyName">HLÍDKA VEŘEJNÉ BEZPEČNOSTI</strong><i class="enemy-track"><b id="enemyBar"></b></i><small id="enemyHP">42 / 42 HP</small></div></div>
+        <p class="combat-log" id="combatLog">Hlídka ti zatarasila cestu k telefonní rozvodně. Vyber akci.</p>
+        <div class="combat-actions">
+          <button data-action="attack"><b>1</b><span><strong>Krátká dávka</strong><small id="attackHint">14–20 poškození · 0 EN</small></span></button>
+          <button data-action="aim"><b>2</b><span><strong>Pečlivý výstřel</strong><small id="aimHint">24–32 poškození · 8 EN</small></span></button>
+          <button data-action="guard"><b>3</b><span><strong>Krytí</strong><small>Sníží příští zásah · 0 EN</small></span></button>
+          <button data-action="heal"><b>4</b><span><strong>Obvazy</strong><small>Obnoví 28 HP · 1 ks</small></span></button>
+        </div>
+        <footer>1–4 VÝBĚR · ENTER POTVRDIT</footer>
+      </section>
+      <section class="dialogue-panel" id="dialoguePanel" aria-label="Rozhovor" hidden>
+        <div class="dialogue-kicker">PŘÍCHOZÍ KONTAKT · HOSTINEC U MOSTU</div>
+        <h2 id="dialogueName">MIRA · MECHANIČKA</h2>
+        <p id="dialogueText">„V ústředně někdo odpojil linku. Pod mostem zadrželi kluka s páskou z koncertu. Pomůžeš mu?“</p>
+        <div class="dialogue-actions">
+          <button data-dialogue="accept"><b>1</b> POMOCI KURÝROVI</button>
+          <button data-dialogue="buy"><b>2</b> KOUPIT OBVAZY · 75 KČS</button>
+          <button data-dialogue="weapon"><b>3</b> <span id="weaponOffer">VYLEPŠIT ŠKORPION · 130 KČS</span></button>
+          <button data-dialogue="armor"><b>4</b> <span id="armorOffer">PODŠÍT BUNDU · 120 KČS</span></button>
+          <button data-dialogue="leave"><b>5</b> ODEJÍT</button>
+        </div>
+        <footer>1–5 VÝBĚR · ENTER POTVRDIT</footer>
+      </section>
+      <section class="ending-panel" id="endingPanel" aria-label="Závěr příběhu" hidden>
+        <div class="ending-kicker">MÍR 12 · PÁSKA Z KONCERTU</div>
+        <h2 id="endingTitle">POSLEDNÍ ROZHODNUTÍ</h2>
+        <p id="endingText">Kurýr přinesl nahrávku zakázané kapely. Rozhodni, komu ji předáš.</p>
+        <div class="ending-actions">
+          <button data-ending="eva"><b>1</b> PŘEDAT PÁSKU EVĚ</button>
+          <button data-ending="public"><b>2</b> ROZMNOŽIT PRO SAMIZDAT</button>
+        </div>
+        <button class="ending-continue" id="endingContinue" hidden>POKRAČOVAT DO MĚSTA</button>
+        <footer>1–2 VÝBĚR · ENTER POTVRDIT</footer>
+      </section>
+      <section class="crt-menu" id="menuScreen" aria-label="Hlavní menu">
+        <div class="crt-noise"></div>
+        <div class="menu-head"><span>──────────</span><b>MÍR 12</b><span>──────────</span></div>
+        <div class="menu-subtitle" id="menuSubtitle">SÍDLIŠTĚ MÍR · ČESKOSLOVENSKO · 1975</div>
+        <div class="menu-content" id="menuMain">
+          <button class="menu-option selected" data-menu="continue" id="continueOption">POKRAČOVAT</button>
+          <button class="menu-option" data-menu="new">NOVÁ HRA</button>
+          <button class="menu-option" data-menu="settings">NASTAVENÍ</button>
+          <button class="menu-option" data-menu="controls">OVLÁDÁNÍ</button>
+        </div>
+        <div class="menu-content" id="menuSettings" hidden>
+          <button class="menu-option selected" data-setting="sensitivity">CITLIVOST MYŠI <span id="sensitivityValue">05</span></button>
+          <button class="menu-option" data-setting="crt">CRT ŘÁDKY <span id="crtValue">ZAP</span></button>
+          <button class="menu-option" data-setting="sound">ZVUK <span id="soundValue">ZAP</span></button>
+          <button class="menu-option" data-menu="back">ZPĚT</button>
+        </div>
+        <div class="menu-content controls-copy" id="menuControls" hidden>
+          <p>W A S D / ŠIPKY <span>POHYB · ŘÍZENÍ</span></p><p>JOYSTICK <span>DOTYK · GAMEPAD · POHYB + PLYN</span></p><p>GAMEPAD <span>A POTVRDIT · X INTERAKCE · RB OBVAZY</span></p><p>MYŠ <span>ROZHLED / KAMERA VOZU</span></p>
+          <p>SHIFT <span>BĚH · VE VOZE STOUPAT</span></p><p>SPACE <span>SKOK</span></p><p>CTRL <span>VE VOZE KLESAT</span></p><p>E <span>INTERAKCE / VOZIDLO</span></p>
+          <p>1–4 <span>TAHOVÉ AKCE</span></p><p>ESC <span>PAUZA</span></p>
+          <button class="menu-option" data-menu="back">ZPĚT</button>
+        </div>
+        <div class="menu-content controls-copy" id="menuConfirm" hidden>
+          <p>ZAČÍT NOVOU HRU?</p><p><span>ULOŽENÝ POSTUP BUDE NAHRAZEN</span></p>
+          <button class="menu-option selected" data-menu="confirm-new">ANO, ZAČÍT ZNOVU</button>
+          <button class="menu-option" data-menu="back">ZPĚT</button>
+        </div>
+        <div class="menu-footer"><span>▲ ▼ VÝBĚR</span><span>ENTER POTVRDIT</span></div>
+        <div class="menu-clock"><span>PLAY</span><b id="menuClock">00:00:00</b><span>SP</span></div>
+      </section>
+      <section class="pause-screen" id="pauseScreen" hidden>
+        <div class="pause-panel">
+<<<<<<< HEAD
+          <div class="eyebrow">──── PAUZA ────</div>
+          <h1>POZASTAVENO</h1>
+          <p>HRA JE POZASTAVENA</p>
+          <button id="resumeButton" type="button">POKRAČOVAT</button>
+          <button id="pauseMenuButton" type="button">ZPĚT DO MENU</button>
+          <small>ESC / ENTER POKRAČOVAT</small>
+=======
+          <div class="eyebrow">SYSTEM / PAUSED</div>
+          <h1>PAUSED<span>_</span></h1>
+          <p>Pohyb je pozastaven.</p>
+          <button id="resumeButton" type="button">POKRAČOVAT</button>
+          <small>ESC / ENTER TO CONTINUE</small>
+>>>>>>> 1586982803960b26bef375c749702cba0d795a90
+        </div>
+      </section>
+      <section class="touch-ui" id="touchUI" aria-label="Dotykové ovládání">
+        <div class="move-stick" id="moveStick" aria-label="Joystick pohybu">
+          <div class="stick-ring"></div>
+          <div class="stick-knob" id="moveKnob"></div>
+        </div>
+<<<<<<< HEAD
+        <div class="look-zone" id="touchLookZone" aria-label="Tažením změnit rozhled"></div>
+=======
+        <div class="look-zone" id="touchLookZone" aria-label="Tažením otáčej pohled"></div>
+>>>>>>> 1586982803960b26bef375c749702cba0d795a90
+        <div class="touch-actions">
+          <button type="button" data-touch-action="jump">SKOK</button>
+          <button type="button" data-touch-action="run">BĚH</button>
+          <button type="button" data-touch-action="interact">E</button>
+          <button type="button" data-touch-action="pause">Ⅱ</button>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
