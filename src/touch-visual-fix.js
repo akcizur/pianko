@@ -53,6 +53,15 @@ style.textContent = `
       width: 148px !important;
       height: 148px !important;
     }
+    /* Expand the invisible hit area so small phone screens are easier to control. */
+    .move-stick::before {
+      content: "";
+      position: absolute;
+      inset: -22px;
+      border-radius: 50%;
+      background: transparent;
+      pointer-events: auto;
+    }
     .stick-knob {
       width: 58px !important;
       height: 58px !important;
