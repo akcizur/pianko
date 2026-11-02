@@ -6,7 +6,8 @@ style.textContent = `
   .hud, .crosshair, .hint, .mission-card, .status-card, .vehicle-hud { pointer-events: none !important; }
 
   /* Keep the touch layer above informational HUD, but below modal/gameplay panels. */
-  .touch-ui { z-index: 20 !important; }
+  /* Keep touch controls above the world, but below menus and modal panels. */
+  .touch-ui { z-index: 4 !important; }
   .touch-ui, .touch-ui * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   .touch-ui, .move-stick, .look-zone, .touch-actions, .touch-actions button {
     -webkit-tap-highlight-color: transparent;
