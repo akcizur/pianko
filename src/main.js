@@ -1022,7 +1022,7 @@ function setMenuPage(page){
   $("menuSubtitle").textContent=page==="main"?"SÍDLIŠTĚ MÍR · ČESKOSLOVENSKO · 1975":page==="settings"?"OBRAZ · OVLÁDÁNÍ · NASTAVENÍ":page==="controls"?"KLÁVESNICE · MYŠ · OVLADAČ":"POTVRZENÍ · NOVÁ HRA";
   menuSelection=0;selectMenuItem();
 }
-function closeMenu(){menuScreen.hidden=true;state.started=true;renderer.domElement.focus();renderer.domElement.requestPointerLock?.();}
+function closeMenu(){menuScreen.hidden=true;state.started=true;renderer.domElement.focus();if(matchMedia("(pointer:fine)").matches){try{const lock=renderer.domElement.requestPointerLock?.();lock?.catch?.(()=>{});}catch{}}}
 function startNewGame(){
   try{localStorage.removeItem(SAVE_KEY);}catch{}
   if(apartmentEntry){apartmentEntry.open=false;apartmentEntry.doorPivot.rotation.y=0;apartmentEntry.doorCollider.enabled=true;for(const door of apartmentEntry.apartmentDoors){door.open=false;door.doorPivot.rotation.y=0;door.doorCollider.enabled=true;}}
