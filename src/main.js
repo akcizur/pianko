@@ -8,6 +8,8 @@ import { advanceNeighborQuestStep, isCourierEncounterActive, normalizeNeighborQu
 import { moveVehicleWithCollisions, stepVehicleDynamics, vehicleAabb } from "./core/vehicle-controller.js";
 import { buildApartmentInterior } from "./world/apartment-interior.js";
 import { createBuildingElevationResolver } from "./world/building-navigation.js";
+import { calculateBuildingEndWallCenters, calculateFloorSlabSegments } from "./world/building-geometry.js";
+import { calculateVehicleCameraPose } from "./world/vehicle-camera.js";
 import { restoreBuildingDoorStates, serializeBuildingDoorStates } from "./world/building-state.js";
 
 const gameAudio=createGameAudio();
@@ -193,7 +195,8 @@ function buildWalkablePanelak(x,z,width,depth,height,inward,options={}){
   const innerColor=kind==="tenement"?0xb6aa98:0xaaa79c;
   const shellMaterial=plasterMaterial(wallColor),partitionMaterial=plasterMaterial(innerColor);
   const frontX=x+inward*width/2,frontWallX=frontX-inward*wall/2;
-  const backX=x-inward*(width/2-wall/2),endZ=z+depth/2-wall/2;
+  const backX=x-inward*(width/2-wall/2);
+  const endWallCenters=calculateBuildingEndWallCenters(z,depth,wall);
   const concrete=wallColor,inner=innerColor,doorWidth=kind==="shop"?1.72:1.34;
   const stairX=frontX-inward*4.25,halfFlight=8,run=.24,flightLength=halfFlight*run;
   const landingX=stairX-inward*flightLength,apartmentDoors=[];
@@ -203,11 +206,25 @@ function buildWalkablePanelak(x,z,width,depth,height,inward,options={}){
 
   block(buildingId+" — základový sokl",x,0,z,width+.34,.18,depth+.34,kind==="tenement"?0x746b60:0x626a6b,false);
   block(buildingId+" — zadní obvodová stěna",backX,floorOffset,z,wall,height,depth,concrete,true,0,0,shellMaterial);
-  for(const sideZ of [-1,1])block(buildingId+" — štítová stěna",x,floorOffset,z+sideZ*endZ,width,height,wall,concrete,true,0,0,shellMaterial);
+  for(const sideZ of [-1,1]){
+    const sideWallZ=sideZ<0?endWallCenters[0]:endWallCenters[1];
+    block(buildingId+" — štítová stěna",x,floorOffset,sideWallZ,width,height,wall,concrete,true,0,0,shellMaterial);
+    const outsideFaceZ=sideWallZ+sideZ*(wall/2+.012);
+    queueFacadePart("slab",x,.09,outsideFaceZ,width+.04,.18,.035);
+    for(let floorJoint=1;floorJoint<storyCount;floorJoint++)
+      queueFacadePart("joint",x,floorOffset+floorJoint*storyHeight,outsideFaceZ,width-.26,.035,.025);
+    const panelCount=Math.max(2,Math.round(width/3));
+    for(let panelJoint=1;panelJoint<panelCount;panelJoint++)
+      queueFacadePart("joint",x-width/2+width*panelJoint/panelCount,floorOffset+height/2,outsideFaceZ,.035,height-.2,.025);
+  }
 
   for(let story=0;story<storyCount;story++){
     const base=floorOffset+story*storyHeight,top=base+storyHeight;
-    block(buildingId+" — železobetonová podlaha "+(story+1)+". patra",x,base-.16,z,width,.16,depth,0x777a76,false);
+    const floorSlabSegments=calculateFloorSlabSegments({x,z,width,depth,stairX,landingX,storyIndex:story});
+    floorSlabSegments.forEach((segment,index)=>{
+      block(buildingId+" — železobetonová podlahová deska "+(story+1)+". patra · "+(index+1),
+        segment.x,base-.16,segment.z,segment.width,.16,segment.depth,0x777a76,false);
+    });
     const openings=[];
     for(let column=-2;column<=2;column++){
       if(story===0&&column===0){
@@ -602,7 +619,8 @@ for(const x of [-.72,.72])for(const z of [-1.27,1.27]){
 stateCar.position.set(2.5,0,6);scene.add(stateCar);
 const vehicle={x:savedVehicleSafe?saved.vehicle.x:2.5,z:savedVehicleSafe?saved.vehicle.z:10.5,yaw:savedVehicleSafe&&Number.isFinite(saved.vehicle.yaw)?saved.vehicle.yaw:0,yawRate:0,speed:0,vx:0,vz:0,horizontalSpeed:0,firstPerson:false,cameraSnap:true,altitude:savedVehicleSafe?THREE.MathUtils.clamp(Number(saved.vehicle.altitude)||0,0,42):0,verticalSpeed:0,battery:savedVehicleSafe?THREE.MathUtils.clamp(Number(saved.vehicle.battery??100)||0,0,100):100,occupied:savedInVehicle,lookSteer:0,lookSteerUntil:0};
 const vehicleCollider={name:"zelený hatchback",...vehicleAabb(vehicle.x,vehicle.z,vehicle.yaw),minY:vehicle.altitude,maxY:vehicle.altitude+2.35,enabled:!vehicle.occupied};colliders.push(vehicleCollider);
-const vehicleCameraPosition=new THREE.Vector3(),vehicleLookTarget=new THREE.Vector3();
+const vehicleCameraPosition=new THREE.Vector3(),vehicleLookTarget=new THREE.Vector3(),vehicleCameraCurrentTarget=new THREE.Vector3();
+let vehicleCameraReady=false;
 function syncVehicleCollider(){Object.assign(vehicleCollider,vehicleAabb(vehicle.x,vehicle.z,vehicle.yaw));vehicleCollider.minY=vehicle.altitude;vehicleCollider.maxY=vehicle.altitude+2.35;}
 stateCar.position.set(vehicle.x,vehicle.altitude,vehicle.z);
 for(const flame of thrusters)flame.visible=vehicle.altitude>.8;
@@ -912,6 +930,7 @@ mission.complete=mission.stage>=5;
 
 function enterVehicle(){
   input.clear();controller.setAnalogMove(0,0);phoneDrawn=false;phoneGroup.visible=false;vehicle.occupied=true;vehicle.firstPerson=false;vehicle.cameraSnap=true;vehicleCollider.enabled=false;state.inVehicle=true;$("crosshair").hidden=true;$("vehicleViewLabel").textContent="THIRD PERSON · V";vehicle.speed=0;vehicle.vx=0;vehicle.vz=0;vehicle.yawRate=0;showToast("ZELENÝ HATCHBACK · SHIFT STOUPÁ · CTRL KLESÁ · E VYSTOUPIT");
+  vehicle.horizontalSpeed=0;
   gameAudio.door(true);
   camera.fov=80;camera.updateProjectionMatrix();$("vehicleHud").hidden=false;
   $("touchUI").querySelector('[data-touch-action="jump"]').textContent="STOUPAT";
@@ -930,6 +949,7 @@ function exitVehicle(){
   if(!exits.some(spawn=>controller.setSpawn(spawn))){showToast("KOLEM VOZU NENÍ BEZPEČNÉ MÍSTO K VYSTOUPENÍ");return false;}
   input.clear();
   vehicle.occupied=false;vehicle.firstPerson=false;vehicle.cameraSnap=false;state.inVehicle=false;$("crosshair").hidden=false;vehicle.speed=0;vehicle.vx=0;vehicle.vz=0;vehicle.yawRate=0;vehicle.altitude=0;vehicle.verticalSpeed=0;stateCar.position.y=0;vehicleCollider.enabled=true;syncVehicleCollider();controller.setAnalogMove(0,0);
+  vehicle.horizontalSpeed=0;
   gameAudio.door(false);
   camera.fov=74;camera.updateProjectionMatrix();$("vehicleHud").hidden=true;
   $("touchUI").querySelector('[data-touch-action="jump"]').textContent="SKOK";
@@ -942,6 +962,7 @@ function toggleVehicleView(){
   vehicle.firstPerson=!vehicle.firstPerson;
   vehicle.cameraSnap=true;
   $("vehicleViewLabel").textContent=vehicle.firstPerson?"FIRST PERSON · V":"THIRD PERSON · V";
+  camera.fov=vehicle.firstPerson?76:80;camera.updateProjectionMatrix();
   gameAudio.ui();
   showToast(vehicle.firstPerson?"POHLED ŘIDIČE":"POHLED ZA VOZEM");
 }
@@ -1262,18 +1283,21 @@ renderer.setAnimationLoop(time=>{
       if(typeof importedFrontAxle!=="undefined"&&importedFrontAxle)importedFrontAxle.rotation.y=-steer*(inAir?.22:.42);
       for(const wheel of [...wheels,...wheelHubs])wheel.visible=!inAir;
       thrusters.forEach((flame,index)=>{flame.visible=inAir;flame.scale.setScalar(.78+.22*Math.sin(gameTime*13+index));});
-      if(vehicle.firstPerson){
-        vehicleCameraPosition.set(-.43,1.68,-.58);
-        stateCar.localToWorld(vehicleCameraPosition);
-        vehicleLookTarget.set(-.43,1.62,-8);
-        stateCar.localToWorld(vehicleLookTarget);
+      const cameraPose=calculateVehicleCameraPose(vehicle);
+      vehicleCameraPosition.set(cameraPose.position.x,cameraPose.position.y,cameraPose.position.z);
+      vehicleLookTarget.set(cameraPose.target.x,cameraPose.target.y,cameraPose.target.z);
+      const cameraBlend=1-Math.exp((vehicle.firstPerson?18:7.2)*dt);
+      if(vehicle.cameraSnap||!vehicleCameraReady){
+        camera.position.copy(vehicleCameraPosition);
+        vehicleCameraCurrentTarget.copy(vehicleLookTarget);
+        vehicleCameraReady=true;
+        vehicle.cameraSnap=false;
       }else{
-        vehicleCameraPosition.set(vehicle.x+Math.sin(vehicle.yaw)*6.2,vehicle.altitude+3.1,vehicle.z+Math.cos(vehicle.yaw)*6.2);
-        vehicleLookTarget.set(vehicle.x-Math.sin(vehicle.yaw)*2,vehicle.altitude+1.05,vehicle.z-Math.cos(vehicle.yaw)*2);
+        camera.position.lerp(vehicleCameraPosition,cameraBlend);
+        vehicleCameraCurrentTarget.lerp(vehicleLookTarget,cameraBlend);
       }
-      if(vehicle.cameraSnap){camera.position.copy(vehicleCameraPosition);vehicle.cameraSnap=false;}
-      else camera.position.lerp(vehicleCameraPosition,1-Math.exp(vehicle.firstPerson?16:7.5)*dt);
-      camera.lookAt(vehicleLookTarget);
+      camera.rotation.order="YXZ";
+      camera.lookAt(vehicleCameraCurrentTarget);
       $("speedValue").textContent=String(Math.round(horizontalSpeed*3.6)).padStart(3,"0");
       $("altitudeValue").textContent=String(Math.round(vehicle.altitude)).padStart(2,"0");
       $("batteryValue").textContent=String(Math.round(vehicle.battery)).padStart(2,"0");

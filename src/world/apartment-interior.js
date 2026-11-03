@@ -1,3 +1,5 @@
+/** Vertical offsets for non-overlapping floor finish layers. */
+export const APARTMENT_FLOOR_LAYERS=Object.freeze({woodBottom:.002,woodThickness:.038,surfaceGap:.001,tileThickness:.02,rugThickness:.018});
 /** Compact 1970s panel-flat dimensions in metres. */
 export function calculateApartmentLayout({unitMinX,unitMaxX,roomDepth=4.64}){
  const unitWidth=Math.max(0,unitMaxX-unitMinX),dividerX=(unitMinX+unitMaxX)/2,livingWidth=dividerX-unitMinX,bedroomWidth=unitMaxX-dividerX;
@@ -7,6 +9,7 @@ export function calculateApartmentLayout({unitMinX,unitMaxX,roomDepth=4.64}){
 /** Build a genuinely walkable panel flat with living room, bedroom and bathroom. */
 export function buildApartmentInterior({THREE,scene,block,material,x,z,base,storyHeight,sideZ,unitMinX,unitMaxX,unitX,tone=0,lighting=true}){
  const side=Math.sign(sideZ)||1,width=unitMaxX-unitMinX,plan=calculateApartmentLayout({unitMinX,unitMaxX,roomDepth:4.64});
+ const woodFloorY=base+APARTMENT_FLOOR_LAYERS.woodBottom,detailFloorY=base+APARTMENT_FLOOR_LAYERS.woodBottom+APARTMENT_FLOOR_LAYERS.woodThickness+APARTMENT_FLOOR_LAYERS.surfaceGap;
  const {dividerX,livingWidth}=plan,wallY=base+.04,wallH=storyHeight-.2,wallThickness=.12;
  const palette=[
   {floor:0x86765f,wall:0xb7b1a3,accent:0x877a68,textile:0x59636a,wood:0x795c43},
@@ -25,8 +28,8 @@ export function buildApartmentInterior({THREE,scene,block,material,x,z,base,stor
    add(n+" — nadpraží",px,py+2.12,pz,.15,.08,w+.16,0x8d877a);
   }
  };
- add("byt — parketová podlaha",(unitMinX+unitMaxX)/2,base+.005,z+side*3.84,width-.08,.035,4.56,palette.floor);
- add("byt — koupelnová dlažba",unitMinX+1.02,base+.028,atZ(2.58),1.9,.045,2.04,0x777e7a);
+ add("byt — parketová podlaha",(unitMinX+unitMaxX)/2,woodFloorY,z+side*3.84,width-.08,APARTMENT_FLOOR_LAYERS.woodThickness,4.56,palette.floor);
+ add("byt — koupelnová dlažba",unitMinX+1.02,detailFloorY,atZ(2.58),1.9,APARTMENT_FLOOR_LAYERS.tileThickness,2.04,0x777e7a);
  add("byt — sokl",dividerX-.08,base+.075,atZ(4.35),.025,.12,3.15,0x645d51);
  let cursor=2.5;
  for(const d of [{center:3.02,label:"obytné části"},{center:4.72,label:"ložnice"}]){
@@ -68,7 +71,7 @@ export function buildApartmentInterior({THREE,scene,block,material,x,z,base,stor
  add("byt — konferenční stolek",livingX-1.25,base+.44,atZ(4.35),.65,.12,.42,palette.wood,true);
  add("byt — televizní stolek",unitMinX+.18,base+.38,atZ(3.92),.34,.72,.9,0x62594e,true);
  add("byt — televizor Tesla",unitMinX+.2,base+1.2,atZ(3.92),.13,.58,.78,0x292d2d);
- add("byt — koberec",livingX+.72,base+.027,atZ(4.62),1.95,.035,1.45,[0x716455,0x58606a,0x755649][tone]);
+ add("byt — koberec",livingX+.72,detailFloorY+APARTMENT_FLOOR_LAYERS.surfaceGap,atZ(4.62),1.95,APARTMENT_FLOOR_LAYERS.rugThickness,1.45,[0x716455,0x58606a,0x755649][tone]);
  const bedroomX=(dividerX+unitMaxX)/2;
  add("byt — postel",bedroomX,base+.31,atZ(4.15),1.62,.42,2.04,0x655d53,true);
  add("byt — přikrývka",bedroomX,base+.56,atZ(4.15),1.5,.11,1.85,[0x505b61,0x75624f,0x68685e][tone]);
