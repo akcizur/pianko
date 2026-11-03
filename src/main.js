@@ -8,6 +8,7 @@ import { advanceNeighborQuestStep, isCourierEncounterActive, normalizeNeighborQu
 import { moveVehicleWithCollisions, stepVehicleDynamics, vehicleAabb } from "./core/vehicle-controller.js";
 import { buildApartmentInterior } from "./world/apartment-interior.js";
 import { createBuildingElevationResolver } from "./world/building-navigation.js";
+import { restoreBuildingDoorStates, serializeBuildingDoorStates } from "./world/building-state.js";
 
 const gameAudio=createGameAudio();
 const unlockGameAudio=()=>gameAudio.unlock();
@@ -711,6 +712,7 @@ function saveGame() {
     stats:{hp:stats.hp,maxHp:stats.maxHp,energy:stats.energy,maxEnergy:stats.maxEnergy,xp:stats.xp,level:stats.level,credits:stats.credits,medkits:stats.medkits,weaponLevel:stats.weaponLevel,armorLevel:stats.armorLevel},
     player:p?{x:p.x,z:p.z,elevation:p.elevation,yaw:p.yaw}:null,
     collectedSupplies:supplies.filter(supply=>supply.collected).map(supply=>supply.id),
+    buildings:serializeBuildingDoorStates(buildingEntries),
     panelak:apartmentEntry?{entranceOpen:apartmentEntry.open,doors:apartmentEntry.apartmentDoors.map(door=>door.open)}:null,
     vehicle:{x:vehicle.x,z:vehicle.z,yaw:vehicle.yaw,altitude:vehicle.altitude,battery:vehicle.battery},playSeconds:totalPlaySeconds
   }));const continueButton=document.getElementById("continueOption");if(continueButton)continueButton.disabled=false; } catch { showToast("POSTUP SE NEPODAŘILO ULOŽIT"); }
@@ -892,10 +894,16 @@ const apartmentDoorInteractables=buildingEntries.flatMap(entry=>entry.apartmentD
 const interactables=[enemyInteractable,relayInteractable,mechanicInteractable,courierInteractable,towerInteractable,patternInteractable,...supplyInteractables,...residentInteractables,...buildingDoorInteractables,...apartmentDoorInteractables];
 const navigation={bounds:{minX:-20.4,maxX:20.4,minZ:-92,maxZ:29},elevationAt:createBuildingElevationResolver(buildingEntries)};
 const controller=createPlayerController({camera,colliders,interactables,state,ui:{showToast},navigation});
-if(apartmentEntry&&saved.panelak){
-  if(saved.panelak.entranceOpen){apartmentEntry.open=true;apartmentEntry.doorPivot.rotation.y=apartmentEntry.openAngle;apartmentEntry.doorCollider.enabled=false;}
-  for(let index=0;index<apartmentEntry.apartmentDoors.length;index++)if(saved.panelak.doors?.[index]){
-    const door=apartmentEntry.apartmentDoors[index];door.open=true;door.doorPivot.rotation.y=door.openAngle;door.doorCollider.enabled=false;
+if(!restoreBuildingDoorStates(buildingEntries,saved.buildings)&&apartmentEntry&&saved.panelak){
+  // Backward compatibility with saves created before all houses became walkable.
+  apartmentEntry.open=Boolean(saved.panelak.entranceOpen);
+  apartmentEntry.doorPivot.rotation.y=apartmentEntry.open?apartmentEntry.openAngle:0;
+  apartmentEntry.doorCollider.enabled=!apartmentEntry.open;
+  for(let index=0;index<apartmentEntry.apartmentDoors.length;index++){
+    const door=apartmentEntry.apartmentDoors[index];
+    door.open=Boolean(saved.panelak.doors?.[index]);
+    door.doorPivot.rotation.y=door.open?door.openAngle:0;
+    door.doorCollider.enabled=!door.open;
   }
 }
 const savedPlayerSafe=saved.player&&Math.abs(saved.player.x)<=20.2&&saved.player.z>-88&&saved.player.z<25;
