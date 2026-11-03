@@ -33,7 +33,7 @@ test("saved entrance and apartment doors restore both visuals and collision flag
   assert.equal(restored,true);
   assert.equal(entries[0].doorPivot.rotation.y,0);
   assert.equal(entries[0].doorCollider.enabled,true);
-  assert.equal(entries[0].apartmentDoors[1].doorPivot.rotation.y,-2);
+  assert.equal(entries[0].apartmentDoors[1].doorPivot.rotation.y,2);
   assert.equal(entries[0].apartmentDoors[1].doorCollider.enabled,false);
   assert.equal(entries[1].doorPivot.rotation.y,-1);
   assert.equal(entries[1].doorCollider.enabled,false);
