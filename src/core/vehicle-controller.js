@@ -28,13 +28,16 @@ export function stepVehicleDynamics(vehicle,input={},deltaTime=1/60){
  const fx=-Math.sin(vehicle.yaw),fz=-Math.cos(vehicle.yaw),rx=Math.cos(vehicle.yaw),rz=-Math.sin(vehicle.yaw);
  const longitudinal=vehicle.vx*fx+vehicle.vz*fz,lateral=vehicle.vx*rx+vehicle.vz*rz;
  let acceleration=0;
- if(Math.abs(throttle)>.001){
+ if(airborne){
+  acceleration=Math.abs(throttle)>.001
+   ? throttle*(throttle>0?tune.acceleration:tune.reverseAcceleration)
+   : -longitudinal*tune.drag;
+ }else if(Math.abs(throttle)>.001){
   if(Math.abs(longitudinal)>.12&&Math.sign(throttle)!==Math.sign(longitudinal)){
    const next=approach(longitudinal,0,tune.braking*Math.abs(throttle)*dt);
    acceleration=(next-longitudinal)/dt;
   }else acceleration=throttle*(throttle>0?tune.acceleration:tune.reverseAcceleration);
- }else if(airborne)acceleration=-longitudinal*tune.drag;
- else{
+ }else{
   const resistance=tune.rollingResistance+tune.aerodynamicDrag*longitudinal*longitudinal;
   acceleration=-Math.sign(longitudinal)*Math.min(Math.abs(longitudinal),resistance*dt)/dt;
  }

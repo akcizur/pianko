@@ -16,7 +16,8 @@ Příběhová RPG/FPS hra v Three.js, zasazená do normalizačního Českosloven
 | Vstup | Akce |
 | --- | --- |
 | W / S nebo šipky nahoru / dolů | Plyn a zpomalení, po zastavení také zpátečka |
-| A / D nebo šipky vlevo / vpravo | Řízení vozu |
+| A / D nebo šipky vlevo / vpravo | Řízení vozu a směr letu |
+| V | Přepnout pohled řidiče / třetí osobu |
 | Myš při zamčeném ukazateli | Plynulé směrové řízení vozidla |
 | Levá páčka gamepadu | Plyn a řízení |
 | Pravá páčka gamepadu | Směrové řízení vozidla / rozhled pěšky |
@@ -31,7 +32,7 @@ Příběhová RPG/FPS hra v Three.js, zasazená do normalizačního Českosloven
 | Dotyk | Levý joystick pro pohyb, pravá oblast pro rozhled/řízení, akční tlačítka |
 | Gamepad | Levá páčka pohyb/řízení, pravá páčka směr, RT stoupání, LT klesání, A potvrzení, X interakce, Start pauza |
 
-Pozemní režim používá model předních řiditelných kol, rozvor, podélnou a boční rychlost, valivý odpor, aerodynamický odpor, přilnavost pneumatik a brzdění před zpátečkou. Směr karoserie, kol, kamery a trajektorie je sjednocený. Hover režim má samostatný vektorový tah, setrvačný drift, nezávislé natáčení ve vzduchu, vertikální tah, omezení výšky a spotřebu baterie; při slabé baterii zahájí nouzové klesání. Zbraň není zobrazena v pohledu první osoby; klávesa T vytahuje ruční telefon a I otevírá inventář.
+Pozemní režim používá model předních řiditelných kol, rozvor, podélnou a boční rychlost, valivý odpor, aerodynamický odpor, přilnavost pneumatik a brzdění před zpátečkou. Směr karoserie, kol, kamery a trajektorie je sjednocený. Hover režim má samostatný vektorový tah: W zrychluje dopředu, S dává zpětný tah, A/D mění směr letu a vůz plynule zachovává setrvačnost. Vertikální tah, omezení výšky a spotřeba baterie jsou nezávislé; při slabé baterii zahájí nouzové klesání. Ve vozidle klávesa V přepíná pohled řidiče v kabině a kameru třetí osoby za autem; zaměřovač se ve voze skryje. Zbraň není zobrazena v pohledu první osoby; klávesa T vytahuje ruční telefon a I otevírá inventář.
 
 ## Spuštění a sestavení
 

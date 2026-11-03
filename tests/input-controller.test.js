@@ -27,7 +27,7 @@ class MockElement extends EventHub {
   hasPointerCapture() { return false; }
 }
 
-function installHarness(onVehicleLook = () => {}, onTogglePhone = () => {}, onToggleInventory = () => {}) {
+function installHarness(onVehicleLook = () => {}, onTogglePhone = () => {}, onToggleInventory = () => {}, onToggleVehicleView = () => {}) {
   const names = ["window", "document", "Element", "navigator", "requestAnimationFrame", "cancelAnimationFrame"];
   const previous = new Map(names.map(name => [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
   const window = new EventHub();
@@ -52,7 +52,7 @@ function installHarness(onVehicleLook = () => {}, onTogglePhone = () => {}, onTo
   const element = new MockElement();
   const state = { started: true, paused: false, combat: false, dialogue: false, inVehicle: true };
   const controller = { player: { yaw: 0, pitch: 0 }, keysDown: Object.create(null), setAnalogMove() {}, jump() {} };
-  const input = bindInput({ element, controller, state, touchRoot: root, onVehicleLook, onTogglePhone, onToggleInventory });
+  const input = bindInput({ element, controller, state, touchRoot: root, onVehicleLook, onTogglePhone, onToggleInventory, onToggleVehicleView });
   return {
     state, controller, input, window, root, element, look, jump, run, frames,
     setGamepad(value) { gamepad = value; },
@@ -133,5 +133,16 @@ test("T opens the held phone and I opens or closes inventory",()=>{
   assert.equal(inventoryToggles,2);
   h.window.emit("keydown",event("KeyW"));
   assert.equal(h.controller.keysDown.KeyW,false);
+ }finally{h.restore();}
+});
+
+test("V switches view only while driving and ignores key repeat",()=>{
+ let views=0;const h=installHarness(()=>{},()=>{},()=>{},()=>views++);
+ try{
+  const key=(code,repeat=false)=>({code,target:null,repeat,preventDefault(){},stopImmediatePropagation(){}});
+  h.window.emit("keydown",key("KeyV"));assert.equal(views,1);
+  h.window.emit("keydown",key("KeyV",true));assert.equal(views,1);
+  h.state.inVehicle=false;h.window.emit("keydown",key("KeyV"));assert.equal(views,1);
+  h.state.inVehicle=true;h.state.paused=true;h.window.emit("keydown",key("KeyV"));assert.equal(views,1);
  }finally{h.restore();}
 });

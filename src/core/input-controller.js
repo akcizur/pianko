@@ -12,6 +12,7 @@ export function bindInput({
   onMenuAction = () => {},
   onTogglePhone = () => {},
   onToggleInventory = () => {},
+  onToggleVehicleView = () => {},
   touchRoot = document
 }) {
   if (!element || !controller) {
@@ -140,6 +141,12 @@ export function bindInput({
       if (state.inventory) { event.preventDefault(); event.stopImmediatePropagation(); onToggleInventory(); return; }
       if (!state.started || state.dialogue) return;
       event.preventDefault(); event.stopImmediatePropagation(); togglePause(); return;
+    }
+    if (event.code === "KeyV") {
+      if (!event.repeat && state.started && !state.paused && !state.combat && !state.dialogue && state.inVehicle) {
+        event.preventDefault();event.stopImmediatePropagation();onToggleVehicleView();
+      }
+      return;
     }
     if (event.code === "KeyT" || event.code === "KeyI") {
       if (!event.repeat && state.started && !state.paused && !state.combat && !state.dialogue &&

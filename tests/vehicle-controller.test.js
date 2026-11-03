@@ -17,3 +17,22 @@ test("rotated vehicle bounds expand correctly",()=>{const a=vehicleAabb(0,0,0),b
 test("vehicle collision respects height",()=>{const b=vehicleAabb(0,0,0);assert.equal(vehicleOverlapsCollider(b,{minX:-2,maxX:2,minZ:-3,maxZ:3,minY:4,maxY:5},0),false);assert.equal(vehicleOverlapsCollider(b,{minX:-2,maxX:2,minZ:-3,maxZ:3},0),true);});
 test("wall collision removes inward velocity without reversal",()=>{const c=makeVehicle({speed:12,vz:-12});const w={minX:-2,maxX:2,minZ:-3,maxZ:-2,minY:0,maxY:3,enabled:true};const r=moveVehicleWithCollisions(c,0,-8,[w],{bounds:{minX:-12,maxX:12,minZ:-12,maxZ:12}});assert.equal(r.blockedZ,true);assert.ok(c.z>-1);assert.equal(c.vz,0);assert.equal(c.speed,0);});
 test("wall collision keeps tangential sliding",()=>{const c=makeVehicle({vx:3,vz:1});const w={minX:1.2,maxX:2,minZ:-3,maxZ:3,minY:0,maxY:3,enabled:true};const r=moveVehicleWithCollisions(c,3,1,[w],{bounds:{minX:-12,maxX:12,minZ:-12,maxZ:12}});assert.equal(r.blockedX,true);assert.ok(r.movedZ);assert.ok(c.z>0);assert.equal(c.vx,0);});
+
+test("hover W accelerates forward and S directly applies reverse thrust",()=>{
+ const forward=makeVehicle({altitude:5}),reverse=makeVehicle({altitude:5});
+ run(forward,{throttle:1},1.8);run(reverse,{throttle:-1},1.8);
+ assert.ok(forward.vz<0&&forward.speed>0,"W moves along the nose");
+ assert.ok(reverse.vz>0&&reverse.speed<0,"S directly applies reverse thrust");
+});
+test("hover reverse thrust smoothly carries forward velocity through zero",()=>{
+ const craft=makeVehicle({altitude:5,speed:8,vz:-8});
+ run(craft,{throttle:-1},2.4);
+ assert.ok(craft.speed<0,"reverse thrust eventually moves the craft backwards");
+ assert.ok(Number.isFinite(craft.vx)&&Number.isFinite(craft.vz));
+});
+test("hover coasts with smooth inertial drag after releasing W",()=>{
+ const craft=makeVehicle({altitude:5});run(craft,{throttle:1},1.5);
+ const before=Math.hypot(craft.vx,craft.vz);run(craft,{},.35);
+ const after=Math.hypot(craft.vx,craft.vz);
+ assert.ok(after<before&&after>before*.8);
+});

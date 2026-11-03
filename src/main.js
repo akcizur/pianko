@@ -551,13 +551,15 @@ for(const x of [-.72,.72])for(const z of [-1.27,1.27]){
   const flame=new THREE.Mesh(new THREE.ConeGeometry(.27,.9,8),thrusterMaterial);flame.rotation.x=Math.PI;flame.position.set(x,.12,z);flame.visible=false;stateCar.add(flame);thrusters.push(flame);
 }
 stateCar.position.set(2.5,0,6);scene.add(stateCar);
-const vehicle={x:savedVehicleSafe?saved.vehicle.x:2.5,z:savedVehicleSafe?saved.vehicle.z:10.5,yaw:savedVehicleSafe&&Number.isFinite(saved.vehicle.yaw)?saved.vehicle.yaw:0,yawRate:0,speed:0,vx:0,vz:0,horizontalSpeed:0,altitude:savedVehicleSafe?THREE.MathUtils.clamp(Number(saved.vehicle.altitude)||0,0,42):0,verticalSpeed:0,battery:savedVehicleSafe?THREE.MathUtils.clamp(Number(saved.vehicle.battery??100)||0,0,100):100,occupied:savedInVehicle,lookSteer:0,lookSteerUntil:0};
+const vehicle={x:savedVehicleSafe?saved.vehicle.x:2.5,z:savedVehicleSafe?saved.vehicle.z:10.5,yaw:savedVehicleSafe&&Number.isFinite(saved.vehicle.yaw)?saved.vehicle.yaw:0,yawRate:0,speed:0,vx:0,vz:0,horizontalSpeed:0,firstPerson:false,cameraSnap:true,altitude:savedVehicleSafe?THREE.MathUtils.clamp(Number(saved.vehicle.altitude)||0,0,42):0,verticalSpeed:0,battery:savedVehicleSafe?THREE.MathUtils.clamp(Number(saved.vehicle.battery??100)||0,0,100):100,occupied:savedInVehicle,lookSteer:0,lookSteerUntil:0};
 const vehicleCollider={name:"zelený hatchback",...vehicleAabb(vehicle.x,vehicle.z,vehicle.yaw),minY:vehicle.altitude,maxY:vehicle.altitude+2.35,enabled:!vehicle.occupied};colliders.push(vehicleCollider);
 const vehicleCameraPosition=new THREE.Vector3(),vehicleLookTarget=new THREE.Vector3();
 function syncVehicleCollider(){Object.assign(vehicleCollider,vehicleAabb(vehicle.x,vehicle.z,vehicle.yaw));vehicleCollider.minY=vehicle.altitude;vehicleCollider.maxY=vehicle.altitude+2.35;}
 stateCar.position.set(vehicle.x,vehicle.altitude,vehicle.z);
 for(const flame of thrusters)flame.visible=vehicle.altitude>.8;
 $("vehicleHud").hidden=!vehicle.occupied;
+$("crosshair").hidden=vehicle.occupied;
+$("vehicleViewLabel").textContent="THIRD PERSON · V";
   if(vehicle.occupied){$("touchUI").querySelector('[data-touch-action="jump"]').textContent="STOUPAT";$("touchUI").querySelector('[data-touch-action="run"]').textContent="KLESAT";}
 
 // Parked yellow-and-white Veřejná bezpečnost patrol car at the curb.
@@ -867,7 +869,7 @@ if (!controller.setSpawn(savedPlayerSafe?saved.player:{x:0,z:8,yaw:0})) controll
 mission.complete=mission.stage>=5;
 
 function enterVehicle(){
-  input.clear();controller.setAnalogMove(0,0);phoneDrawn=false;phoneGroup.visible=false;vehicle.occupied=true;vehicleCollider.enabled=false;state.inVehicle=true;vehicle.speed=0;vehicle.vx=0;vehicle.vz=0;vehicle.yawRate=0;showToast("ZELENÝ HATCHBACK · SHIFT STOUPÁ · CTRL KLESÁ · E VYSTOUPIT");
+  input.clear();controller.setAnalogMove(0,0);phoneDrawn=false;phoneGroup.visible=false;vehicle.occupied=true;vehicle.firstPerson=false;vehicle.cameraSnap=true;vehicleCollider.enabled=false;state.inVehicle=true;$("crosshair").hidden=true;$("vehicleViewLabel").textContent="THIRD PERSON · V";vehicle.speed=0;vehicle.vx=0;vehicle.vz=0;vehicle.yawRate=0;showToast("ZELENÝ HATCHBACK · SHIFT STOUPÁ · CTRL KLESÁ · E VYSTOUPIT");
   gameAudio.door(true);
   camera.fov=80;camera.updateProjectionMatrix();$("vehicleHud").hidden=false;
   $("touchUI").querySelector('[data-touch-action="jump"]').textContent="STOUPAT";
@@ -885,13 +887,21 @@ function exitVehicle(){
   ];
   if(!exits.some(spawn=>controller.setSpawn(spawn))){showToast("KOLEM VOZU NENÍ BEZPEČNÉ MÍSTO K VYSTOUPENÍ");return false;}
   input.clear();
-  vehicle.occupied=false;state.inVehicle=false;vehicle.speed=0;vehicle.vx=0;vehicle.vz=0;vehicle.yawRate=0;vehicle.altitude=0;vehicle.verticalSpeed=0;stateCar.position.y=0;vehicleCollider.enabled=true;syncVehicleCollider();controller.setAnalogMove(0,0);
+  vehicle.occupied=false;vehicle.firstPerson=false;vehicle.cameraSnap=false;state.inVehicle=false;$("crosshair").hidden=false;vehicle.speed=0;vehicle.vx=0;vehicle.vz=0;vehicle.yawRate=0;vehicle.altitude=0;vehicle.verticalSpeed=0;stateCar.position.y=0;vehicleCollider.enabled=true;syncVehicleCollider();controller.setAnalogMove(0,0);
   gameAudio.door(false);
   camera.fov=74;camera.updateProjectionMatrix();$("vehicleHud").hidden=true;
   $("touchUI").querySelector('[data-touch-action="jump"]').textContent="SKOK";
   $("touchUI").querySelector('[data-touch-action="run"]').textContent="BĚH";
   saveGame();showToast("VYSTOUPIL JSI Z VOZU");
   return true;
+}
+function toggleVehicleView(){
+  if(!state.started||state.paused||state.combat||state.dialogue||!state.inVehicle)return;
+  vehicle.firstPerson=!vehicle.firstPerson;
+  vehicle.cameraSnap=true;
+  $("vehicleViewLabel").textContent=vehicle.firstPerson?"FIRST PERSON · V":"THIRD PERSON · V";
+  gameAudio.ui();
+  showToast(vehicle.firstPerson?"POHLED ŘIDIČE":"POHLED ZA VOZEM");
 }
 function togglePhone(){
   if(!state.started||state.paused||state.combat||state.dialogue||state.inventory||state.inVehicle)return;
@@ -941,7 +951,7 @@ const input=bindInput({element:renderer.domElement,controller,state,onInteract:i
     renderSettings();
   }else if(command==="confirm")activateMenuItem(items[menuSelection]);
   else if(command==="back"&&menuPage!=="main")setMenuPage("main");
-},onPauseChange(paused){pauseScreen.hidden=!paused;renderer.domElement.classList.toggle("is-paused",paused);},onTogglePhone:togglePhone,onToggleInventory:toggleInventory,onVehicleLook(dx,_dy,source="mouse"){
+},onPauseChange(paused){pauseScreen.hidden=!paused;renderer.domElement.classList.toggle("is-paused",paused);},onTogglePhone:togglePhone,onToggleInventory:toggleInventory,onToggleVehicleView:toggleVehicleView,onVehicleLook(dx,_dy,source="mouse"){
   if(source==="gamepad")vehicle.lookSteer=THREE.MathUtils.clamp(dx*60/2.2,-1,1);
   else vehicle.lookSteer=THREE.MathUtils.clamp(vehicle.lookSteer+dx*(source==="touch"?15:45),-1,1);
   vehicle.lookSteerUntil=gameTime+(source==="gamepad"?.08:.16);
@@ -1059,7 +1069,7 @@ function startNewGame(){
   scene.add(enemyMesh);scene.add(courierGuard);scene.add(courier);courierGuard.visible=false;courier.visible=false;courierBeacon.visible=false;miraBeacon.visible=false;markerRing.visible=false;towerBeacon.visible=false;endingPanel.hidden=true;dialoguePanel.hidden=true;
   for(const supply of supplies){supply.collected=false;supply.group.visible=true;supply.interactable.enabled=true;}
   pauseScreen.hidden=true;renderer.domElement.classList.remove("is-paused");combatPanel.hidden=true;$("vehicleHud").hidden=true;camera.fov=74;camera.updateProjectionMatrix();
-  phoneDrawn=false;state.inventory=false;$("inventoryPanel").hidden=true;phoneGroup.visible=false;vehicle.x=2.5;vehicle.z=10.5;vehicle.yaw=0;vehicle.yawRate=0;vehicle.speed=0;vehicle.vx=0;vehicle.vz=0;vehicle.horizontalSpeed=0;vehicle.altitude=0;vehicle.verticalSpeed=0;vehicle.battery=100;vehicleCollider.enabled=true;syncVehicleCollider();stateCar.position.set(vehicle.x,0,vehicle.z);stateCar.rotation.set(0,0,0);for(const flame of thrusters)flame.visible=false;for(const wheel of [...wheels,...wheelHubs])wheel.visible=true;$("touchUI").querySelector('[data-touch-action="jump"]').textContent="SKOK";$("touchUI").querySelector('[data-touch-action="run"]').textContent="BĚH";
+  phoneDrawn=false;state.inventory=false;$("inventoryPanel").hidden=true;phoneGroup.visible=false;vehicle.x=2.5;vehicle.z=10.5;vehicle.yaw=0;vehicle.yawRate=0;vehicle.speed=0;vehicle.vx=0;vehicle.vz=0;vehicle.horizontalSpeed=0;vehicle.altitude=0;vehicle.verticalSpeed=0;vehicle.battery=100;vehicleCollider.enabled=true;syncVehicleCollider();stateCar.position.set(vehicle.x,0,vehicle.z);stateCar.rotation.set(0,0,0);vehicle.firstPerson=false;vehicle.cameraSnap=false;$("crosshair").hidden=false;$("vehicleViewLabel").textContent="THIRD PERSON · V";for(const flame of thrusters)flame.visible=false;for(const wheel of [...wheels,...wheelHubs])wheel.visible=true;$("touchUI").querySelector('[data-touch-action="jump"]').textContent="SKOK";$("touchUI").querySelector('[data-touch-action="run"]').textContent="BĚH";
   controller.setSpawn({x:0,z:8,yaw:0});updateMission();updateStats();saveGame();closeMenu();showToast("MÍR 12 · PODZIM 1975");
 }
 function activateMenuItem(item=currentMenuItems()[menuSelection]){
@@ -1210,9 +1220,18 @@ renderer.setAnimationLoop(time=>{
       if(typeof importedFrontAxle!=="undefined"&&importedFrontAxle)importedFrontAxle.rotation.y=-steer*(inAir?.22:.42);
       for(const wheel of [...wheels,...wheelHubs])wheel.visible=!inAir;
       thrusters.forEach((flame,index)=>{flame.visible=inAir;flame.scale.setScalar(.78+.22*Math.sin(gameTime*13+index));});
-      vehicleCameraPosition.set(vehicle.x+Math.sin(vehicle.yaw)*6.2,vehicle.altitude+3.1,vehicle.z+Math.cos(vehicle.yaw)*6.2);
-      vehicleLookTarget.set(vehicle.x-Math.sin(vehicle.yaw)*2,vehicle.altitude+1.05,vehicle.z-Math.cos(vehicle.yaw)*2);
-      camera.position.lerp(vehicleCameraPosition,1-Math.exp(-7.5*dt));camera.lookAt(vehicleLookTarget);
+      if(vehicle.firstPerson){
+        vehicleCameraPosition.set(-.43,1.68,-.58);
+        stateCar.localToWorld(vehicleCameraPosition);
+        vehicleLookTarget.set(-.43,1.62,-8);
+        stateCar.localToWorld(vehicleLookTarget);
+      }else{
+        vehicleCameraPosition.set(vehicle.x+Math.sin(vehicle.yaw)*6.2,vehicle.altitude+3.1,vehicle.z+Math.cos(vehicle.yaw)*6.2);
+        vehicleLookTarget.set(vehicle.x-Math.sin(vehicle.yaw)*2,vehicle.altitude+1.05,vehicle.z-Math.cos(vehicle.yaw)*2);
+      }
+      if(vehicle.cameraSnap){camera.position.copy(vehicleCameraPosition);vehicle.cameraSnap=false;}
+      else camera.position.lerp(vehicleCameraPosition,1-Math.exp(vehicle.firstPerson?16:7.5)*dt);
+      camera.lookAt(vehicleLookTarget);
       $("speedValue").textContent=String(Math.round(horizontalSpeed*3.6)).padStart(3,"0");
       $("altitudeValue").textContent=String(Math.round(vehicle.altitude)).padStart(2,"0");
       $("batteryValue").textContent=String(Math.round(vehicle.battery)).padStart(2,"0");
@@ -1265,7 +1284,7 @@ renderer.setAnimationLoop(time=>{
     const nearPattern=neighborQuestStep===1&&Math.hypot(p.x-patternInteractable.x,p.z-patternInteractable.z)<patternInteractable.range;
     const nearIvanaDelivery=neighborQuestStep===2&&nearResident?.id==="ivana";
     hint.textContent=nearCar?"E NASTOUPIT · WASD JÍZDA · MYŠ ŘÍZENÍ":nearSupply?"E SEBRAT "+nearSupply.label:nearPattern?"E VZÍT SEŠIT STŘIHŮ":nearPanelakDoor?"E OTEVŘÍT / ZAVŘÍT VSTUPNÍ DVEŘE":nearApartmentDoor?"E OTEVŘÍT / ZAVŘÍT BYTOVÉ DVEŘE":nearEnemy?"E ZAHÁJIT TAHOVÝ SOUBOJ":nearRelay?"E ZAPNOUT TELEFONNÍ ROZVODNU":nearMira?"E PROMLOUVAT S MECHANIČKOU MIROU":nearCourier?"E ZAHÁJIT SOUBOJ · ZACHRAŇ KURÝRA":nearTower?"E ZAHÁJIT ROZHOVOR U VYSÍLAČE":nearIvanaDelivery?"E PŘEDAT SEŠIT · IVANA":nearResident?"E PROMLOUVAT · "+nearResident.name:"WASD POHYB · SHIFT BĚH · SPACE SKOK · MYŠ ROZHLED · E INTERAKCE";
-    }else if(state.inVehicle)hint.textContent=`W / S POHON · A / D ZATÁČENÍ · SHIFT STOUPAT · CTRL KLESAT · ${vehicle.altitude>.7?"E VYSTOUPIT ZAMČENO":"E VYSTOUPIT"}`;
+    }else if(state.inVehicle)hint.textContent=`W / S POHON · A / D SMĚR · SHIFT STOUPAT · CTRL KLESAT · V POHLED · ${vehicle.altitude>.7?"E VYSTOUPIT ZAMČENO":"E VYSTOUPIT"}`;
   const p=controller.player;
   const buildingFloor=apartmentEntry&&p.elevation>.05?` · DŮM MÍR · ${Math.min(apartmentEntry.storyCount,Math.floor(p.elevation/apartmentEntry.storyHeight)+1)}. PATRO`:"";
   coordinates.textContent=state.inVehicle?`ALT ${Math.round(vehicle.altitude)} M · ${Math.round(Math.hypot(vehicle.vx,vehicle.vz)*3.6)} KM/H`:`X ${p.x.toFixed(1)} · Z ${p.z.toFixed(1)}${buildingFloor}`;
