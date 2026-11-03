@@ -16,7 +16,7 @@ test("upper slab is split around the stair opening while ground slab stays solid
  assert.equal(upper.length,4);
  const area=upper.reduce((sum,p)=>sum+p.width*p.depth,0);
  const holeWidth=Math.abs(input.stairX-input.landingX)+.96;
- const holeDepth=2.92;
+ const holeDepth=2.78;
  assert.ok(Math.abs(area-(input.width*input.depth-holeWidth*holeDepth))<1e-8);
  assert.ok(upper.every(p=>p.width>0&&p.depth>0));
 });

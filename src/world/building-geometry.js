@@ -3,7 +3,7 @@ export function calculateBuildingEndWallCenters(z,depth,wall=.32){
   const halfDepth=Math.max(0,depth/2-wall/2);
   return [z-halfDepth,z+halfDepth];
 }
-export function calculateFloorSlabSegments({x,z,width,depth,stairX,landingX,storyIndex=0,openingEndMargin=.48,openingHalfDepth=1.46}){
+export function calculateFloorSlabSegments({x,z,width,depth,stairX,landingX,storyIndex=0,openingEndMargin=.48,openingHalfDepth=1.39}){
   const full={x,z,width,depth};
   if(storyIndex<=0)return [full];
   const bounds={minX:x-width/2,maxX:x+width/2,minZ:z-depth/2,maxZ:z+depth/2};
