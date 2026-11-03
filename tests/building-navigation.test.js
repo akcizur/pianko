@@ -1,12 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createBuildingElevationResolver } from "../src/world/building-navigation.js";
+import {calculatePanelakLayout} from "../src/world/building-geometry.js";
 
-const makeEntry=(overrides={})=>({
-  id:"DŮM MÍR",x:-14,z:-6,width:10,depth:13,frontX:-9,inward:1,doorWidth:1.34,
-  floorOffset:.18,entryStepLength:.9,stairX:-13.25,landingX:-15.17,flightLength:1.92,
-  storyHeight:2.9,storyCount:6,...overrides
-});
+const makeEntry=(overrides={})=>{
+  const input={id:"DŮM MÍR",x:-14,z:-6,width:10,depth:13,inward:1,doorWidth:1.34,
+    floorOffset:.18,entryStepLength:.9,storyHeight:2.9,storyCount:6,...overrides};
+  return {...input,...calculatePanelakLayout(input)};
+};
 
 test("entrance steps rise continuously from street to ground-floor threshold",()=>{
   const resolve=createBuildingElevationResolver([makeEntry()]);
@@ -16,23 +17,27 @@ test("entrance steps rise continuously from street to ground-floor threshold",()
   assert.equal(resolve(-9.4,-6,.18),.18);
 });
 
-test("two-flight staircase reaches floor two through the landing",()=>{
-  const resolve=createBuildingElevationResolver([makeEntry()]);
-  assert.ok(Math.abs(resolve(-14.21,-6.72,.18)-(.18+2.9*.25))<1e-9);
-  assert.ok(Math.abs(resolve(-15.17,-6.72,.18+2.9*.25)-(.18+2.9/2))<1e-9);
-  assert.ok(Math.abs(resolve(-15.17,-6,.18+2.9/2)-(.18+2.9/2))<1e-9);
-  assert.ok(Math.abs(resolve(-14.21,-5.28,.18+2.9/2)-(.18+2.9*.75))<1e-9);
-  assert.ok(Math.abs(resolve(-13.25,-5.28,.18+2.9*.75)-(.18+2.9))<1e-9);
+test("two-flight staircase reaches the next floor through its landing",()=>{
+  const entry=makeEntry(),resolve=createBuildingElevationResolver([entry]);
+  const firstMid=entry.stairX-entry.inward*entry.flightLength*.5;
+  const secondMid=entry.landingX+entry.inward*entry.flightLength*.5;
+  assert.ok(Math.abs(resolve(firstMid,-6.72,.18)-(.18+2.9*.25))<1e-9);
+  assert.ok(Math.abs(resolve(entry.landingX,-6.72,.18+2.9*.25)-(.18+2.9/2))<1e-9);
+  assert.ok(Math.abs(resolve(entry.landingX,-6,.18+2.9/2)-(.18+2.9/2))<1e-9);
+  assert.ok(Math.abs(resolve(secondMid,-5.28,.18+2.9/2)-(.18+2.9*.75))<1e-9);
+  assert.ok(Math.abs(resolve(entry.stairX,-5.28,.18+2.9*.75)-(.18+2.9))<1e-9);
 });
 
 test("building stair solvers are isolated in both street orientations",()=>{
   const left=makeEntry();
-  const right=makeEntry({id:"VÝCHODNÍ PANELÁK",x:14,z:-23,frontX:9,inward:-1,stairX:13.25,landingX:15.17});
+  const right=makeEntry({id:"VÝCHODNÍ PANELÁK",x:14,z:-23,inward:-1});
   const resolve=createBuildingElevationResolver([left,right]);
-  assert.ok(Math.abs(resolve(14.21,-23.72,.18)-(.18+2.9*.25))<1e-9);
-  assert.ok(Math.abs(resolve(15.17,-23.72,.18+2.9*.25)-(.18+2.9/2))<1e-9);
-  assert.ok(Math.abs(resolve(14.21,-22.28,.18+2.9/2)-(.18+2.9*.75))<1e-9);
-  assert.ok(Math.abs(resolve(13.25,-22.28,.18+2.9*.75)-(.18+2.9))<1e-9);
+  const rightFirstMid=right.stairX-right.inward*right.flightLength*.5;
+  const rightSecondMid=right.landingX+right.inward*right.flightLength*.5;
+  assert.ok(Math.abs(resolve(rightFirstMid,-23.72,.18)-(.18+2.9*.25))<1e-9);
+  assert.ok(Math.abs(resolve(right.landingX,-23.72,.18+2.9*.25)-(.18+2.9/2))<1e-9);
+  assert.ok(Math.abs(resolve(rightSecondMid,-22.28,.18+2.9/2)-(.18+2.9*.75))<1e-9);
+  assert.ok(Math.abs(resolve(right.stairX,-22.28,.18+2.9*.75)-(.18+2.9))<1e-9);
   assert.equal(resolve(40,40,3.1),3.1);
 });
 
@@ -63,11 +68,11 @@ test("player controller can climb both flights, cross the landing and descend",(
   };
 
   // Walk through the front entrance, then align at the bottom of the first flight.
-  walk(Math.PI/2,27);
-  assert.ok(Math.abs(controller.player.x-(-12.96))<1e-8);
+  walk(Math.PI/2,43);
+  assert.ok(Math.abs(controller.player.x-(building.stairX+.13*building.inward))<1e-8);
   walk(0,4);
   assert.ok(Math.abs(controller.player.z-(-6.72))<1e-8);
-  walk(Math.PI/2,13);
+  walk(Math.PI/2,12);
   assert.ok(Math.abs(controller.player.elevation-(.18+2.9/2))<1e-8);
 
   // Cross the landing and climb the second flight.
