@@ -9,7 +9,7 @@ import { moveVehicleWithCollisions, stepVehicleDynamics, vehicleAabb } from "./c
 import { buildApartmentInterior } from "./world/apartment-interior.js";
 import { createBuildingElevationResolver } from "./world/building-navigation.js";
 import { calculateBuildingEndWallCenters, calculateFloorSlabSegments } from "./world/building-geometry.js";
-import { calculateVehicleCameraPose } from "./world/vehicle-camera.js";
+import { createVehicleCameraRig } from "./world/vehicle-camera.js";
 import { restoreBuildingDoorStates, serializeBuildingDoorStates } from "./world/building-state.js";
 
 const gameAudio=createGameAudio();
@@ -619,8 +619,8 @@ for(const x of [-.72,.72])for(const z of [-1.27,1.27]){
 stateCar.position.set(2.5,0,6);scene.add(stateCar);
 const vehicle={x:savedVehicleSafe?saved.vehicle.x:2.5,z:savedVehicleSafe?saved.vehicle.z:10.5,yaw:savedVehicleSafe&&Number.isFinite(saved.vehicle.yaw)?saved.vehicle.yaw:0,yawRate:0,speed:0,vx:0,vz:0,horizontalSpeed:0,firstPerson:false,cameraSnap:true,altitude:savedVehicleSafe?THREE.MathUtils.clamp(Number(saved.vehicle.altitude)||0,0,42):0,verticalSpeed:0,battery:savedVehicleSafe?THREE.MathUtils.clamp(Number(saved.vehicle.battery??100)||0,0,100):100,occupied:savedInVehicle,lookSteer:0,lookSteerUntil:0};
 const vehicleCollider={name:"zelený hatchback",...vehicleAabb(vehicle.x,vehicle.z,vehicle.yaw),minY:vehicle.altitude,maxY:vehicle.altitude+2.35,enabled:!vehicle.occupied};colliders.push(vehicleCollider);
-const vehicleCameraPosition=new THREE.Vector3(),vehicleLookTarget=new THREE.Vector3(),vehicleCameraCurrentTarget=new THREE.Vector3();
-let vehicleCameraReady=false;
+const vehicleCameraPosition=new THREE.Vector3(),vehicleLookTarget=new THREE.Vector3();
+const vehicleCameraRig=createVehicleCameraRig();
 function syncVehicleCollider(){Object.assign(vehicleCollider,vehicleAabb(vehicle.x,vehicle.z,vehicle.yaw));vehicleCollider.minY=vehicle.altitude;vehicleCollider.maxY=vehicle.altitude+2.35;}
 stateCar.position.set(vehicle.x,vehicle.altitude,vehicle.z);
 for(const flame of thrusters)flame.visible=vehicle.altitude>.8;
@@ -1283,21 +1283,19 @@ renderer.setAnimationLoop(time=>{
       if(typeof importedFrontAxle!=="undefined"&&importedFrontAxle)importedFrontAxle.rotation.y=-steer*(inAir?.22:.42);
       for(const wheel of [...wheels,...wheelHubs])wheel.visible=!inAir;
       thrusters.forEach((flame,index)=>{flame.visible=inAir;flame.scale.setScalar(.78+.22*Math.sin(gameTime*13+index));});
-      const cameraPose=calculateVehicleCameraPose(vehicle);
+      const cameraPose=vehicleCameraRig.update(vehicle,dt,vehicle.cameraSnap);
       vehicleCameraPosition.set(cameraPose.position.x,cameraPose.position.y,cameraPose.position.z);
       vehicleLookTarget.set(cameraPose.target.x,cameraPose.target.y,cameraPose.target.z);
-      const cameraBlend=1-Math.exp((vehicle.firstPerson?18:7.2)*dt);
-      if(vehicle.cameraSnap||!vehicleCameraReady){
-        camera.position.copy(vehicleCameraPosition);
-        vehicleCameraCurrentTarget.copy(vehicleLookTarget);
-        vehicleCameraReady=true;
-        vehicle.cameraSnap=false;
-      }else{
-        camera.position.lerp(vehicleCameraPosition,cameraBlend);
-        vehicleCameraCurrentTarget.lerp(vehicleLookTarget,cameraBlend);
-      }
+      camera.position.copy(vehicleCameraPosition);
       camera.rotation.order="YXZ";
-      camera.lookAt(vehicleCameraCurrentTarget);
+      camera.lookAt(vehicleLookTarget);
+      vehicle.cameraSnap=false;
+      const targetFov=vehicle.firstPerson?76:78+Math.min(horizontalSpeed/18.5,1)*5;
+      const fovBlend=1-Math.exp(-5.5*dt);
+      if(Math.abs(camera.fov-targetFov)>.01){
+        camera.fov+=(targetFov-camera.fov)*fovBlend;
+        camera.updateProjectionMatrix();
+      }
       $("speedValue").textContent=String(Math.round(horizontalSpeed*3.6)).padStart(3,"0");
       $("altitudeValue").textContent=String(Math.round(vehicle.altitude)).padStart(2,"0");
       $("batteryValue").textContent=String(Math.round(vehicle.battery)).padStart(2,"0");
