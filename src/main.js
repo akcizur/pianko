@@ -7,6 +7,7 @@ import { createGameAudio } from "./core/game-audio.js";
 import { advanceNeighborQuestStep, isCourierEncounterActive, normalizeNeighborQuestStep } from "./core/story-rules.js";
 import { moveVehicleWithCollisions, stepVehicleDynamics, vehicleAabb } from "./core/vehicle-controller.js";
 import { buildApartmentInterior } from "./world/apartment-interior.js";
+import { createBuildingElevationResolver } from "./world/building-navigation.js";
 
 const gameAudio=createGameAudio();
 const unlockGameAudio=()=>gameAudio.unlock();
@@ -64,6 +65,35 @@ function material(color, roughness = .86, emissive = 0, intensity = 0) {
   if (!mats.has(key)) mats.set(key, new THREE.MeshStandardMaterial({ color, roughness, emissive, emissiveIntensity: intensity }));
   return mats.get(key);
 }
+let plasterTexture = null;
+const plasterMaterials = new Map();
+function getPlasterTexture() {
+  if (plasterTexture) return plasterTexture;
+  const canvas = document.createElement("canvas");
+  canvas.width = 128; canvas.height = 128;
+  const context = canvas.getContext("2d");
+  const image = context.createImageData(128,128);
+  for (let y=0;y<128;y++) for(let x=0;x<128;x++) {
+    const i=(y*128+x)*4;
+    const grain=Math.abs(Math.sin(x*12.9898+y*78.233)*43758.5453)%1;
+    const value=205+Math.round(grain*48);
+    image.data[i]=image.data[i+1]=image.data[i+2]=value;
+    image.data[i+3]=255;
+  }
+  context.putImageData(image,0,0);
+  plasterTexture=new THREE.CanvasTexture(canvas);
+  plasterTexture.colorSpace=THREE.SRGBColorSpace;
+  plasterTexture.wrapS=plasterTexture.wrapT=THREE.RepeatWrapping;
+  plasterTexture.repeat.set(3.5,3.5);
+  plasterTexture.anisotropy=Math.min(renderer.capabilities.getMaxAnisotropy(),8);
+  return plasterTexture;
+}
+function plasterMaterial(color) {
+  if(!plasterMaterials.has(color)) plasterMaterials.set(color,new THREE.MeshStandardMaterial({
+    color,map:getPlasterTexture(),roughness:.97
+  }));
+  return plasterMaterials.get(color);
+}
 const facadeMaterials={
   windowDark:material(0x27343a,.3,0x111a1f,.08),
   windowLit:material(0xe7b46a,.62,0x9a5927,.34),
@@ -72,7 +102,7 @@ const facadeMaterials={
   slab:material(0x727a79,.9),
   rail:material(0x485153,.62),
   pipe:material(0x4a5354,.74),
-  glass:new THREE.MeshPhysicalMaterial({color:0xa7bcc2,roughness:.14,metalness:.08,transparent:true,opacity:.36,side:THREE.DoubleSide,depthWrite:false}),
+  glass:new THREE.MeshPhysicalMaterial({color:0xc5d8de,roughness:.12,metalness:.035,transparent:true,opacity:.5,transmission:.12,thickness:.035,ior:1.46,clearcoat:.72,clearcoatRoughness:.12,side:THREE.DoubleSide,depthWrite:false}),
   laundry:new THREE.MeshStandardMaterial({color:0xffffff,roughness:.95})
 };
 const facadeInstances=new Map();
@@ -113,8 +143,8 @@ const phoneScreen=new THREE.Mesh(new THREE.PlaneGeometry(.091,.132),new THREE.Me
 const phoneSpeaker=new THREE.Mesh(new THREE.BoxGeometry(.035,.004,.002),material(0x9eaa9e,.55));phoneSpeaker.position.set(0,.121,.017);phoneGroup.add(phoneSpeaker);
 for(let row=0;row<3;row++)for(let column=0;column<3;column++){const key=new THREE.Mesh(new THREE.CylinderGeometry(.006,.006,.003,8),material(0x858c82,.62));key.rotation.x=Math.PI/2;key.position.set((column-1)*.021,-.065-row*.018,.019);phoneGroup.add(key);}
 const phoneAntenna=new THREE.Mesh(new THREE.CylinderGeometry(.003,.003,.052,6),material(0x858a80,.5));phoneAntenna.position.set(.047,.15,-.002);phoneAntenna.rotation.z=-.12;phoneGroup.add(phoneAntenna);
-function block(name, x, y, z, w, h, d, color, solid = true, emissive = 0, intensity = 0) {
-  const mesh = new THREE.Mesh(boxGeo, material(color, .88, emissive, intensity));
+function block(name, x, y, z, w, h, d, color, solid = true, emissive = 0, intensity = 0, materialOverride = null) {
+  const mesh = new THREE.Mesh(boxGeo, materialOverride ?? material(color, .88, emissive, intensity));
   mesh.name = name; mesh.position.set(x, y + h / 2, z); mesh.scale.set(w, h, d); mesh.castShadow = h > 2; mesh.receiveShadow = true; scene.add(mesh);
   if (solid) colliders.push({ name, minX:x-w/2, maxX:x+w/2, minZ:z-d/2, maxZ:z+d/2, minY:y, maxY:y+h });
   return mesh;
@@ -125,37 +155,51 @@ function beamBetween(name,start,end,size,color){
   mesh.name=name;mesh.position.set((start.x+end.x)/2,(start.y+end.y)/2,(start.z+end.z)/2);
   mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction.normalize());scene.add(mesh);return mesh;
 }
-function buildWalkablePanelak(x,z,width,depth,height,inward){
-  const wall=.32,storyCount=Math.round(height/2.9),storyHeight=height/storyCount;
+function buildWalkablePanelak(x,z,width,depth,height,inward,options={}){
+  const wall=.32,storyCount=Math.max(2,Math.round(height/2.9)),storyHeight=height/storyCount;
+  const buildingId=options.id||"PANELÁK",kind=options.kind||"panelak";
+  const floorOffset=.18,entryStepLength=.9;
+  const wallColor=options.wallColor||(kind==="tenement"?0x817365:kind==="shop"?0x788080:0x727c7e);
+  const innerColor=kind==="tenement"?0xb6aa98:0xaaa79c;
+  const shellMaterial=plasterMaterial(wallColor),partitionMaterial=plasterMaterial(innerColor);
   const frontX=x+inward*width/2,frontWallX=frontX-inward*wall/2;
   const backX=x-inward*(width/2-wall/2),endZ=z+depth/2-wall/2;
-  const concrete=0x727c7e,inner=0xaaa79c,doorWidth=1.34;
+  const concrete=wallColor,inner=innerColor,doorWidth=kind==="shop"?1.72:1.34;
   const stairX=frontX-inward*4.25,halfFlight=8,run=.24,flightLength=halfFlight*run;
   const landingX=stairX-inward*flightLength,apartmentDoors=[];
   const insideFront=frontX-inward*(wall+.05),insideBack=backX+inward*(wall+.05);
   const minHallX=Math.min(insideFront,insideBack),maxHallX=Math.max(insideFront,insideBack);
   const apartmentXs=[x];
-  block("panelák — zadní obvodová stěna",backX,0,z,wall,height,depth,concrete,true);
-  for(const sideZ of [-1,1])block("panelák — štítová stěna",x,0,z+sideZ*endZ,width,height,wall,concrete,true);
+
+  block(buildingId+" — základový sokl",x,0,z,width+.34,.18,depth+.34,kind==="tenement"?0x746b60:0x626a6b,false);
+  block(buildingId+" — zadní obvodová stěna",backX,floorOffset,z,wall,height,depth,concrete,true,0,0,shellMaterial);
+  for(const sideZ of [-1,1])block(buildingId+" — štítová stěna",x,floorOffset,z+sideZ*endZ,width,height,wall,concrete,true,0,0,shellMaterial);
 
   for(let story=0;story<storyCount;story++){
-    const base=story*storyHeight,top=base+storyHeight;
-    block(`panelák — železobetonová podlaha ${story+1}. patra`,x,base-.16,z,width,.16,depth,0x777a76,false);
+    const base=floorOffset+story*storyHeight,top=base+storyHeight;
+    block(buildingId+" — železobetonová podlaha "+(story+1)+". patra",x,base-.16,z,width,.16,depth,0x777a76,false);
     const openings=[];
     for(let column=-2;column<=2;column++){
-      if(story===0&&column===0){openings.push({kind:"door",z,width:doorWidth,bottom:base,top:base+2.18});continue;}
-      openings.push({kind:"window",column,z:z+column*2.25,width:1.28,bottom:base+.68,top:base+2.13});
+      if(story===0&&column===0){
+        openings.push({kind:"door",z,width:doorWidth,bottom:base,top:base+2.18});
+        continue;
+      }
+      const shopWindow=kind==="shop"&&story===0;
+      openings.push({kind:"window",column,z:z+column*2.25,width:shopWindow?1.55:1.28,
+        bottom:base+(shopWindow?.48:.68),top:base+(shopWindow?2.28:2.13)});
     }
     openings.sort((a,b)=>a.z-b.z);
     let cursor=z-depth/2;
     for(const opening of openings){
       const left=opening.z-opening.width/2,right=opening.z+opening.width/2;
-      if(left-cursor>.05)block("panelák — fasádní pilíř",frontWallX,base,(cursor+left)/2,wall,storyHeight,left-cursor,concrete,true);
-      if(opening.bottom>base+.03)block("panelák — okenní parapet",frontWallX,base,opening.z,wall,opening.bottom-base,opening.width,concrete,true);
-      if(top-opening.top>.03)block("panelák — nadpraží",frontWallX,opening.top,opening.z,wall,top-opening.top,opening.width,concrete,true);
+      if(left-cursor>.05)block(buildingId+" — fasádní pilíř",frontWallX,base,(cursor+left)/2,wall,storyHeight,left-cursor,concrete,true,0,0,shellMaterial);
+      if(opening.bottom>base+.03)block(buildingId+" — okenní parapet",frontWallX,base,opening.z,wall,opening.bottom-base,opening.width,concrete,true,0,0,shellMaterial);
+      if(top-opening.top>.03)block(buildingId+" — nadpraží",frontWallX,opening.top,opening.z,wall,top-opening.top,opening.width,concrete,true,0,0,shellMaterial);
 
       if(opening.kind==="window"){
         const centerY=(opening.bottom+opening.top)/2,paneX=frontX+inward*.09,frameX=frontX+inward*.16;
+        const lit=(story+Math.abs(opening.column*3)+Math.abs(Math.floor(z)))%5<2;
+        queueFacadePart(lit?"windowLit":"windowDark",frontX-inward*.2,centerY,opening.z,.025,opening.top-opening.bottom-.08,opening.width-.1);
         queueFacadePart("glass",paneX,centerY,opening.z,.055,opening.top-opening.bottom,opening.width-.08);
         queueFacadePart("frame",frameX,centerY,opening.z-opening.width/2-.035,.08,opening.top-opening.bottom+.12,.07);
         queueFacadePart("frame",frameX,centerY,opening.z+opening.width/2+.035,.08,opening.top-opening.bottom+.12,.07);
@@ -163,29 +207,30 @@ function buildWalkablePanelak(x,z,width,depth,height,inward){
         queueFacadePart("frame",frameX,opening.top+.015,opening.z,.08,.075,opening.width+.16);
         queueFacadePart("frame",frameX,centerY,opening.z,.08,opening.top-opening.bottom,.045);
         queueFacadePart("slab",frontX+inward*.22,opening.bottom-.08,opening.z,.24,.12,opening.width+.22);
-        colliders.push({name:"panelák — zasklené okno",minX:paneX-.15,maxX:paneX+.15,minZ:opening.z-opening.width/2,maxZ:opening.z+opening.width/2,minY:opening.bottom,maxY:opening.top});
-        block("panelák — radiátor pod oknem",frontX-inward*.42,opening.bottom+.05,opening.z,.16,.42,.88,0x858b88,false);
+        colliders.push({name:buildingId+" — zasklené okno",minX:paneX-.15,maxX:paneX+.15,
+          minZ:opening.z-opening.width/2,maxZ:opening.z+opening.width/2,minY:opening.bottom,maxY:opening.top});
+        block(buildingId+" — radiátor pod oknem",frontX-inward*.42,opening.bottom+.05,opening.z,.16,.42,.88,0x858b88,false);
         if(story>0&&Math.abs(opening.column)===2&&story<storyCount*.65&&story%3!==1){
           queueFacadePart("slab",frontX+inward*.48,base+.04,opening.z,.9,.14,1.76);
           queueFacadePart("rail",frontX+inward*.94,base+.62,opening.z,.07,.065,1.76);
-          for(const end of [-1,1])queueFacadePart("rail",frontX+inward*.74,base+.39,opening.z+end*.82,.48,.62,.07);
+          for(const side of [-1,1])queueFacadePart("rail",frontX+inward*.74,base+.39,opening.z+side*.82,.48,.62,.07);
           for(let baluster=-2;baluster<=2;baluster++)queueFacadePart("rail",frontX+inward*.94,base+.38,opening.z+baluster*.31,.065,.58,.065);
           if((story+opening.column)%2===0)queueFacadePart("laundry",frontX+inward*.7,base+1.1,opening.z+.16,.07,.57,.4,[0xbab29f,0x78889a,0x914f42,0xc7c3ad][Math.abs(opening.column+story)%4]);
         }
       }
       cursor=right;
     }
-    if(z+depth/2-cursor>.05)block("panelák — fasádní pilíř",frontWallX,base,(cursor+z+depth/2)/2,wall,storyHeight,z+depth/2-cursor,concrete,true);
+    if(z+depth/2-cursor>.05)block(buildingId+" — fasádní pilíř",frontWallX,base,(cursor+z+depth/2)/2,wall,storyHeight,z+depth/2-cursor,concrete,true,0,0,shellMaterial);
 
-    // The shared corridor runs from the entrance to the rear stair core. Apartment doors open from it on both sides.
     const hallHalf=1.42;
     for(const sideZ of [-1,1]){
-      const wallZ=z+sideZ*hallHalf;let wallCursor=minHallX;
+      const wallZ=z+sideZ*hallHalf;
+      let wallCursor=minHallX;
       for(const doorX of apartmentXs){
         const gapStart=doorX-.48,gapEnd=doorX+.48;
-        if(gapStart-wallCursor>.08)block("panelák — příčka chodby",(wallCursor+gapStart)/2,base,wallZ,gapStart-wallCursor,storyHeight,.14,inner,true);
+        if(gapStart-wallCursor>.08)block(buildingId+" — příčka chodby",(wallCursor+gapStart)/2,base,wallZ,gapStart-wallCursor,storyHeight,.14,inner,true,0,0,partitionMaterial);
         const apartmentDoor=new THREE.Group();
-        apartmentDoor.name=`bytové dveře ${story+1}.${sideZ<0?"A":"B"}`;
+        apartmentDoor.name=buildingId+" — bytové dveře "+(story+1)+"."+(sideZ<0?"A":"B");
         apartmentDoor.position.set(doorX-.43,base+.04,wallZ+sideZ*.06);scene.add(apartmentDoor);
         const doorLeaf=new THREE.Mesh(new THREE.BoxGeometry(.86,2.08,.055),material(story===0?0x69503d:0x75604c,.72));
         doorLeaf.position.set(.43,1.04,0);doorLeaf.castShadow=true;doorLeaf.receiveShadow=true;apartmentDoor.add(doorLeaf);
@@ -193,37 +238,41 @@ function buildWalkablePanelak(x,z,width,depth,height,inward){
         doorPanel.position.set(.43,.55,.037);apartmentDoor.add(doorPanel);
         const doorHandle=new THREE.Mesh(new THREE.SphereGeometry(.035,8,6),material(0xc0ad79,.4));
         doorHandle.position.set(.73,1.03,.052);apartmentDoor.add(doorHandle);
-        const apartmentDoorCollider={name:apartmentDoor.name,minX:doorX-.43,maxX:doorX+.43,minZ:wallZ+sideZ*.06-.08,maxZ:wallZ+sideZ*.06+.08,minY:base+.04,maxY:base+2.12,enabled:true};
+        const apartmentDoorCollider={name:apartmentDoor.name,minX:doorX-.43,maxX:doorX+.43,
+          minZ:wallZ+sideZ*.06-.08,maxZ:wallZ+sideZ*.06+.08,minY:base+.04,maxY:base+2.12,enabled:true};
         colliders.push(apartmentDoorCollider);
-        apartmentDoors.push({x:doorX,z:wallZ+sideZ*.06+sideZ*.46,doorPivot:apartmentDoor,doorCollider:apartmentDoorCollider,openAngle:-sideZ*Math.PI/2,open:false});
+        apartmentDoors.push({x:doorX,z:wallZ+sideZ*.06+sideZ*.46,doorPivot:apartmentDoor,
+          doorCollider:apartmentDoorCollider,openAngle:-sideZ*Math.PI/2,open:false});
         for(const hinge of [-1,1])block("bytová zárubeň",doorX+hinge*.47,base+.04,wallZ+sideZ*.1,.07,2.2,.1,0x858073,false);
         block("bytová zárubeň — nadpraží",doorX,base+2.17,wallZ+sideZ*.1,1.01,.08,.1,0x858073,false);
         wallCursor=gapEnd;
       }
-      if(maxHallX-wallCursor>.08)block("panelák — příčka chodby",(wallCursor+maxHallX)/2,base,wallZ,maxHallX-wallCursor,storyHeight,.14,inner,true);
+      if(maxHallX-wallCursor>.08)block(buildingId+" — příčka chodby",(wallCursor+maxHallX)/2,base,wallZ,maxHallX-wallCursor,storyHeight,.14,inner,true,0,0,partitionMaterial);
       const roomDepth=depth/2-wall-hallHalf,roomCenterZ=z+sideZ*(hallHalf+roomDepth/2);
       for(let divider=0;divider<apartmentXs.length-1;divider++){
         const dividerX=(apartmentXs[divider]+apartmentXs[divider+1])/2;
-        block("panelák — vnitřní příčka bytu",dividerX,base,roomCenterZ,.12,storyHeight,roomDepth,0x99968c,true);
+        block(buildingId+" — vnitřní příčka bytu",dividerX,base,roomCenterZ,.12,storyHeight,roomDepth,0x99968c,true);
       }
       for(let unit=0;unit<apartmentXs.length;unit++){
         const unitX=apartmentXs[unit],tone=(unit+story+(sideZ>0?1:0))%3;
         const unitMinX=unit===0?minHallX:(apartmentXs[unit-1]+unitX)/2;
         const unitMaxX=unit===apartmentXs.length-1?maxHallX:(unitX+apartmentXs[unit+1])/2;
-        buildApartmentInterior({THREE,scene,block,material,x:unitX,z,base,storyHeight,sideZ,unitMinX,unitMaxX,unitX,tone});
+        buildApartmentInterior({THREE,scene,block,material,x:unitX,z,base,storyHeight,sideZ,unitMinX,unitMaxX,unitX,tone,lighting:options.lighting!==false});
       }
     }
-    block("panelák — osvětlení chodby",frontX-inward*2.25,top-.38,z,.18,.07,.46,0xffd28a,false,0xb97631,.62);
-    const corridorLight=new THREE.PointLight(0xffc982,.32,5,2);corridorLight.position.set(frontX-inward*2.25,top-.55,z);scene.add(corridorLight);
-    queueFacadePart("joint",frontX+inward*.035,top-.035,z,.035,.035,depth-.18);
-
+    block(buildingId+" — osvětlení chodby",frontX-inward*2.25,top-.38,z,.18,.07,.46,0xffd28a,false,0xb97631,.62);
+    if(options.lighting!==false){
+      const corridorLight=new THREE.PointLight(0xffc982,kind==="shop"?.5:.32,5,2);
+      corridorLight.position.set(frontX-inward*2.25,top-.55,z);scene.add(corridorLight);
+    }
     if(story<storyCount-1){
       const rise=storyHeight/16;
       for(let step=0;step<halfFlight;step++){
         const stairY=base+rise*(step+1)-.08;
-        const firstX=stairX-inward*(step*run+run/2),secondX=stairX-inward*(halfFlight*run)+inward*(step*run+run/2);
-        block("schodiště — kamenný stupeň",firstX,stairY,z-.72,.27,.16,1.28,0x77766f,false);
-        block("schodiště — kamenný stupeň",secondX,base+storyHeight/2+rise*(step+1)-.08,z+.72,.27,.16,1.28,0x77766f,false);
+        const firstX=stairX-inward*(step*run+run/2);
+        const secondX=stairX-inward*(halfFlight*run)+inward*(step*run+run/2);
+        block(buildingId+" — schodišťový stupeň",firstX,stairY,z-.72,.27,.16,1.28,0x77766f,false);
+        block(buildingId+" — schodišťový stupeň",secondX,base+storyHeight/2+rise*(step+1)-.08,z+.72,.27,.16,1.28,0x77766f,false);
         if(step%2===0){
           block("schodišťové zábradlí — sloupek",firstX,stairY+.18,z-1.35,.065,.58,.065,0x5a605f,false);
           block("schodišťové zábradlí — středový sloupek",firstX,stairY+.18,z,.065,.58,.065,0x5a605f,false);
@@ -231,32 +280,40 @@ function buildWalkablePanelak(x,z,width,depth,height,inward){
           block("schodišťové zábradlí — středový sloupek",secondX,base+storyHeight/2+rise*(step+1)+.1,z,.065,.58,.065,0x5a605f,false);
         }
       }
-      block("schodišťová podesta",landingX,base+storyHeight/2-.08,z,.88,.16,2.72,0x77766f,false);
+      block(buildingId+" — schodišťová podesta",landingX,base+storyHeight/2-.08,z,.88,.16,2.72,0x77766f,false);
       beamBetween("schodišťové madlo",{x:stairX,y:base+.56,z:z-1.35},{x:landingX,y:base+storyHeight/2+.36,z:z-1.35},.07,0x565c5a);
-      beamBetween("schodišťové středové madlo",{x:stairX,y:base+.56,z},{x:landingX,y:base+storyHeight/2+.36,z},.07,0x565c5a);
+      beamBetween("schodišťové středové madlo",{x:stairX,y:base+.56,z:z},{x:landingX,y:base+storyHeight/2+.36,z:z},.07,0x565c5a);
       beamBetween("schodišťové madlo",{x:landingX,y:base+storyHeight/2+.36,z:z+1.35},{x:stairX,y:base+storyHeight-.22,z:z+1.35},.07,0x565c5a);
-      beamBetween("schodišťové středové madlo",{x:landingX,y:base+storyHeight/2+.36,z},{x:stairX,y:base+storyHeight-.22,z},.07,0x565c5a);
+      beamBetween("schodišťové středové madlo",{x:landingX,y:base+storyHeight/2+.36,z:z},{x:stairX,y:base+storyHeight-.22,z:z},.07,0x565c5a);
     }
   }
 
-  for(const pipeZ of [-depth/2+.35,depth/2-.35])queueFacadePart("pipe",frontX+inward*.16,height/2,z+pipeZ,.08,height,.08);
-
-  const doorPivot=new THREE.Group();doorPivot.name="vstupní dveře paneláku";
-  doorPivot.position.set(frontX+inward*.055,0,z-doorWidth/2);scene.add(doorPivot);
-  const entranceLeaf=new THREE.Mesh(new THREE.BoxGeometry(.09,2.14,doorWidth-.04),material(0x554338,.72));
+  for(const pipeZ of [-depth/2+.35,depth/2-.35])queueFacadePart("pipe",frontX+inward*.16,floorOffset+height/2,z+pipeZ,.08,height,.08);
+  block(buildingId+" — stropní deska",x,floorOffset+height-.16,z,width,.16,depth,concrete,false);
+  const doorPivot=new THREE.Group();doorPivot.name=buildingId+" — vstupní dveře";
+  doorPivot.position.set(frontX+inward*.055,floorOffset,z-doorWidth/2);scene.add(doorPivot);
+  const entranceLeaf=new THREE.Mesh(new THREE.BoxGeometry(.09,2.14,doorWidth-.04),material(kind==="tenement"?0x493e35:0x554338,.72));
   entranceLeaf.position.set(0,1.07,(doorWidth-.04)/2);entranceLeaf.castShadow=true;doorPivot.add(entranceLeaf);
-  const entranceWindow=new THREE.Mesh(new THREE.BoxGeometry(.025,.56,.72),facadeMaterials.glass);entranceWindow.position.set(inward*.055,1.5,(doorWidth-.04)/2);doorPivot.add(entranceWindow);
-  const entranceHandle=new THREE.Mesh(new THREE.SphereGeometry(.045,8,6),material(0xb79a59,.4));entranceHandle.position.set(inward*.085,1.05,doorWidth-.22);doorPivot.add(entranceHandle);
-  for(const sideDoor of [-1,1])block("vchod — kamenná zárubeň",frontX+inward*.14,0,z+sideDoor*(doorWidth/2+.09),.26,2.26,.15,0x9b9b91,false);
-  block("vchod — nadpraží",frontX+inward*.14,2.18,z,.26,.12,doorWidth+.18,0x9b9b91,false);
-  block("panelák — vstupní schod",frontX+inward*.44,0,z,.7,.16,doorWidth+.3,0x777975,false);
-  block("panelák — vstupní stříška",frontX+inward*.5,2.38,z,1.12,.14,doorWidth+.42,0x555d60,false);
-  block("panelák — světlo nad vchodem",frontX+inward*.25,2.48,z,.14,.09,.3,0xffd18a,false,0xb8742a,.72);
-  block("panelák — domovní zvonky",frontX+inward*.23,1.14,z+doorWidth*.63,.08,.48,.25,0x787c78,false);
-  for(let button=0;button<6;button++)block("vchod — zvonkové tlačítko",frontX+inward*.28,1.31,z+doorWidth*.63-.17+button*.068,.04,.035,.035,button===0?0xc5b99d:0xa2a49f,false);
-  for(let box=0;box<6;box++)block("domovní schránka",frontX-inward*.48,1.08,z-.58+box*.23,.12,.19,.19,[0x777d7b,0x908b7d][box%2],false);
-  const doorCollider={name:"zavřené vstupní dveře",minX:frontX-.16,maxX:frontX+.16,minZ:z-doorWidth/2,maxZ:z+doorWidth/2,enabled:true};colliders.push(doorCollider);
-  return {frontX,inward,z,storyHeight,storyCount,stairX,landingX,flightLength,apartmentDoors,interactX:frontX+inward*.44,doorPivot,doorCollider,openAngle:-inward*Math.PI/2,open:false};
+  const entranceWindow=new THREE.Mesh(new THREE.BoxGeometry(.025,.56,.72),facadeMaterials.glass);
+  entranceWindow.position.set(inward*.055,1.5,(doorWidth-.04)/2);doorPivot.add(entranceWindow);
+  const entranceHandle=new THREE.Mesh(new THREE.SphereGeometry(.045,8,6),material(0xb79a59,.4));
+  entranceHandle.position.set(inward*.085,1.05,doorWidth-.22);doorPivot.add(entranceHandle);
+  for(const sideDoor of [-1,1])block(buildingId+" — kamenná zárubeň",frontX+inward*.14,floorOffset,z+sideDoor*(doorWidth/2+.09),.26,2.26,.15,0x9b9b91,false);
+  block(buildingId+" — nadpraží vchodu",frontX+inward*.14,floorOffset+2.18,z,.26,.12,doorWidth+.18,0x9b9b91,false);
+  for(let step=0;step<3;step++){
+    const distance=entryStepLength-.3*step,stepCenter=distance-.14;
+    block(buildingId+" — vstupní schod "+(step+1),frontX+inward*stepCenter,step*.06,z,.3,.06,doorWidth+.34,0x777975,false);
+  }
+  block(buildingId+" — vstupní stříška",frontX+inward*.5,floorOffset+2.38,z,1.12,.14,doorWidth+.42,0x555d60,false);
+  block(buildingId+" — světlo nad vchodem",frontX+inward*.25,floorOffset+2.48,z,.14,.09,.3,0xffd18a,false,0xb8742a,.72);
+  block(buildingId+" — domovní zvonky",frontX+inward*.23,floorOffset+1.14,z+doorWidth*.63,.08,.48,.25,0x787c78,false);
+  for(let button=0;button<6;button++)block(buildingId+" — zvonkové tlačítko",frontX+inward*.28,floorOffset+1.31,z+doorWidth*.63-.17+button*.068,.04,.035,.035,button===0?0xc5b99d:0xa2a49f,false);
+  for(let box=0;box<6;box++)block(buildingId+" — domovní schránka",frontX-inward*.48,floorOffset+1.08,z-.58+box*.23,.12,.19,.19,[0x777d7b,0x908b7d][box%2],false);
+  const doorCollider={name:buildingId+" — zavřené vstupní dveře",minX:frontX-.16,maxX:frontX+.16,minZ:z-doorWidth/2,maxZ:z+doorWidth/2,minY:floorOffset,maxY:floorOffset+2.14,enabled:true};
+  colliders.push(doorCollider);
+  return {id:buildingId,kind,x,z,width,depth,floorOffset,entryStepLength,doorWidth,frontX,inward,
+    storyHeight,storyCount,stairX,landingX,flightLength,apartmentDoors,interactX:frontX+inward*.44,
+    doorPivot,doorCollider,openAngle:-inward*Math.PI/2,open:false};
 }
 function plane(w, d, color, x=0, y=0, z=0, roughness=.9, metalness=0) {
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w,d), new THREE.MeshStandardMaterial({color,roughness,metalness}));
@@ -303,6 +360,7 @@ plane(150,150,0x666a69,0,-.09,0);
 plane(10.5,150,0x363c42,0,-.025,-20,.34,.12);
 puddle(-2.8,-12,2.8,1.1,-.18);puddle(2.1,-31,1.9,.7,.24);puddle(-1.1,-49,3.1,.85,-.08);puddle(3.2,-71,2.2,.8,.17);
 let apartmentEntry=null;
+const buildingEntries=[];
 for (const side of [-1,1]) {
   plane(3.5,150,0x8e8879,side*7,-.005,-20);
   for (let z=11; z>=-76; z-=17) {
@@ -314,65 +372,22 @@ for (const side of [-1,1]) {
     const specialPanelak=side===-1&&z===-6;
     const buildingVariant=Math.abs(Math.floor(z/17)+side+8)%4;
     const color=oldTown?0x776b60:departmentStore?0x747a7b:[0x737b7d,0x80827d,0x697277,0x89877f][buildingVariant];
+    const buildingId=specialPanelak?"DŮM MÍR":departmentStore?"OBCHODNÍ DŮM MÍR":oldTown?"ČINŽOVNÍ DŮM":"PANELÁK "+(side<0?"ZÁPAD":"VÝCHOD")+" · "+Math.abs(z);
+    const buildingKind=departmentStore?"shop":oldTown?"tenement":"panelak";
+    const buildingWallColor=oldTown?0x817365:departmentStore?0x788080:[0x737b7d,0x80827d,0x697277,0x89877f][buildingVariant];
+    const entry=buildWalkablePanelak(x,z,departmentStore?13:width,departmentStore?15:13,height,-side,{
+      id:buildingId,kind:buildingKind,wallColor:buildingWallColor,lighting:specialPanelak
+    });
+    buildingEntries.push(entry);
     if(specialPanelak){
-      apartmentEntry=buildWalkablePanelak(x,z,width,13,height,-side);
-      printedSign("domovní cedule vchodu",apartmentEntry.frontX+apartmentEntry.inward*.22,2.72,z+1.02,.82,.34,"VCHOD 12","DŮM MÍR",apartmentEntry.inward*Math.PI/2,"#ddd7c8","#33393a");
+      apartmentEntry=entry;
+      printedSign("domovní cedule vchodu",entry.frontX+entry.inward*.22,2.72,z+1.02,.82,.34,"VCHOD 12","DŮM MÍR",entry.inward*Math.PI/2,"#ddd7c8","#33393a");
     }
-    else block(departmentStore?"obchodní dům Mír":oldTown?"oprýskaný činžovní dům":`panelák ${side} ${z}`,x,0,z,departmentStore?13:width,departmentStore?12:oldTown?11:height,departmentStore?15:13,color);
-    if(departmentStore) {
-      const faceX=x-side*6.55;
-      block("obchodní dům — římsa",x,8.4,z,14,.38,16,0x5f615d,false);
-      block("obchodní dům — patro",x,4.8,z,13.3,.32,15.5,0xaca28e,false);
-      for(let n=-2;n<=2;n++)block("prosklená výloha",faceX,2.05,z+n*2.25,.08,3.45,1.95,0x3b4b4a,false);
-      for(let n=-2;n<=2;n++)block("výloha — teplé světlo",faceX-side*.06,2.1,z+n*2.25,.035,2.9,1.55,0x9c7955,false,0x6b4b2c,.18);
-      printedSign("nápis obchodní dům Mír",faceX-side*.12,6.8,z,6.2,1.2,"OBCHODNÍ DŮM MÍR","POTRAVINY · TEXTIL · DOMÁCÍ POTŘEBY",side===1?-Math.PI/2:Math.PI/2,"#ded4bd","#762c25");
-    } else if(!specialPanelak) {
-      const inward=-side,faceX=x-side*(width/2);
-      const facadeDepth=13;
-      for(let floorIndex=0,floor=1.05;floor<height-1.4;floorIndex++,floor+=2.9) {
-        queueFacadePart("joint",faceX+inward*.035,floor-.17,z,.035,.035,facadeDepth-.18);
-        for(let col=-2;col<=2;col++) {
-          const wz=z+col*2.25;
-          const windowPattern=Math.abs(Math.floor(z*3+floorIndex*7+col*13)+side*5)%6;
-          const lit=windowPattern<2,windowY=floor+.68,windowH=1.36,windowW=1.14;
-          queueFacadePart(lit?"windowLit":"windowDark",faceX+inward*.065,windowY,wz,.055,windowH,windowW);
-          queueFacadePart("glass",faceX+inward*.12,windowY,wz,.045,windowH-.06,windowW-.08);
-          const frameX=faceX+inward*.17;
-          queueFacadePart("frame",frameX,windowY,wz-windowW/2-.035,.08,windowH+.1,.07);
-          queueFacadePart("frame",frameX,windowY,wz+windowW/2+.035,.08,windowH+.1,.07);
-          queueFacadePart("frame",frameX,floor+.035,wz,.08,.075,windowW+.14);
-          queueFacadePart("frame",frameX,floor+1.34,wz,.08,.075,windowW+.14);
-          queueFacadePart("frame",frameX,windowY,wz,.08,windowH,.04);
-          queueFacadePart("slab",faceX+inward*.2,floor-.045,wz,.22,.11,windowW+.2);
-          if(Math.abs(col)===2&&floor<height*.65&&(floorIndex+buildingVariant+2)%3!==1) {
-            queueFacadePart("slab",faceX+inward*.48,floor+.04,wz,.9,.14,1.76);
-            queueFacadePart("rail",faceX+inward*.94,floor+.62,wz,.07,.065,1.76);
-            for(const end of [-1,1])queueFacadePart("rail",faceX+inward*.74,floor+.39,wz+end*.82,.48,.62,.07);
-            for(let baluster=-2;baluster<=2;baluster++)queueFacadePart("rail",faceX+inward*.94,floor+.38,wz+baluster*.31,.065,.58,.065);
-            if((floorIndex+col+buildingVariant)%2===0){
-              queueFacadePart("laundry",faceX+inward*.7,floor+.92,wz+.16,.07,.57,.4,[0xbab29f,0x78889a,0x914f42,0xc7c3ad][Math.abs(col+floorIndex)%4]);
-            }
-          }
-        }
-      }
-      for(const jointZ of [-4.7,-1.55,1.55,4.7])queueFacadePart("joint",faceX+inward*.035,height/2,z+jointZ,.035,height, .035);
-      for(const pipeZ of [-6.15,6.15])queueFacadePart("pipe",faceX+inward*.16,height/2,z+pipeZ,.08,height,.08);
-      const entryZ=z+5.1;
-      block("panelák — vchodové dveře",faceX+inward*.09,0,entryZ,.11,2.14,1.08,0x393d3d,false);
-      for(const jamb of [-1,1])block("panelák — kamenná zárubeň",faceX+inward*.15,0,entryZ+jamb*.6,.22,2.24,.13,0x93948e,false);
-      block("panelák — stříška vchodu",faceX+inward*.42,2.3,entryZ,.88,.13,1.45,0x606769,false);
-      block("panelák — domovní zvonky",faceX+inward*.16,1.2,entryZ+1.05,.08,.4,.24,0x8b8b80,false);
-      if(oldTown) {
-        for(let n=-2;n<=2;n++)block("činžovní dům — oprýskaná omítka",faceX+inward*.09,5.7,z+n*1.65,.12,2.1,1.1,[0xb9a489,0x73665a,0xc2b49d][(n+5)%3],false);
-      }
-      if(z===-23&&side===-1)propagandaPoster(faceX+inward*.12,6.3,z-1.1,1.1,1.8,Math.PI/2);
-      if(z===-57&&side===1)printedSign("smaltovaná cedule Potraviny",faceX+inward*.12,5.1,z,2.8,.65,"POTRAVINY","8.00—18.00",-Math.PI/2,"#d7d0b9","#a2382e");
+    if(departmentStore){
+      printedSign("nápis obchodní dům Mír",entry.frontX+entry.inward*.22,6.8,z,6.2,1.2,"OBCHODNÍ DŮM MÍR","POTRAVINY · TEXTIL · DOMÁCÍ POTŘEBY",side===1?-Math.PI/2:Math.PI/2,"#ded4bd","#762c25");
     }
-    if(!departmentStore)block("panelák — střešní římsa",x,height,z,width+.35,.42,13.25,0x555d60,false);
-    if(!departmentStore){
-      block("panelák — výlez na střechu",x,height+.42,z,2.5,.72,2.8,0x666d6d,false);
-      for(const vent of [-1,1])block("panelák — větrací komínek",x+vent*2.1,height+.42,z+3.8,.36,1.1,.36,0x595f5e,false);
-    }
+    if(oldTown)propagandaPoster(entry.frontX+entry.inward*.12,6.3,z-1.1,1.1,1.8,Math.PI/2);
+    if(z===-57&&side===1)printedSign("smaltovaná cedule Potraviny",entry.frontX+entry.inward*.12,5.1,z,2.8,.65,"POTRAVINY","8.00—18.00",-Math.PI/2,"#d7d0b9","#a2382e");
     // Trees, sodium lamps and telephone poles repeat along the block.
     if(z%34!==0) {
       const tx=side*5.3, tz=z+5;
@@ -821,42 +836,28 @@ const patternInteractable={id:"sešit-střihů",x:-10.2,z:-6,range:1.65,enabled:
   const next=advanceNeighborQuestStep(neighborQuestStep,"pickup","pattern");if(next===neighborQuestStep)return;
   neighborQuestStep=next;patternBook.visible=false;patternInteractable.enabled=false;gameAudio.reward();updateMission();saveGame();showToast("SEŠIT STŘIHŮ VZAT · DONES HO IVANĚ");
 }};
-const apartmentDoorInteractable=apartmentEntry?{id:"vstup-paneláku",x:apartmentEntry.interactX,z:apartmentEntry.z,minY:0,maxY:2.3,levelY:0,range:2.1,enabled:true,action(item,player){
-  if(apartmentEntry.open&&Math.hypot(player.x-item.x,player.z-item.z)<.72){showToast("USTUP OD DVEŘÍ, AŤ JE MŮŽU ZAVŘÍT");return;}
-  apartmentEntry.open=!apartmentEntry.open;apartmentEntry.doorPivot.rotation.y=apartmentEntry.open?apartmentEntry.openAngle:0;apartmentEntry.doorCollider.enabled=!apartmentEntry.open;
-  gameAudio.door(apartmentEntry.open);showToast(apartmentEntry.open?"VSTUPNÍ DVEŘE OTEVŘENY":"VSTUPNÍ DVEŘE ZAVŘENY");saveGame();
-}}:null;
-const interactables=[enemyInteractable,relayInteractable,mechanicInteractable,courierInteractable,towerInteractable,patternInteractable,...supplyInteractables,...residentInteractables];
-if(apartmentDoorInteractable)interactables.push(apartmentDoorInteractable);
-if(apartmentEntry)for(const door of apartmentEntry.apartmentDoors)interactables.push({id:door.doorPivot.name,x:door.x,z:door.z,minY:door.doorCollider.minY,maxY:door.doorCollider.maxY,levelY:door.doorCollider.minY-.04,range:1.45,enabled:true,action(item,player){
-  if(door.open&&Math.hypot(player.x-item.x,player.z-item.z)<.82){showToast("USTUP OD DVEŘÍ, AŤ JE MŮŽU ZAVŘÍT");return;}
-  door.open=!door.open;door.doorPivot.rotation.y=door.open?door.openAngle:0;door.doorCollider.enabled=!door.open;
-  gameAudio.door(door.open);showToast(door.open?"BYT OTEVŘEN":"BYT ZAVŘEN");saveGame();
-}});
-const navigation={bounds:{minX:-20.4,maxX:20.4,minZ:-92,maxZ:29}};
-if(apartmentEntry)navigation.elevationAt=(x,z,elevation)=>{
-  const {z:centerZ,stairX,landingX,inward,flightLength,storyHeight,storyCount}=apartmentEntry;
-  const clampStory=index=>Math.max(0,Math.min(storyCount-2,index));
-  const progress=(value)=>Math.max(0,Math.min(1,value));
-  const firstProgress=(stairX-x)*inward/flightLength;
-  if(Math.abs(z-(centerZ-.72))<.5&&firstProgress>=-.12&&firstProgress<=1.12){
-    const story=clampStory(Math.floor(elevation/storyHeight+.25));
-    return story*storyHeight+progress(firstProgress)*storyHeight/2;
+const buildingDoorInteractables=buildingEntries.map(entry=>({
+  id:"vstup-"+entry.id,x:entry.interactX,z:entry.z,minY:0,maxY:2.5,
+  levelY:entry.floorOffset,verticalRange:.55,range:2.1,enabled:true,
+  action(item,player){
+    if(entry.open&&Math.hypot(player.x-item.x,player.z-item.z)<.72){showToast("USTUP OD DVEŘÍ, AŤ JE MŮŽU ZAVŘÍT");return;}
+    entry.open=!entry.open;entry.doorPivot.rotation.y=entry.open?entry.openAngle:0;
+    entry.doorCollider.enabled=!entry.open;gameAudio.door(entry.open);
+    showToast(entry.id+(entry.open?" · VSTUP OTEVŘEN":" · VSTUP ZAVŘEN"));saveGame();
   }
-  const secondProgress=(x-landingX)*inward/flightLength;
-  if(Math.abs(z-(centerZ+.72))<.5&&secondProgress>=-.12&&secondProgress<=1.12){
-    const story=clampStory(Math.floor(elevation/storyHeight-.5+1e-4));
-    return story*storyHeight+storyHeight/2+progress(secondProgress)*storyHeight/2;
+}));
+const apartmentDoorInteractables=buildingEntries.flatMap(entry=>entry.apartmentDoors.map(door=>({
+  id:door.doorPivot.name,x:door.x,z:door.z,
+  minY:door.doorCollider.minY,maxY:door.doorCollider.maxY,
+  levelY:door.doorCollider.minY-.04,verticalRange:.42,range:1.45,enabled:true,
+  action(item,player){
+    if(door.open&&Math.hypot(player.x-item.x,player.z-item.z)<.82){showToast("USTUP OD DVEŘÍ, AŤ JE MŮŽU ZAVŘÍT");return;}
+    door.open=!door.open;door.doorPivot.rotation.y=door.open?door.openAngle:0;door.doorCollider.enabled=!door.open;
+    gameAudio.door(door.open);showToast(door.open?"BYT OTEVŘEN":"BYT ZAVŘEN");saveGame();
   }
-  if(Math.abs(x-landingX)<.62&&Math.abs(z-centerZ)<.62){
-    const storyIndex=(elevation-storyHeight/2)/storyHeight;
-    const story=Math.round(storyIndex);
-    if(Math.abs(storyIndex-story)>.08)return false;
-    const clampedStory=clampStory(story);
-    return clampedStory*storyHeight+storyHeight/2;
-  }
-  return elevation;
-};
+})));
+const interactables=[enemyInteractable,relayInteractable,mechanicInteractable,courierInteractable,towerInteractable,patternInteractable,...supplyInteractables,...residentInteractables,...buildingDoorInteractables,...apartmentDoorInteractables];
+const navigation={bounds:{minX:-20.4,maxX:20.4,minZ:-92,maxZ:29},elevationAt:createBuildingElevationResolver(buildingEntries)};
 const controller=createPlayerController({camera,colliders,interactables,state,ui:{showToast},navigation});
 if(apartmentEntry&&saved.panelak){
   if(saved.panelak.entranceOpen){apartmentEntry.open=true;apartmentEntry.doorPivot.rotation.y=apartmentEntry.openAngle;apartmentEntry.doorCollider.enabled=false;}
@@ -1063,7 +1064,7 @@ function setMenuPage(page){
 function closeMenu(){menuScreen.hidden=true;state.started=true;renderer.domElement.focus();if(matchMedia("(pointer:fine)").matches){try{const lock=renderer.domElement.requestPointerLock?.();lock?.catch?.(()=>{});}catch{}}}
 function startNewGame(){
   try{localStorage.removeItem(SAVE_KEY);}catch{}
-  if(apartmentEntry){apartmentEntry.open=false;apartmentEntry.doorPivot.rotation.y=0;apartmentEntry.doorCollider.enabled=true;for(const door of apartmentEntry.apartmentDoors){door.open=false;door.doorPivot.rotation.y=0;door.doorCollider.enabled=true;}}
+  for(const entry of buildingEntries){entry.open=false;entry.doorPivot.rotation.y=0;entry.doorCollider.enabled=true;for(const door of entry.apartmentDoors){door.open=false;door.doorPivot.rotation.y=0;door.doorCollider.enabled=true;}}
   mission.stage=0;mission.complete=false;neighborQuestStep=0;patternBook.visible=false;patternInteractable.enabled=false;endingChoice=null;state.dialogue=false;state.paused=false;state.combat=false;state.inVehicle=false;state.inventory=false;phoneDrawn=false;vehicle.occupied=false;activeFoe=foe;activeEnemyMesh=enemyMesh;activeEnemyCollider=enemyCollider;foe.hp=foe.maxHp;foe.defeated=false;foe.busy=false;secondFoe.hp=secondFoe.maxHp;secondFoe.defeated=false;secondFoe.busy=false;enemyCollider.enabled=true;courierCollider.enabled=false;enemyInteractable.enabled=true;courierInteractable.enabled=false;relayInteractable.enabled=false;mechanicInteractable.enabled=false;towerInteractable.enabled=false;
   stats.hp=74;stats.maxHp=74;stats.energy=32;stats.maxEnergy=32;stats.xp=0;stats.level=1;stats.credits=120;stats.medkits=2;stats.weaponLevel=0;stats.armorLevel=0;stats.guard=false;totalPlaySeconds=0;
   scene.add(enemyMesh);scene.add(courierGuard);scene.add(courier);courierGuard.visible=false;courier.visible=false;courierBeacon.visible=false;miraBeacon.visible=false;markerRing.visible=false;towerBeacon.visible=false;endingPanel.hidden=true;dialoguePanel.hidden=true;
@@ -1272,8 +1273,8 @@ renderer.setAnimationLoop(time=>{
   if(!state.inVehicle&&!state.combat){
     const p=controller.player;
     const nearCar=Math.hypot(p.x-vehicle.x,p.z-vehicle.z)<3.8;
-    const nearPanelakDoor=apartmentEntry&&p.elevation<1&&Math.hypot(p.x-apartmentEntry.interactX,p.z-apartmentEntry.z)<2.1;
-    const nearApartmentDoor=apartmentEntry?.apartmentDoors.some(door=>Math.abs(p.elevation-(door.doorCollider.minY-.04))<1&&Math.hypot(p.x-door.x,p.z-door.z)<1.45);
+    const nearBuildingDoor=buildingEntries.find(entry=>p.elevation<1.1&&Math.hypot(p.x-entry.interactX,p.z-entry.z)<2.1);
+    const nearApartmentDoor=buildingEntries.some(entry=>entry.apartmentDoors.some(door=>Math.abs(p.elevation-(door.doorCollider.minY-.04))<.55&&Math.hypot(p.x-door.x,p.z-door.z)<1.45));
     const nearEnemy=!foe.defeated&&Math.hypot(p.x-avatarTarget.x,p.z-avatarTarget.z)<2.8;
     const nearRelay=mission.stage===1&&Math.hypot(p.x,p.z+43)<2.6;
     const nearMira=mission.stage===2&&Math.hypot(p.x-4.8,p.z+4.8)<2.5;
@@ -1283,10 +1284,11 @@ renderer.setAnimationLoop(time=>{
     const nearResident=residents.find(resident=>Math.hypot(p.x-resident.group.position.x,p.z-resident.group.position.z)<1.55);
     const nearPattern=neighborQuestStep===1&&Math.hypot(p.x-patternInteractable.x,p.z-patternInteractable.z)<patternInteractable.range;
     const nearIvanaDelivery=neighborQuestStep===2&&nearResident?.id==="ivana";
-    hint.textContent=nearCar?"E NASTOUPIT · WASD JÍZDA · MYŠ ŘÍZENÍ":nearSupply?"E SEBRAT "+nearSupply.label:nearPattern?"E VZÍT SEŠIT STŘIHŮ":nearPanelakDoor?"E OTEVŘÍT / ZAVŘÍT VSTUPNÍ DVEŘE":nearApartmentDoor?"E OTEVŘÍT / ZAVŘÍT BYTOVÉ DVEŘE":nearEnemy?"E ZAHÁJIT TAHOVÝ SOUBOJ":nearRelay?"E ZAPNOUT TELEFONNÍ ROZVODNU":nearMira?"E PROMLOUVAT S MECHANIČKOU MIROU":nearCourier?"E ZAHÁJIT SOUBOJ · ZACHRAŇ KURÝRA":nearTower?"E ZAHÁJIT ROZHOVOR U VYSÍLAČE":nearIvanaDelivery?"E PŘEDAT SEŠIT · IVANA":nearResident?"E PROMLOUVAT · "+nearResident.name:"WASD POHYB · SHIFT BĚH · SPACE SKOK · MYŠ ROZHLED · E INTERAKCE";
+    hint.textContent=nearCar?"E NASTOUPIT · WASD JÍZDA · MYŠ ŘÍZENÍ":nearSupply?"E SEBRAT "+nearSupply.label:nearPattern?"E VZÍT SEŠIT STŘIHŮ":nearBuildingDoor?"E OTEVŘÍT / ZAVŘÍT VSTUP · "+nearBuildingDoor.id:nearApartmentDoor?"E OTEVŘÍT / ZAVŘÍT BYTOVÉ DVEŘE":nearEnemy?"E ZAHÁJIT TAHOVÝ SOUBOJ":nearRelay?"E ZAPNOUT TELEFONNÍ ROZVODNU":nearMira?"E PROMLOUVAT S MECHANIČKOU MIROU":nearCourier?"E ZAHÁJIT SOUBOJ · ZACHRAŇ KURÝRA":nearTower?"E ZAHÁJIT ROZHOVOR U VYSÍLAČE":nearIvanaDelivery?"E PŘEDAT SEŠIT · IVANA":nearResident?"E PROMLOUVAT · "+nearResident.name:"WASD POHYB · SHIFT BĚH · SPACE SKOK · MYŠ ROZHLED · E INTERAKCE";
     }else if(state.inVehicle)hint.textContent=`W / S POHON · A / D SMĚR · SHIFT STOUPAT · CTRL KLESAT · V POHLED · ${vehicle.altitude>.7?"E VYSTOUPIT ZAMČENO":"E VYSTOUPIT"}`;
   const p=controller.player;
-  const buildingFloor=apartmentEntry&&p.elevation>.05?` · DŮM MÍR · ${Math.min(apartmentEntry.storyCount,Math.floor(p.elevation/apartmentEntry.storyHeight)+1)}. PATRO`:"";
+  const currentBuilding=buildingEntries.find(entry=>p.elevation>entry.floorOffset+.04&&Math.abs(p.x-entry.x)<entry.width/2&&Math.abs(p.z-entry.z)<entry.depth/2);
+  const buildingFloor=currentBuilding?" · "+currentBuilding.id+" · "+Math.min(currentBuilding.storyCount,Math.max(1,Math.floor((p.elevation-currentBuilding.floorOffset)/currentBuilding.storyHeight)+1))+". PATRO":"";
   coordinates.textContent=state.inVehicle?`ALT ${Math.round(vehicle.altitude)} M · ${Math.round(Math.hypot(vehicle.vx,vehicle.vz)*3.6)} KM/H`:`X ${p.x.toFixed(1)} · Z ${p.z.toFixed(1)}${buildingFloor}`;
   updateObjectivePointer();
   const walking=playerMoved;

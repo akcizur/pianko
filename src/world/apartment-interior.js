@@ -5,7 +5,7 @@ export function calculateApartmentLayout({unitMinX,unitMaxX,roomDepth=4.64}){
  return {unitWidth,roomDepth,dividerX,livingWidth,bedroomWidth,bathroomWidth,bathroomDepth,bathroomArea:bathroomWidth*bathroomDepth,livingArea:livingWidth*roomDepth,bedroomArea:bedroomWidth*roomDepth,bathroomDoorWidth:.72,roomDoorWidth:.88};
 }
 /** Build a genuinely walkable panel flat with living room, bedroom and bathroom. */
-export function buildApartmentInterior({THREE,scene,block,material,x,z,base,storyHeight,sideZ,unitMinX,unitMaxX,unitX,tone=0}){
+export function buildApartmentInterior({THREE,scene,block,material,x,z,base,storyHeight,sideZ,unitMinX,unitMaxX,unitX,tone=0,lighting=true}){
  const side=Math.sign(sideZ)||1,width=unitMaxX-unitMinX,plan=calculateApartmentLayout({unitMinX,unitMaxX,roomDepth:4.64});
  const {dividerX,livingWidth}=plan,wallY=base+.04,wallH=storyHeight-.2,wallThickness=.12;
  const palette=[
@@ -79,6 +79,6 @@ export function buildApartmentInterior({THREE,scene,block,material,x,z,base,stor
  add("byt — stolní lampa",bedroomX+1.58,base+1.08,atZ(5.58),.16,.58,.16,0xd5b77e);
  add("byt — radiátor",bedroomX,base+.3,atZ(6.02),1.1,.5,.14,0x8b918d,true);
  add("byt — stropní svítidlo",x,base+storyHeight-.2,z+side*4.05,.34,.08,.48,0xffd7a2);
- const light=new THREE.PointLight(0xffd1a0,.22,5.6,2);light.position.set(x,base+storyHeight-.52,z+side*4.12);scene.add(light);
+ if(lighting){const light=new THREE.PointLight(0xffd1a0,.22,5.6,2);light.position.set(x,base+storyHeight-.52,z+side*4.12);scene.add(light);}
  return {dividerX,roomArea:plan.livingArea+plan.bedroomArea,bathroomArea:plan.bathroomArea};
 }
