@@ -27,7 +27,7 @@ class MockElement extends EventHub {
   hasPointerCapture() { return false; }
 }
 
-function installHarness(onVehicleLook = () => {}) {
+function installHarness(onVehicleLook = () => {}, onTogglePhone = () => {}, onToggleInventory = () => {}) {
   const names = ["window", "document", "Element", "navigator", "requestAnimationFrame", "cancelAnimationFrame"];
   const previous = new Map(names.map(name => [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
   const window = new EventHub();
@@ -52,7 +52,7 @@ function installHarness(onVehicleLook = () => {}) {
   const element = new MockElement();
   const state = { started: true, paused: false, combat: false, dialogue: false, inVehicle: true };
   const controller = { player: { yaw: 0, pitch: 0 }, keysDown: Object.create(null), setAnalogMove() {}, jump() {} };
-  const input = bindInput({ element, controller, state, touchRoot: root, onVehicleLook });
+  const input = bindInput({ element, controller, state, touchRoot: root, onVehicleLook, onTogglePhone, onToggleInventory });
   return {
     state, controller, input, window, root, element, look, jump, run, frames,
     setGamepad(value) { gamepad = value; },
@@ -118,4 +118,20 @@ test("vehicle look reports mouse, touch and gamepad as distinct steering sources
     h.frames.shift()();
     assert.equal(calls.at(-1)[2], "gamepad");
   } finally { h.restore(); }
+});
+
+test("T opens the held phone and I opens or closes inventory",()=>{
+ let phoneToggles=0,inventoryToggles=0;
+ const h=installHarness(()=>{},()=>phoneToggles++,()=>inventoryToggles++);
+ try{
+  h.state.inVehicle=false;
+  const event=(code,repeat=false)=>({code,target:null,repeat,preventDefault(){},stopImmediatePropagation(){}});
+  h.window.emit("keydown",event("KeyT"));h.window.emit("keydown",event("KeyT",true));
+  h.window.emit("keydown",event("KeyI"));
+  assert.equal(phoneToggles,1);assert.equal(inventoryToggles,1);
+  h.state.inventory=true;h.window.emit("keydown",event("KeyI"));
+  assert.equal(inventoryToggles,2);
+  h.window.emit("keydown",event("KeyW"));
+  assert.equal(h.controller.keysDown.KeyW,undefined);
+ }finally{h.restore();}
 });

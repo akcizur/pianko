@@ -24,12 +24,14 @@ Příběhová RPG/FPS hra v Three.js, zasazená do normalizačního Českosloven
 | Ctrl | Klesání ve voze |
 | Space | Skok pěšky |
 | E | Interakce, otevření dveří, nástup a výstup z vozu |
+| T | Vytáhnout / uklidit telefon do ruky |
+| I | Otevřít / zavřít inventář |
 | 1–4 / Enter | Akce v tahovém souboji |
 | Esc | Pauza a uvolnění myši |
 | Dotyk | Levý joystick pro pohyb, pravá oblast pro rozhled/řízení, akční tlačítka |
 | Gamepad | Levá páčka pohyb/řízení, pravá páčka směr, RT stoupání, LT klesání, A potvrzení, X interakce, Start pauza |
 
-Pozemní režim má nižší rychlostní limit než hover režim. Při změně směru plyn nejprve brzdí a teprve po zastavení zařadí opačný směr. Hover režim používá tlumený vertikální pohyb, omezení výšky a spotřebu baterie; při slabé baterii zahájí nouzové klesání.
+Pozemní režim používá model předních řiditelných kol, rozvor, podélnou a boční rychlost, valivý odpor, aerodynamický odpor, přilnavost pneumatik a brzdění před zpátečkou. Směr karoserie, kol, kamery a trajektorie je sjednocený. Hover režim má samostatný vektorový tah, setrvačný drift, nezávislé natáčení ve vzduchu, vertikální tah, omezení výšky a spotřebu baterie; při slabé baterii zahájí nouzové klesání. Zbraň není zobrazena v pohledu první osoby; klávesa T vytahuje ruční telefon a I otevírá inventář.
 
 ## Spuštění a sestavení
 

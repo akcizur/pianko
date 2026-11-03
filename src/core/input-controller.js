@@ -10,6 +10,8 @@ export function bindInput({
   onCombatAction = () => {},
   onDialogueAction = () => {},
   onMenuAction = () => {},
+  onTogglePhone = () => {},
+  onToggleInventory = () => {},
   touchRoot = document
 }) {
   if (!element || !controller) {
@@ -135,10 +137,16 @@ export function bindInput({
     )) return;
 
     if (event.code === "Escape") {
+      if (state.inventory) { event.preventDefault(); event.stopImmediatePropagation(); onToggleInventory(); return; }
       if (!state.started || state.dialogue) return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      togglePause();
+      event.preventDefault(); event.stopImmediatePropagation(); togglePause(); return;
+    }
+    if (event.code === "KeyT" || event.code === "KeyI") {
+      if (!event.repeat && state.started && !state.paused && !state.combat && !state.dialogue &&
+          (!state.inVehicle || event.code === "KeyI") && (!state.inventory || event.code === "KeyI")) {
+        event.preventDefault(); event.stopImmediatePropagation();
+        if (event.code === "KeyT") onTogglePhone(); else onToggleInventory();
+      }
       return;
     }
     if (event.code === "Enter" && state.paused) {
@@ -149,22 +157,23 @@ export function bindInput({
     }
     if (event.code === "Space") {
       event.preventDefault();
+      if (state.inventory) return;
       if (state.inVehicle) setKey("Space", !state.paused);
       else if (!event.repeat && !state.paused) controller.jump?.();
       return;
     }
     if (event.code === "KeyE") {
-      if (!event.repeat && !state.paused && !state.dialogue) onInteract();
+      if (!event.repeat && !state.paused && !state.dialogue && !state.inventory) onInteract();
       return;
     }
     if (movementCodes.includes(event.code)) {
       event.preventDefault();
-      setKey(event.code, !state.paused && !state.combat && !state.dialogue);
+      setKey(event.code, !state.paused && !state.combat && !state.dialogue && !state.inventory);
       return;
     }
     if (["ShiftLeft", "ShiftRight", "ControlLeft", "ControlRight"].includes(event.code)) {
       if (event.code.startsWith("Control")) event.preventDefault();
-      setKey(event.code, !state.paused && !state.combat && !state.dialogue);
+      setKey(event.code, !state.paused && !state.combat && !state.dialogue && !state.inventory);
     }
   }
 
@@ -350,6 +359,9 @@ export function bindInput({
         if (edge(1)) onMenuAction("back");
         if (edge(14)) onMenuAction("left");
         if (edge(15)) onMenuAction("right");
+      } else if (state.inventory) {
+        controller.setAnalogMove?.(0, 0);
+        clearSource("gamepad");
       } else if (state.dialogue) {
         controller.setAnalogMove?.(0, 0);
         clearSource("gamepad");

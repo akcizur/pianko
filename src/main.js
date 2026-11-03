@@ -27,7 +27,7 @@ const savedInVehicle=Boolean(saved.inVehicle&&savedVehicleSafe);
 let totalPlaySeconds=Number(saved.playSeconds)||0;
 let endingChoice=saved.ending||null;
 const mission = { stage: Math.max(0, Math.min(5, saved.missionStage || 0)), complete: false };
-const state = { started: false, paused: false, combat: false, dialogue: false, inVehicle: savedInVehicle };
+const state = { started: false, paused: false, combat: false, dialogue: false, inVehicle: savedInVehicle, inventory:false };
 const stats = { hp: 74, maxHp: 74, energy: 32, maxEnergy: 32, xp: 0, level: 1, credits: 120, medkits: 2, weaponLevel:0, armorLevel:0, guard: false, ...saved.stats };
 const foe = { hp: 42, maxHp: 42, defeated: Boolean(saved.foeDefeated), busy: false };
 const secondFoe = { hp: 68, maxHp: 68, defeated: Boolean(saved.courierDefeated), busy: false };
@@ -94,21 +94,25 @@ function flushFacadeParts(){
   }
   facadeInstances.clear();
 }
-const weaponPivot=new THREE.Group();weaponPivot.position.set(.29,-.24,-.52);weaponPivot.visible=false;camera.add(weaponPivot);
-const vz61=new THREE.Group();weaponPivot.add(vz61);
-function weaponPart(w,h,d,color,x,y,z){const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material(color,.46));mesh.position.set(x,y,z);vz61.add(mesh);return mesh;}
-weaponPart(.19,.12,.3,0x353636,0,0,0);
-weaponPart(.17,.045,.24,0x252728,0,.075,-.025);
-weaponPart(.075,.075,.34,0x292b2b,0,.015,-.28);
-weaponPart(.1,.09,.07,0x17191a,0,.015,-.48);
-weaponPart(.06,.04,.08,0x55534e,0,.105,-.35);
-weaponPart(.07,.045,.07,0x55534e,0,.1,.12);
-weaponPart(.09,.22,.1,0x413a32,0,-.16,.08).rotation.x=-.17;
-weaponPart(.1,.2,.11,0x302e2b,0,-.22,-.015);
-weaponPart(.06,.14,.24,0x303233,.13,.105,.08).rotation.x=-.12;
-const gunBarrel=new THREE.Mesh(new THREE.CylinderGeometry(.029,.029,.29,10),material(0x282a2b,.38));gunBarrel.rotation.x=Math.PI/2;gunBarrel.position.set(0,.01,-.28);vz61.add(gunBarrel);
-const muzzleFlash=new THREE.Mesh(new THREE.PlaneGeometry(.16,.13),new THREE.MeshBasicMaterial({color:0xffd68a,transparent:true,opacity:.95,side:THREE.DoubleSide,toneMapped:false}));muzzleFlash.position.set(0,.02,-.52);muzzleFlash.visible=false;vz61.add(muzzleFlash);
-let weaponRecoil=0,muzzleTimer=0;
+const phoneGroup=new THREE.Group();
+phoneGroup.position.set(.38,-.22,-.56);phoneGroup.rotation.set(-.08,-.18,-.08);phoneGroup.visible=false;camera.add(phoneGroup);
+let phoneDrawn=false;
+const phoneHand=new THREE.Mesh(new THREE.BoxGeometry(.145,.22,.095),material(0x8b6d57,.94));phoneHand.position.set(0,-.16,-.055);phoneHand.rotation.z=-.08;phoneGroup.add(phoneHand);
+const phoneBody=new THREE.Mesh(new THREE.BoxGeometry(.122,.238,.026),material(0x242725,.34,.02,.08));phoneBody.position.set(0,.015,0);phoneBody.castShadow=true;phoneGroup.add(phoneBody);
+const phoneBezel=new THREE.Mesh(new THREE.BoxGeometry(.104,.148,.006),material(0x080d0b,.25));phoneBezel.position.set(0,.045,.016);phoneGroup.add(phoneBezel);
+const phoneScreenCanvas=document.createElement("canvas");phoneScreenCanvas.width=256;phoneScreenCanvas.height=360;
+const phoneScreenContext=phoneScreenCanvas.getContext("2d");
+phoneScreenContext.fillStyle="#07130d";phoneScreenContext.fillRect(0,0,256,360);
+phoneScreenContext.fillStyle="#a8e1ad";phoneScreenContext.font="bold 25px monospace";phoneScreenContext.fillText("MÍR 12",20,42);
+phoneScreenContext.fillStyle="#d3e6ce";phoneScreenContext.font="18px monospace";phoneScreenContext.fillText("07:45",20,88);
+phoneScreenContext.fillStyle="#7bbd86";phoneScreenContext.fillRect(20,112,216,2);
+phoneScreenContext.font="15px monospace";phoneScreenContext.fillText("SIGNÁL 03",20,151);phoneScreenContext.fillText("ZPRÁVY  02",20,183);phoneScreenContext.fillText("VOLÁNÍ",20,215);
+phoneScreenContext.fillStyle="#6caa76";for(let bar=0;bar<4;bar++)phoneScreenContext.fillRect(20+bar*13,248,8,12+(bar%2)*12);
+const phoneScreenTexture=new THREE.CanvasTexture(phoneScreenCanvas);phoneScreenTexture.colorSpace=THREE.SRGBColorSpace;
+const phoneScreen=new THREE.Mesh(new THREE.PlaneGeometry(.091,.132),new THREE.MeshBasicMaterial({map:phoneScreenTexture,toneMapped:false}));phoneScreen.position.set(0,.045,.020);phoneGroup.add(phoneScreen);
+const phoneSpeaker=new THREE.Mesh(new THREE.BoxGeometry(.035,.004,.002),material(0x9eaa9e,.55));phoneSpeaker.position.set(0,.121,.017);phoneGroup.add(phoneSpeaker);
+for(let row=0;row<3;row++)for(let column=0;column<3;column++){const key=new THREE.Mesh(new THREE.CylinderGeometry(.006,.006,.003,8),material(0x858c82,.62));key.rotation.x=Math.PI/2;key.position.set((column-1)*.021,-.065-row*.018,.019);phoneGroup.add(key);}
+const phoneAntenna=new THREE.Mesh(new THREE.CylinderGeometry(.003,.003,.052,6),material(0x858a80,.5));phoneAntenna.position.set(.047,.15,-.002);phoneAntenna.rotation.z=-.12;phoneGroup.add(phoneAntenna);
 function block(name, x, y, z, w, h, d, color, solid = true, emissive = 0, intensity = 0) {
   const mesh = new THREE.Mesh(boxGeo, material(color, .88, emissive, intensity));
   mesh.name = name; mesh.position.set(x, y + h / 2, z); mesh.scale.set(w, h, d); mesh.castShadow = h > 2; mesh.receiveShadow = true; scene.add(mesh);
@@ -529,19 +533,16 @@ carPart(.08,.08,.06,0xb5b6a5,0,1.16,2.13,.42);
 carPlate(-2.16,true);carPlate(2.16,false);
 for(const side of [-1,1]){const wiper=carPart(.64,.025,.035,carTrim,side*.36,2.035,-.78,.62);wiper.rotation.z=side*.12;}
 const rearWiper=carPart(.62,.025,.035,carTrim,.08,1.67,1.55,.62);rearWiper.rotation.z=-.18;
-const wheels=[],wheelHubs=[];
+const wheels=[],wheelHubs=[],frontWheelPivots=[];
 for(const x of [-1.03,1.03])for(const z of [-1.28,1.28]){
+  const pivot=new THREE.Group();pivot.position.set(x,0,z);stateCar.add(pivot);
   const wheel=new THREE.Mesh(new THREE.CylinderGeometry(.38,.38,.25,12),material(0x292b29,.96));
-  wheel.rotation.z=Math.PI/2;wheel.position.set(x,.48,z);wheel.castShadow=true;stateCar.add(wheel);wheels.push(wheel);
+  wheel.rotation.z=Math.PI/2;wheel.position.set(0,.48,0);wheel.castShadow=true;pivot.add(wheel);wheels.push(wheel);
+  if(z<0)frontWheelPivots.push(pivot);
   for(const side of [-1,1]){
-    const rim=new THREE.Mesh(new THREE.CylinderGeometry(.22,.22,.045,12),material(0xb8b7aa,.52,.03,.05));
-    rim.position.set(0,side*.13,0);wheel.add(rim);wheelHubs.push(rim);
-    const cap=new THREE.Mesh(new THREE.CylinderGeometry(.075,.075,.055,10),material(0x777d71,.48));
-    cap.position.set(0,side*.16,0);wheel.add(cap);wheelHubs.push(cap);
-    for(let spokeIndex=0;spokeIndex<6;spokeIndex++){
-      const spoke=new THREE.Mesh(new THREE.BoxGeometry(.04,.018,.29),material(0xc4c2b4,.46));
-      spoke.position.set(0,side*.155,0);spoke.rotation.y=spokeIndex*Math.PI/3;wheel.add(spoke);wheelHubs.push(spoke);
-    }
+    const rim=new THREE.Mesh(new THREE.CylinderGeometry(.22,.22,.045,12),material(0xb8b7aa,.52,.03,.05));rim.position.set(0,side*.13,0);wheel.add(rim);wheelHubs.push(rim);
+    const cap=new THREE.Mesh(new THREE.CylinderGeometry(.075,.075,.055,10),material(0x777d71,.48));cap.position.set(0,side*.16,0);wheel.add(cap);wheelHubs.push(cap);
+    for(let spokeIndex=0;spokeIndex<6;spokeIndex++){const spoke=new THREE.Mesh(new THREE.BoxGeometry(.04,.018,.29),material(0xc4c2b4,.46));spoke.position.set(0,side*.155,0);spoke.rotation.y=spokeIndex*Math.PI/3;wheel.add(spoke);wheelHubs.push(spoke);}
   }
 }
 const thrusters=[];
@@ -550,7 +551,7 @@ for(const x of [-.72,.72])for(const z of [-1.27,1.27]){
   const flame=new THREE.Mesh(new THREE.ConeGeometry(.27,.9,8),thrusterMaterial);flame.rotation.x=Math.PI;flame.position.set(x,.12,z);flame.visible=false;stateCar.add(flame);thrusters.push(flame);
 }
 stateCar.position.set(2.5,0,6);scene.add(stateCar);
-const vehicle={x:savedVehicleSafe?saved.vehicle.x:2.5,z:savedVehicleSafe?saved.vehicle.z:10.5,yaw:savedVehicleSafe&&Number.isFinite(saved.vehicle.yaw)?saved.vehicle.yaw:0,speed:0,altitude:savedVehicleSafe?THREE.MathUtils.clamp(Number(saved.vehicle.altitude)||0,0,42):0,verticalSpeed:0,battery:savedVehicleSafe?THREE.MathUtils.clamp(Number(saved.vehicle.battery??100)||0,0,100):100,occupied:savedInVehicle,lookSteer:0,lookSteerUntil:0};
+const vehicle={x:savedVehicleSafe?saved.vehicle.x:2.5,z:savedVehicleSafe?saved.vehicle.z:10.5,yaw:savedVehicleSafe&&Number.isFinite(saved.vehicle.yaw)?saved.vehicle.yaw:0,yawRate:0,speed:0,vx:0,vz:0,horizontalSpeed:0,altitude:savedVehicleSafe?THREE.MathUtils.clamp(Number(saved.vehicle.altitude)||0,0,42):0,verticalSpeed:0,battery:savedVehicleSafe?THREE.MathUtils.clamp(Number(saved.vehicle.battery??100)||0,0,100):100,occupied:savedInVehicle,lookSteer:0,lookSteerUntil:0};
 const vehicleCollider={name:"zelený hatchback",...vehicleAabb(vehicle.x,vehicle.z,vehicle.yaw),minY:vehicle.altitude,maxY:vehicle.altitude+2.35,enabled:!vehicle.occupied};colliders.push(vehicleCollider);
 const vehicleCameraPosition=new THREE.Vector3(),vehicleLookTarget=new THREE.Vector3();
 function syncVehicleCollider(){Object.assign(vehicleCollider,vehicleAabb(vehicle.x,vehicle.z,vehicle.yaw));vehicleCollider.minY=vehicle.altitude;vehicleCollider.maxY=vehicle.altitude+2.35;}
@@ -705,8 +706,20 @@ function updateObjectivePointer(){
   $("objectiveArrow").textContent=arrow;
   $("objectiveReadout").textContent=`${target.label} · ${Math.round(distance)} M`;
 }
+function updateInventory(){
+  const items=[
+    {glyph:"TEL",name:"TELEFON",description:"Osobní komunikační přístroj",amount:"VÝCHOZÍ VÝBAVA"},
+    {glyph:"OBV",name:"OBVAZY",description:"Zdravotnický materiál",amount:"× "+stats.medkits},
+    {glyph:"KČS",name:"HOTOVOST",description:"Československé koruny",amount:stats.credits+" KČS"}
+  ];
+  if(neighborQuestStep===2)items.push({glyph:"SEŠ",name:"SEŠIT STŘIHŮ",description:"Modrý sešit pro Ivanu",amount:"U SEBE"});
+  if(mission.stage>=4)items.push({glyph:"MC",name:"KONCERTNÍ PÁSKA",description:"Nahrávka zakázané kapely",amount:"U SEBE"});
+  $("inventoryItems").innerHTML=items.map(item=>'<article class="inventory-item"><div class="inventory-glyph">'+item.glyph+'</div><div class="inventory-item-copy"><b>'+item.name+'</b><span>'+item.description+'</span></div><strong>'+item.amount+'</strong></article>').join("");
+  $("inventoryVitals").textContent=stats.hp+" / "+stats.maxHp+" HP  ·  "+stats.energy+" / "+stats.maxEnergy+" EN";
+  $("inventoryMission").textContent="ÚKOL "+String(Math.min(mission.stage+1,5)).padStart(2,"0")+" / 05 · "+$("missionTitle").textContent;
+}
 function updateStats(){
-  $("loadoutValue").textContent="VZ. 61 · "+["ZÁKLAD","ÚPRAVA I","ÚPRAVA II"][Math.min(stats.weaponLevel,2)]+" / BUNDA · "+["I","II","III"][Math.min(stats.armorLevel,2)];
+  $("loadoutValue").textContent="VÝSTROJ · BUNDA · "+["I","II","III"][Math.min(stats.armorLevel,2)];
   $("attackHint").textContent=(14+stats.weaponLevel*3)+"–"+(20+stats.weaponLevel*3)+" poškození · 0 EN";
   $("aimHint").textContent=(24+stats.weaponLevel*5)+"–"+(32+stats.weaponLevel*5)+" poškození · 8 EN";
   $("weaponOffer").textContent=stats.weaponLevel>=2?"ŠKORPION · MAX":"VYLEPŠIT ŠKORPION · "+(stats.weaponLevel===0?130:190)+" KČS";
@@ -720,6 +733,7 @@ function updateStats(){
   $("energyBar").style.width=`${stats.energy/stats.maxEnergy*100}%`;$("energyValue").textContent=`${stats.energy} / ${stats.maxEnergy}`;
   $("xpValue").textContent=`${stats.xp} / 100`;$("creditValue").textContent=String(stats.credits);$("medkitValue").textContent=`× ${stats.medkits}`;
   $("enemyBar").style.width=`${Math.max(0,activeFoe.hp/activeFoe.maxHp*100)}%`;$("enemyHP").textContent=`${Math.max(0,activeFoe.hp)} / ${activeFoe.maxHp} HP`;
+  updateInventory();
 }
 function collectSupply(supply){
   if(supply.collected||state.inVehicle||state.combat||state.dialogue||state.paused)return;
@@ -853,7 +867,7 @@ if (!controller.setSpawn(savedPlayerSafe?saved.player:{x:0,z:8,yaw:0})) controll
 mission.complete=mission.stage>=5;
 
 function enterVehicle(){
-  input.clear();controller.setAnalogMove(0,0);vehicle.occupied=true;vehicleCollider.enabled=false;state.inVehicle=true;vehicle.speed=0;showToast("ZELENÝ HATCHBACK · SHIFT STOUPÁ · CTRL KLESÁ · E VYSTOUPIT");
+  input.clear();controller.setAnalogMove(0,0);phoneDrawn=false;phoneGroup.visible=false;vehicle.occupied=true;vehicleCollider.enabled=false;state.inVehicle=true;vehicle.speed=0;vehicle.vx=0;vehicle.vz=0;vehicle.yawRate=0;showToast("ZELENÝ HATCHBACK · SHIFT STOUPÁ · CTRL KLESÁ · E VYSTOUPIT");
   gameAudio.door(true);
   camera.fov=80;camera.updateProjectionMatrix();$("vehicleHud").hidden=false;
   $("touchUI").querySelector('[data-touch-action="jump"]').textContent="STOUPAT";
@@ -862,22 +876,33 @@ function enterVehicle(){
 }
 function exitVehicle(){
   if(vehicle.altitude>.7){showToast("PŘISTAŇ PŘED VYSTOUPENÍM · CTRL KLESAT");return false;}
-  const sideX=Math.cos(vehicle.yaw)*1.8,sideZ=Math.sin(vehicle.yaw)*1.8;
+  const sideX=Math.cos(vehicle.yaw)*1.8,sideZ=-Math.sin(vehicle.yaw)*1.8;
   const exits=[
     {x:vehicle.x+sideX,z:vehicle.z+sideZ,yaw:vehicle.yaw},
     {x:vehicle.x-sideX,z:vehicle.z-sideZ,yaw:vehicle.yaw},
-    {x:vehicle.x+Math.sin(vehicle.yaw)*2.5,z:vehicle.z-Math.cos(vehicle.yaw)*2.5,yaw:vehicle.yaw},
-    {x:vehicle.x-Math.sin(vehicle.yaw)*2.5,z:vehicle.z+Math.cos(vehicle.yaw)*2.5,yaw:vehicle.yaw}
+    {x:vehicle.x-Math.sin(vehicle.yaw)*2.5,z:vehicle.z-Math.cos(vehicle.yaw)*2.5,yaw:vehicle.yaw},
+    {x:vehicle.x+Math.sin(vehicle.yaw)*2.5,z:vehicle.z+Math.cos(vehicle.yaw)*2.5,yaw:vehicle.yaw}
   ];
   if(!exits.some(spawn=>controller.setSpawn(spawn))){showToast("KOLEM VOZU NENÍ BEZPEČNÉ MÍSTO K VYSTOUPENÍ");return false;}
   input.clear();
-  vehicle.occupied=false;state.inVehicle=false;vehicle.speed=0;vehicle.altitude=0;vehicle.verticalSpeed=0;stateCar.position.y=0;vehicleCollider.enabled=true;syncVehicleCollider();controller.setAnalogMove(0,0);
+  vehicle.occupied=false;state.inVehicle=false;vehicle.speed=0;vehicle.vx=0;vehicle.vz=0;vehicle.yawRate=0;vehicle.altitude=0;vehicle.verticalSpeed=0;stateCar.position.y=0;vehicleCollider.enabled=true;syncVehicleCollider();controller.setAnalogMove(0,0);
   gameAudio.door(false);
   camera.fov=74;camera.updateProjectionMatrix();$("vehicleHud").hidden=true;
   $("touchUI").querySelector('[data-touch-action="jump"]').textContent="SKOK";
   $("touchUI").querySelector('[data-touch-action="run"]').textContent="BĚH";
   saveGame();showToast("VYSTOUPIL JSI Z VOZU");
   return true;
+}
+function togglePhone(){
+  if(!state.started||state.paused||state.combat||state.dialogue||state.inventory||state.inVehicle)return;
+  phoneDrawn=!phoneDrawn;phoneGroup.visible=phoneDrawn;gameAudio.ui();
+  showToast(phoneDrawn?"TELEFON V RUCE · T ZAVŘÍT":"TELEFON UKLIZEN");
+}
+function toggleInventory(){
+  if(!state.started||state.paused||state.combat||state.dialogue)return;
+  state.inventory=!state.inventory;$("inventoryPanel").hidden=!state.inventory;
+  if(state.inventory){phoneDrawn=false;phoneGroup.visible=false;input.clear();document.exitPointerLock?.();updateInventory();}
+  else{input.clear();renderer.domElement.focus();}
 }
 function interact(){
   if(!state.started||state.combat||state.dialogue||state.paused)return;
@@ -916,11 +941,12 @@ const input=bindInput({element:renderer.domElement,controller,state,onInteract:i
     renderSettings();
   }else if(command==="confirm")activateMenuItem(items[menuSelection]);
   else if(command==="back"&&menuPage!=="main")setMenuPage("main");
-},onPauseChange(paused){pauseScreen.hidden=!paused;renderer.domElement.classList.toggle("is-paused",paused);},onVehicleLook(dx,_dy,source="mouse"){
-  if(source==="gamepad")vehicle.lookSteer=THREE.MathUtils.clamp(-dx*60/2.2,-1,1);
-  else vehicle.lookSteer=THREE.MathUtils.clamp(vehicle.lookSteer-dx*(source==="touch"?15:45),-1,1);
+},onPauseChange(paused){pauseScreen.hidden=!paused;renderer.domElement.classList.toggle("is-paused",paused);},onTogglePhone:togglePhone,onToggleInventory:toggleInventory,onVehicleLook(dx,_dy,source="mouse"){
+  if(source==="gamepad")vehicle.lookSteer=THREE.MathUtils.clamp(dx*60/2.2,-1,1);
+  else vehicle.lookSteer=THREE.MathUtils.clamp(vehicle.lookSteer+dx*(source==="touch"?15:45),-1,1);
   vehicle.lookSteerUntil=gameTime+(source==="gamepad"?.08:.16);
 }});
+$("inventoryClose").addEventListener("click",toggleInventory);
 const dialoguePanel=$("dialoguePanel");
 const endingPanel=$("endingPanel");
 let dialogueSelection=0,endingSelection=0,endingMode=false,endingChosen=false;
@@ -1028,12 +1054,12 @@ function closeMenu(){menuScreen.hidden=true;state.started=true;renderer.domEleme
 function startNewGame(){
   try{localStorage.removeItem(SAVE_KEY);}catch{}
   if(apartmentEntry){apartmentEntry.open=false;apartmentEntry.doorPivot.rotation.y=0;apartmentEntry.doorCollider.enabled=true;for(const door of apartmentEntry.apartmentDoors){door.open=false;door.doorPivot.rotation.y=0;door.doorCollider.enabled=true;}}
-  mission.stage=0;mission.complete=false;neighborQuestStep=0;patternBook.visible=false;patternInteractable.enabled=false;endingChoice=null;state.dialogue=false;state.paused=false;state.combat=false;state.inVehicle=false;vehicle.occupied=false;activeFoe=foe;activeEnemyMesh=enemyMesh;activeEnemyCollider=enemyCollider;foe.hp=foe.maxHp;foe.defeated=false;foe.busy=false;secondFoe.hp=secondFoe.maxHp;secondFoe.defeated=false;secondFoe.busy=false;enemyCollider.enabled=true;courierCollider.enabled=false;enemyInteractable.enabled=true;courierInteractable.enabled=false;relayInteractable.enabled=false;mechanicInteractable.enabled=false;towerInteractable.enabled=false;
+  mission.stage=0;mission.complete=false;neighborQuestStep=0;patternBook.visible=false;patternInteractable.enabled=false;endingChoice=null;state.dialogue=false;state.paused=false;state.combat=false;state.inVehicle=false;state.inventory=false;phoneDrawn=false;vehicle.occupied=false;activeFoe=foe;activeEnemyMesh=enemyMesh;activeEnemyCollider=enemyCollider;foe.hp=foe.maxHp;foe.defeated=false;foe.busy=false;secondFoe.hp=secondFoe.maxHp;secondFoe.defeated=false;secondFoe.busy=false;enemyCollider.enabled=true;courierCollider.enabled=false;enemyInteractable.enabled=true;courierInteractable.enabled=false;relayInteractable.enabled=false;mechanicInteractable.enabled=false;towerInteractable.enabled=false;
   stats.hp=74;stats.maxHp=74;stats.energy=32;stats.maxEnergy=32;stats.xp=0;stats.level=1;stats.credits=120;stats.medkits=2;stats.weaponLevel=0;stats.armorLevel=0;stats.guard=false;totalPlaySeconds=0;
   scene.add(enemyMesh);scene.add(courierGuard);scene.add(courier);courierGuard.visible=false;courier.visible=false;courierBeacon.visible=false;miraBeacon.visible=false;markerRing.visible=false;towerBeacon.visible=false;endingPanel.hidden=true;dialoguePanel.hidden=true;
   for(const supply of supplies){supply.collected=false;supply.group.visible=true;supply.interactable.enabled=true;}
   pauseScreen.hidden=true;renderer.domElement.classList.remove("is-paused");combatPanel.hidden=true;$("vehicleHud").hidden=true;camera.fov=74;camera.updateProjectionMatrix();
-  vehicle.x=2.5;vehicle.z=10.5;vehicle.yaw=0;vehicle.speed=0;vehicle.altitude=0;vehicle.verticalSpeed=0;vehicle.battery=100;vehicleCollider.enabled=true;syncVehicleCollider();stateCar.position.set(vehicle.x,0,vehicle.z);stateCar.rotation.set(0,0,0);for(const flame of thrusters)flame.visible=false;for(const wheel of [...wheels,...wheelHubs])wheel.visible=true;$("touchUI").querySelector('[data-touch-action="jump"]').textContent="SKOK";$("touchUI").querySelector('[data-touch-action="run"]').textContent="BĚH";
+  phoneDrawn=false;state.inventory=false;$("inventoryPanel").hidden=true;phoneGroup.visible=false;vehicle.x=2.5;vehicle.z=10.5;vehicle.yaw=0;vehicle.yawRate=0;vehicle.speed=0;vehicle.vx=0;vehicle.vz=0;vehicle.horizontalSpeed=0;vehicle.altitude=0;vehicle.verticalSpeed=0;vehicle.battery=100;vehicleCollider.enabled=true;syncVehicleCollider();stateCar.position.set(vehicle.x,0,vehicle.z);stateCar.rotation.set(0,0,0);for(const flame of thrusters)flame.visible=false;for(const wheel of [...wheels,...wheelHubs])wheel.visible=true;$("touchUI").querySelector('[data-touch-action="jump"]').textContent="SKOK";$("touchUI").querySelector('[data-touch-action="run"]').textContent="BĚH";
   controller.setSpawn({x:0,z:8,yaw:0});updateMission();updateStats();saveGame();closeMenu();showToast("MÍR 12 · PODZIM 1975");
 }
 function activateMenuItem(item=currentMenuItems()[menuSelection]){
@@ -1136,7 +1162,7 @@ function action(name){
     if(stats.hp===stats.maxHp){$("combatLog").textContent="Vitalita je už plná.";return;}
     stats.medkits--;const old=stats.hp;stats.hp=Math.min(stats.maxHp,stats.hp+28);$("combatLog").textContent="Obvazy obnovily "+(stats.hp-old)+" HP.";
   }
-  if(name==="attack"||name==="aim"){gameAudio.shot();weaponRecoil=Math.min(.12,weaponRecoil+.075);muzzleTimer=.085;}
+  if(name==="attack"||name==="aim")gameAudio.impact();
   updateStats();
   if(activeFoe.hp<=0){activeFoe.busy=true;$("turnState").textContent="CÍL ELIMINOVÁN";scheduleCombatStep(550,endCombat);}else enemyTurn();
 }
@@ -1169,22 +1195,25 @@ renderer.setAnimationLoop(time=>{
       if(dynamics.batteryLow)showToast("BATERIE SLÁBNE · ZAČNI KLESAT");
       if(dynamics.batteryEmpty)showToast("BATERIE VYBITÁ · NOUZOVÉ KLESÁNÍ");
       if(dynamics.landed)showToast("NOUZOVÉ PŘISTÁNÍ · POHON SE DOBÍJÍ");
-      const nx=vehicle.x+Math.sin(vehicle.yaw)*vehicle.speed*dt,nz=vehicle.z-Math.cos(vehicle.yaw)*vehicle.speed*dt;
+      const nx=vehicle.x+vehicle.vx*dt,nz=vehicle.z+vehicle.vz*dt;
       const flightX=vehicle.altitude>2.6,sideLimit=flightX?22.2:7.2;
       const collision=moveVehicleWithCollisions(vehicle,nx,nz,colliders,{selfCollider:vehicleCollider,bounds:{minX:-sideLimit,maxX:sideLimit,minZ:flightX?-99:-96,maxZ:flightX?31:29}});
       if((collision.blockedX||collision.blockedZ)&&gameTime>=nextVehicleImpact){gameAudio.impact();nextVehicleImpact=gameTime+.22;}
-      const inAir=vehicle.altitude>.8;
+      const inAir=vehicle.altitude>.8,horizontalSpeed=Math.hypot(vehicle.vx,vehicle.vz);
       stateCar.position.set(vehicle.x,vehicle.altitude,vehicle.z);syncVehicleCollider();
-      stateCar.rotation.set(THREE.MathUtils.clamp(-vehicle.verticalSpeed*.012,-.08,.08),vehicle.yaw,THREE.MathUtils.clamp(-steer*.035,-.05,.05));
+      const bodyPitch=THREE.MathUtils.clamp((inAir?throttle*.045:throttle*.018)+vehicle.verticalSpeed*.012,-.14,.16);
+      const bodyRoll=THREE.MathUtils.clamp(-steer*(inAir?.12:.035),-.12,.12);
+      stateCar.rotation.set(bodyPitch,vehicle.yaw,bodyRoll);
       wheels.forEach(w=>w.rotation.x+=vehicle.speed*dt/.34);
+      frontWheelPivots.forEach(pivot=>pivot.rotation.y=-steer*(inAir?.38:.5));
       if(typeof importedWheelBones!=="undefined")importedWheelBones.forEach(bone=>bone.rotation.x+=vehicle.speed*dt/.33);
-      if(typeof importedFrontAxle!=="undefined"&&importedFrontAxle)importedFrontAxle.rotation.y=-steer*.28;
+      if(typeof importedFrontAxle!=="undefined"&&importedFrontAxle)importedFrontAxle.rotation.y=-steer*(inAir?.22:.42);
       for(const wheel of [...wheels,...wheelHubs])wheel.visible=!inAir;
       thrusters.forEach((flame,index)=>{flame.visible=inAir;flame.scale.setScalar(.78+.22*Math.sin(gameTime*13+index));});
-      vehicleCameraPosition.set(vehicle.x-Math.sin(vehicle.yaw)*6.2,vehicle.altitude+3.1,vehicle.z+Math.cos(vehicle.yaw)*6.2);
-      vehicleLookTarget.set(vehicle.x+Math.sin(vehicle.yaw)*2,vehicle.altitude+1.05,vehicle.z-Math.cos(vehicle.yaw)*2);
+      vehicleCameraPosition.set(vehicle.x+Math.sin(vehicle.yaw)*6.2,vehicle.altitude+3.1,vehicle.z+Math.cos(vehicle.yaw)*6.2);
+      vehicleLookTarget.set(vehicle.x-Math.sin(vehicle.yaw)*2,vehicle.altitude+1.05,vehicle.z-Math.cos(vehicle.yaw)*2);
       camera.position.lerp(vehicleCameraPosition,1-Math.exp(-7.5*dt));camera.lookAt(vehicleLookTarget);
-      $("speedValue").textContent=String(Math.round(Math.abs(vehicle.speed)*3.6)).padStart(3,"0");
+      $("speedValue").textContent=String(Math.round(horizontalSpeed*3.6)).padStart(3,"0");
       $("altitudeValue").textContent=String(Math.round(vehicle.altitude)).padStart(2,"0");
       $("batteryValue").textContent=String(Math.round(vehicle.battery)).padStart(2,"0");
     }else{
@@ -1239,16 +1268,14 @@ renderer.setAnimationLoop(time=>{
     }else if(state.inVehicle)hint.textContent=`W / S POHON · A / D ZATÁČENÍ · SHIFT STOUPAT · CTRL KLESAT · ${vehicle.altitude>.7?"E VYSTOUPIT ZAMČENO":"E VYSTOUPIT"}`;
   const p=controller.player;
   const buildingFloor=apartmentEntry&&p.elevation>.05?` · DŮM MÍR · ${Math.min(apartmentEntry.storyCount,Math.floor(p.elevation/apartmentEntry.storyHeight)+1)}. PATRO`:"";
-  coordinates.textContent=state.inVehicle?`ALT ${Math.round(vehicle.altitude)} M · ${Math.round(Math.abs(vehicle.speed)*3.6)} KM/H`:`X ${p.x.toFixed(1)} · Z ${p.z.toFixed(1)}${buildingFloor}`;
+  coordinates.textContent=state.inVehicle?`ALT ${Math.round(vehicle.altitude)} M · ${Math.round(Math.hypot(vehicle.vx,vehicle.vz)*3.6)} KM/H`:`X ${p.x.toFixed(1)} · Z ${p.z.toFixed(1)}${buildingFloor}`;
   updateObjectivePointer();
   const walking=playerMoved;
   if(walking&&state.started&&!state.paused&&!state.combat&&!state.inVehicle&&gameTime>=nextFootstep){gameAudio.step();nextFootstep=gameTime+((controller.keysDown.ShiftLeft||controller.keysDown.ShiftRight)?0.34:0.5);}
-  gameAudio.updateVehicle(vehicle.speed,state.inVehicle&&state.started&&!state.paused);
-  weaponPivot.visible=state.started&&!state.paused&&!state.inVehicle&&!state.dialogue;
-  weaponRecoil*=Math.exp(-dt*12);muzzleTimer=Math.max(0,muzzleTimer-dt);
-  weaponPivot.position.set(.29,-.24+(walking&&!state.combat?Math.sin(gameTime*10)*.008:Math.sin(gameTime*1.4)*.002),-.52+weaponRecoil);
-  weaponPivot.rotation.set(-.025-weaponRecoil*.45,.035,-.025);
-  muzzleFlash.visible=muzzleTimer>0;
+  gameAudio.updateVehicle(vehicle.horizontalSpeed??Math.hypot(vehicle.vx,vehicle.vz),state.inVehicle&&state.started&&!state.paused);
+  phoneGroup.visible=phoneDrawn&&state.started&&!state.paused&&!state.inVehicle&&!state.dialogue&&!state.combat&&!state.inventory;
+  phoneGroup.position.y=-.22+(walking?Math.sin(gameTime*10)*.008:Math.sin(gameTime*1.4)*.002);
+  phoneGroup.rotation.x=-.08+Math.sin(gameTime*1.2)*.008;
   renderer.render(scene,camera);
 });
 updateMission();updateStats();

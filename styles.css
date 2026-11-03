@@ -267,3 +267,23 @@ button { font: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
+
+.inventory-panel{position:fixed;z-index:9;inset:0;display:grid;place-items:center;padding:18px;background:rgba(0,0,0,.72);backdrop-filter:blur(7px);color:#f2f2f2;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.inventory-panel[hidden]{display:none}
+.inventory-shell{width:min(660px,calc(100vw - 28px));max-height:min(680px,calc(100dvh - 32px));overflow:auto;padding:21px;background:rgba(5,7,8,.97);border:1px solid #eee;box-shadow:0 18px 80px #000b}
+.inventory-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding-bottom:14px;border-bottom:1px solid #ffffff55}
+.inventory-head span{color:#aaa;font-size:9px;letter-spacing:.16em}
+.inventory-head h2{margin:7px 0 0;font-size:clamp(23px,5vw,34px);letter-spacing:.02em}
+.inventory-head button{padding:8px 10px;border:1px solid #aaa;background:#050505;color:#eee;font:10px ui-monospace,monospace;cursor:pointer}
+.inventory-head button:hover{background:#fff;color:#000}
+.inventory-vitals{padding:12px 0;color:#ddd;font-size:10px;letter-spacing:.08em;border-bottom:1px solid #ffffff24}
+.inventory-items{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:14px 0}
+.inventory-item{display:grid;grid-template-columns:42px minmax(0,1fr);align-items:center;gap:10px;min-height:78px;padding:10px;border:1px solid #777;background:#111}
+.inventory-glyph{display:grid;place-items:center;width:40px;height:40px;border:1px solid #aaa;color:#fff;font-size:9px}
+.inventory-item-copy{min-width:0}
+.inventory-item-copy b,.inventory-item-copy span{display:block}
+.inventory-item-copy b{font-size:10px;letter-spacing:.08em}
+.inventory-item-copy span{margin-top:5px;color:#aaa;font-size:9px;line-height:1.4}
+.inventory-item>strong{grid-column:2;color:#f3f3f3;font-size:9px;letter-spacing:.06em}
+.inventory-foot{display:flex;justify-content:space-between;gap:12px;padding-top:12px;border-top:1px solid #ffffff55;color:#aaa;font-size:8px;letter-spacing:.08em}
+@media(max-width:520px){.inventory-shell{padding:14px}.inventory-items{grid-template-columns:1fr}.inventory-item{min-height:67px}.inventory-foot{flex-direction:column;gap:7px}}
