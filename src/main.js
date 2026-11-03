@@ -149,6 +149,35 @@ function block(name, x, y, z, w, h, d, color, solid = true, emissive = 0, intens
   if (solid) colliders.push({ name, minX:x-w/2, maxX:x+w/2, minZ:z-d/2, maxZ:z+d/2, minY:y, maxY:y+h });
   return mesh;
 }
+const apartmentBlockBatches=new Map();
+function queueApartmentBlock(name,x,y,z,w,h,d,color,solid=false){
+  const key=String(color);
+  if(!apartmentBlockBatches.has(key))apartmentBlockBatches.set(key,{color,items:[]});
+  apartmentBlockBatches.get(key).items.push({name,x,y,z,w,h,d});
+  if(solid)colliders.push({name,minX:x-w/2,maxX:x+w/2,minZ:z-d/2,maxZ:z+d/2,minY:y,maxY:y+h});
+}
+function flushApartmentBlocks(){
+  const position=new THREE.Vector3(),scale=new THREE.Vector3(),rotation=new THREE.Quaternion(),matrix=new THREE.Matrix4();
+  let total=0;
+  for(const batch of apartmentBlockBatches.values()){
+    const instances=new THREE.InstancedMesh(boxGeo,material(batch.color,.88),batch.items.length);
+    instances.name="bytový interiér — sdílené stavební a nábytkové instance";
+    instances.castShadow=true;instances.receiveShadow=true;
+    for(let index=0;index<batch.items.length;index++){
+      const item=batch.items[index];
+      position.set(item.x,item.y+item.h/2,item.z);
+      scale.set(item.w,item.h,item.d);
+      matrix.compose(position,rotation,scale);
+      instances.setMatrixAt(index,matrix);
+    }
+    instances.instanceMatrix.needsUpdate=true;
+    instances.computeBoundingBox();instances.computeBoundingSphere();
+    scene.add(instances);
+    total+=batch.items.length;
+  }
+  apartmentBlockBatches.clear();
+  return total;
+}
 function beamBetween(name,start,end,size,color){
   const direction=new THREE.Vector3(end.x-start.x,end.y-start.y,end.z-start.z);
   const mesh=new THREE.Mesh(new THREE.BoxGeometry(size,direction.length(),size),material(color,.72));
@@ -257,7 +286,7 @@ function buildWalkablePanelak(x,z,width,depth,height,inward,options={}){
         const unitX=apartmentXs[unit],tone=(unit+story+(sideZ>0?1:0))%3;
         const unitMinX=unit===0?minHallX:(apartmentXs[unit-1]+unitX)/2;
         const unitMaxX=unit===apartmentXs.length-1?maxHallX:(unitX+apartmentXs[unit+1])/2;
-        buildApartmentInterior({THREE,scene,block,material,x:unitX,z,base,storyHeight,sideZ,unitMinX,unitMaxX,unitX,tone,lighting:options.lighting!==false});
+        buildApartmentInterior({THREE,scene,block:queueApartmentBlock,material,x:unitX,z,base,storyHeight,sideZ,unitMinX,unitMaxX,unitX,tone,lighting:options.lighting!==false});
       }
     }
     block(buildingId+" — osvětlení chodby",frontX-inward*2.25,top-.38,z,.18,.07,.46,0xffd28a,false,0xb97631,.62);
@@ -400,6 +429,9 @@ for (const side of [-1,1]) {
     block("žluté pouliční svítidlo",side*8.5,4.65,z+2,.72,.2,.42,0xf0c06a,false,0x9f6828,.35);
   }
 }
+// Batch static apartment floors, partitions, kitchen and furniture while keeping per-item AABB collision.
+flushApartmentBlocks();
+
 // A second, more distant row closes the skyline when viewed from the hovering car.
 for(const side of [-1,1])for(let z=11;z>=-76;z-=17){
   const x=side*30.7,width=12.5,height=24+Math.abs(Math.floor(z*3+side*11)%13),depth=13.5;
