@@ -375,7 +375,8 @@ for (const side of [-1,1]) {
     const buildingId=specialPanelak?"DŮM MÍR":departmentStore?"OBCHODNÍ DŮM MÍR":oldTown?"ČINŽOVNÍ DŮM":"PANELÁK "+(side<0?"ZÁPAD":"VÝCHOD")+" · "+Math.abs(z);
     const buildingKind=departmentStore?"shop":oldTown?"tenement":"panelak";
     const buildingWallColor=oldTown?0x817365:departmentStore?0x788080:[0x737b7d,0x80827d,0x697277,0x89877f][buildingVariant];
-    const entry=buildWalkablePanelak(x,z,departmentStore?13:width,departmentStore?15:13,height,-side,{
+    const buildingHeight=departmentStore?12:oldTown?11:height;
+    const entry=buildWalkablePanelak(x,z,departmentStore?13:width,departmentStore?15:13,buildingHeight,-side,{
       id:buildingId,kind:buildingKind,wallColor:buildingWallColor,lighting:specialPanelak
     });
     buildingEntries.push(entry);
