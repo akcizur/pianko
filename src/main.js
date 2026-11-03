@@ -1196,7 +1196,7 @@ renderer.setAnimationLoop(time=>{
       if(dynamics.batteryEmpty)showToast("BATERIE VYBITÁ · NOUZOVÉ KLESÁNÍ");
       if(dynamics.landed)showToast("NOUZOVÉ PŘISTÁNÍ · POHON SE DOBÍJÍ");
       const nx=vehicle.x+vehicle.vx*dt,nz=vehicle.z+vehicle.vz*dt;
-      const flightX=vehicle.altitude>2.6,sideLimit=flightX?22.2:7.2;
+      const flightX=vehicle.altitude>.8,sideLimit=flightX?22.2:7.2;
       const collision=moveVehicleWithCollisions(vehicle,nx,nz,colliders,{selfCollider:vehicleCollider,bounds:{minX:-sideLimit,maxX:sideLimit,minZ:flightX?-99:-96,maxZ:flightX?31:29}});
       if((collision.blockedX||collision.blockedZ)&&gameTime>=nextVehicleImpact){gameAudio.impact();nextVehicleImpact=gameTime+.22;}
       const inAir=vehicle.altitude>.8,horizontalSpeed=Math.hypot(vehicle.vx,vehicle.vz);

@@ -96,6 +96,6 @@ export function moveVehicleWithCollisions(vehicle,targetX,targetZ,colliders,opti
  for(let i=1;i<=nZ;i++){const nz=vehicle.z+dz/nZ;if(collides(vehicle.x,nz)){blockedZ=true;break;}vehicle.z=nz;movedZ=true;}
  if(blockedX&&Number.isFinite(vehicle.vx))vehicle.vx=0;
  if(blockedZ&&Number.isFinite(vehicle.vz))vehicle.vz=0;
- if(Number.isFinite(vehicle.vx)&&Number.isFinite(vehicle.vz)){vehicle.speed=vehicle.vx*-Math.sin(vehicle.yaw)+vehicle.vz*-Math.cos(vehicle.yaw);vehicle.horizontalSpeed=Math.hypot(vehicle.vx,vehicle.vz);}
+ if(Number.isFinite(vehicle.vx)&&Number.isFinite(vehicle.vz)){const forwardSpeed=vehicle.vx*-Math.sin(vehicle.yaw)+vehicle.vz*-Math.cos(vehicle.yaw);vehicle.speed=Math.abs(forwardSpeed)<1e-9?0:forwardSpeed;vehicle.horizontalSpeed=Math.hypot(vehicle.vx,vehicle.vz);}
  return {movedX,movedZ,blockedX,blockedZ};
 }

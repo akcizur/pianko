@@ -132,6 +132,6 @@ test("T opens the held phone and I opens or closes inventory",()=>{
   h.state.inventory=true;h.window.emit("keydown",event("KeyI"));
   assert.equal(inventoryToggles,2);
   h.window.emit("keydown",event("KeyW"));
-  assert.equal(h.controller.keysDown.KeyW,undefined);
+  assert.equal(h.controller.keysDown.KeyW,false);
  }finally{h.restore();}
 });
