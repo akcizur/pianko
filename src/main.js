@@ -1,3 +1,4 @@
+import "./touch-visual-fix.js";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { createPlayerController } from "./core/player-controller.js";

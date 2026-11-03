@@ -112,7 +112,7 @@ test("vehicle look reports mouse, touch and gamepad as distinct steering sources
     h.root.emit("mousemove", { movementX: 8, movementY: 2 });
     assert.equal(calls.at(-1)[2], "mouse");
     h.look.emit("pointerdown", { pointerType: "touch", pointerId: 7, clientX: 10, clientY: 10, preventDefault() {} });
-    h.look.emit("pointermove", { pointerType: "touch", pointerId: 7, clientX: 15, clientY: 12, preventDefault() {} });
+    h.window.emit("pointermove", { pointerType: "touch", pointerId: 7, clientX: 15, clientY: 12, cancelable: true, preventDefault() {} });
     assert.equal(calls.at(-1)[2], "touch");
     h.setGamepad({ connected: true, axes: [0, 0, 0.5, 0], buttons: Array.from({ length: 10 }, () => ({ pressed: false })) });
     h.frames.shift()();
