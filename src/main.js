@@ -318,7 +318,7 @@ function block(name, x, y, z, w, h, d, color, solid = true, emissive = 0, intens
 }
 const apartmentBlockBatches=new Map();
 function queueApartmentBlock(name,x,y,z,w,h,d,color,solid=false){
-  const surface=name.includes("parketová podlaha")?"woodFloor":name.includes("koupelnová dlažba")?"tileFloor":"plain";
+  const surface=name.includes("parketová podlaha")?"woodFloor":name.includes("koupelnová dlažba")||name.includes("kuchyňský obklad")?"tileFloor":name.includes("příčka")?"plaster":"plain";
   const key=String(color)+"/"+surface;
   if(!apartmentBlockBatches.has(key))apartmentBlockBatches.set(key,{color,surface,items:[]});
   apartmentBlockBatches.get(key).items.push({name,x,y,z,w,h,d});
@@ -330,7 +330,9 @@ function flushApartmentBlocks(){
   for(const batch of apartmentBlockBatches.values()){
     const surfaceMaterial=batch.surface==="woodFloor"||batch.surface==="tileFloor"
       ?apartmentFinishMaterial(batch.color,batch.surface)
-      :material(batch.color,.88);
+      :batch.surface==="plaster"
+        ?plasterMaterial(batch.color)
+        :material(batch.color,.88);
     const instances=new THREE.InstancedMesh(boxGeo,surfaceMaterial,batch.items.length);
     instances.name="bytový interiér — sdílené stavební a nábytkové instance";
     instances.castShadow=true;instances.receiveShadow=true;
