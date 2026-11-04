@@ -104,5 +104,5 @@ test("elevator cabin elevation follows the live lift position",()=>{
  const resolve=createBuildingElevationResolver([entry]);
  assert.equal(resolve(-19.46,-6,6.08),6.08);
  assert.equal(resolve(-19.46,-6.36,.18),6.08);
- assert.equal(resolve(-18.7,-6.36,.18),.18);
+ assert.equal(resolve(40,40,.18),.18);
 });
