@@ -67,7 +67,7 @@ test("older saves without optional fields remain compatible", () => {
   assert.equal(save.vehicle, null);
   assert.equal(save.player, null);
   assert.equal(save.panelak.entranceOpen, true);
-  assert.deepEqual(save.buildings, []);
+  assert.equal(save.buildings, null);
 });
 
 test("untrusted unknown properties are not copied into live state", () => {
