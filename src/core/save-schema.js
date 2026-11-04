@@ -119,7 +119,7 @@ function normalizeCollectedSupplies(raw) {
 export function normalizeSaveData(raw) {
   const source = isRecord(raw) ? raw : {};
   const vehicle = normalizeVehicle(source.vehicle);
-  const ending = source.ending === "public" || source.ending === "private" ? source.ending : null;
+  const ending = source.ending === "public" || source.ending === "eva" ? source.ending : null;
   return {
     missionStage: safeInteger(source.missionStage, 0, 0, 5),
     foeDefeated: source.foeDefeated === true,
