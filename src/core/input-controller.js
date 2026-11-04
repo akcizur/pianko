@@ -1,3 +1,5 @@
+import nipplejs from "nipplejs";
+
 // Unified keyboard, mouse, touch and Gamepad API input.
 // Input sources are tracked independently so one device cannot cancel another.
 export function bindInput({
@@ -41,15 +43,49 @@ export function bindInput({
     gamepadLook: 2.2
   };
 
-  let stickPointer = null;
   let lookPointer = null;
   let previousGamepadButtons = [];
   let animationFrame = 0;
   let destroyed = false;
 
   const moveStick = touchRoot.getElementById?.("moveStick") ?? touchRoot.querySelector?.("#moveStick");
-  const moveKnob = touchRoot.getElementById?.("moveKnob") ?? touchRoot.querySelector?.("#moveKnob");
   const lookZone = touchRoot.getElementById?.("touchLookZone") ?? touchRoot.querySelector?.("#touchLookZone");
+  let touchMove = { x: 0, y: 0 };
+  const movementJoystick = moveStick ? nipplejs.create({
+    zone: moveStick,
+    mode: "static",
+    position: { left: "50%", top: "50%" },
+    size: 128,
+    threshold: 0.1,
+    fadeTime: 120,
+    restOpacity: 0.52,
+    restJoystick: true,
+    color: {
+      back: "rgba(10, 14, 16, 0.44)",
+      front: "rgba(230, 237, 235, 0.30)"
+    }
+  }) : null;
+  movementJoystick?.on("start", () => moveStick.classList.add("active"));
+  movementJoystick?.on("move", event => {
+    if (!state.started || state.paused || state.combat || state.dialogue || state.inventory) {
+      touchMove = { x: 0, y: 0 };
+      controller.setAnalogMove?.(0, 0);
+      return;
+    }
+    const vector = event.data?.vector ?? { x: 0, y: 0 };
+    const x = clamp(Number(vector.x) || 0, -1, 1);
+    const y = clamp(Number(vector.y) || 0, -1, 1);
+    const magnitude = Math.hypot(x, y);
+    const deadZone = 0.12;
+    const scale = magnitude <= deadZone ? 0 : Math.min(1, (magnitude - deadZone) / (1 - deadZone)) / Math.max(magnitude, 0.001);
+    touchMove = { x: x * scale, y: y * scale };
+    controller.setAnalogMove?.(touchMove.x, touchMove.y);
+  });
+  movementJoystick?.on("end", () => {
+    touchMove = { x: 0, y: 0 };
+    controller.setAnalogMove?.(0, 0);
+    moveStick.classList.remove("active");
+  });
   const resumeButton = touchRoot.getElementById?.("resumeButton") ?? touchRoot.querySelector?.("#resumeButton");
 
   function listen(target, type, callback, options) {
@@ -78,18 +114,6 @@ export function bindInput({
     }
   }
 
-  function releaseStick(event) {
-    if (stickPointer === null || (event && event.pointerId !== stickPointer)) return;
-    const pointerId = stickPointer;
-    stickPointer = null;
-    try {
-      if (moveStick?.hasPointerCapture?.(pointerId)) moveStick.releasePointerCapture(pointerId);
-    } catch {}
-    controller.setAnalogMove?.(0, 0);
-    if (moveKnob) moveKnob.style.transform = "translate(0, 0)";
-    moveStick?.classList.remove("active");
-  }
-
   function endLook(event) {
     if (!lookPointer || (event && event.pointerId !== lookPointer.id)) return;
     const pointerId = lookPointer.id;
@@ -106,8 +130,8 @@ export function bindInput({
     runPointers.clear();
     jumpPointers.clear();
     touchRoot.querySelector?.('[data-touch-action="run"]')?.classList.remove("is-held");
+    touchMove = { x: 0, y: 0 };
     controller.setAnalogMove?.(0, 0);
-    releaseStick();
     endLook();
   }
 
@@ -212,48 +236,6 @@ export function bindInput({
     player.yaw -= event.movementX * sensitivity.mouseX;
     player.pitch = clamp(player.pitch - event.movementY * sensitivity.mouseY, -0.95, 1.3);
   });
-
-  // Touch joystick: vertical up is positive forward intent.
-  function updateStick(event) {
-    if (!moveStick) return;
-    const rect = moveStick.getBoundingClientRect();
-    const radius = Math.max(1, Math.min(rect.width, rect.height) * 0.34);
-    const dx = event.clientX - (rect.left + rect.width / 2);
-    const dy = event.clientY - (rect.top + rect.height / 2);
-    const x = clamp(dx / radius, -1, 1);
-    const y = clamp(-dy / radius, -1, 1);
-    const length = Math.hypot(x, y);
-    const deadZone = 0.16;
-    const scale = length <= deadZone ? 0 : Math.min(1, (length - deadZone) / (1 - deadZone)) / Math.max(length, 0.001);
-    controller.setAnalogMove?.(x * scale, y * scale);
-
-    if (moveKnob) {
-      const px = clamp(dx, -radius, radius);
-      const py = clamp(dy, -radius, radius);
-      moveKnob.style.transform = "translate(" + px + "px, " + py + "px)";
-    }
-  }
-
-  if (moveStick) {
-    listen(moveStick, "pointerdown", event => {
-      if (event.pointerType === "mouse" || state.paused || stickPointer !== null) return;
-      event.preventDefault();
-      stickPointer = event.pointerId;
-      moveStick.setPointerCapture?.(event.pointerId);
-      moveStick.classList.add("active");
-      updateStick(event);
-    });
-    // Track the active finger on window as well as through pointer capture.
-    // iOS Safari can retarget/cancel a captured pointer when the viewport changes.
-    listen(window, "pointermove", event => {
-      if (event.pointerId !== stickPointer) return;
-      if (event.cancelable) event.preventDefault();
-      updateStick(event);
-    }, { passive: false, capture: true });
-    listen(window, "pointerup", releaseStick, true);
-    listen(window, "pointercancel", releaseStick, true);
-    listen(moveStick, "lostpointercapture", releaseStick);
-  }
 
   if (lookZone) {
     listen(lookZone, "pointerdown", event => {
@@ -417,9 +399,10 @@ export function bindInput({
 
       previousGamepadButtons = pad.buttons.map(button => button.pressed);
     } else {
-      controller.setAnalogMove?.(0, 0);
       clearSource("gamepad");
       previousGamepadButtons = [];
+      const canMove = state.started && !state.paused && !state.combat && !state.dialogue && !state.inventory;
+      controller.setAnalogMove?.(canMove ? touchMove.x : 0, canMove ? touchMove.y : 0);
     }
 
     animationFrame = requestAnimationFrame(pollGamepad);
@@ -445,6 +428,7 @@ export function bindInput({
       destroyed = true;
       cancelAnimationFrame(animationFrame);
       clearInput();
+      movementJoystick?.destroy();
       for (const dispose of listeners) dispose();
     }
   };
