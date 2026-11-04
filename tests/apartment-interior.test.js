@@ -63,3 +63,15 @@ test("widening the corridor keeps apartment floors and furniture inside the redu
   }
  }
 });
+
+test("apartment depth mapping preserves the rear wall clearance in wide and narrow buildings",()=>{
+ const standard=calculateApartmentDepthMapping({hallHalf:1.72,depth:13});
+ const shop=calculateApartmentDepthMapping({hallHalf:1.72,depth:15});
+ assert.ok(standard.end>standard.start);
+ assert.ok(shop.end>shop.start);
+ assert.ok(Math.abs(standard.map(1.56)-standard.start)<1e-10);
+ assert.ok(Math.abs(standard.map(6.12)-standard.end)<1e-10);
+ assert.ok(Math.abs(shop.map(1.56)-shop.start)<1e-10);
+ assert.ok(Math.abs(shop.map(6.12)-shop.end)<1e-10);
+ assert.throws(()=>calculateApartmentDepthMapping({hallHalf:4,depth:5}),RangeError);
+});
