@@ -103,13 +103,12 @@ export function calculateElevatorShaftLayout({
  };
 }
 /** Six entrance bells sit in one vertical column on the wall beside the door. */
-export function calculateEntranceBellLayout({frontX,inward,z,doorWidth,floorOffset,wall=.32}){
+export function calculateEntranceBellLayout({frontX,inward,z,doorWidth,floorOffset}){
  const panelZ=z+doorWidth/2+.28;
- const panelX=frontX+inward*(wall/2+.07);
  return {
-  panel:{x:panelX,y:floorOffset+1.02,z:panelZ,width:.08,height:.58,depth:.18},
+  panel:{x:frontX+inward*.04,y:floorOffset+1.02,z:panelZ,width:.08,height:.58,depth:.18},
   buttons:Array.from({length:6},(_,index)=>({
-   x:frontX+inward*(wall/2+.12),
+   x:frontX+inward*.085,
    y:floorOffset+1.50-index*.064,
    z:panelZ,width:.04,height:.035,depth:.045
   }))
