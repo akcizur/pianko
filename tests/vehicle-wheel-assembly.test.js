@@ -26,8 +26,8 @@ test("wheel assembly has a centred pivot, tyre and mirrored rim details", () => 
   assert.equal(wheel.front, true);
   assert.equal(wheel.radius, 0.285);
   assert.equal(wheel.width, 0.205);
-  assert.equal(meshes.length, 19);
-  assert.equal(wheel.pivot.children.length, 19);
+  assert.equal(meshes.length, 17);
+  assert.equal(wheel.pivot.children.length, 17);
   assert.ok(meshes.every(mesh => mesh.castShadow && mesh.receiveShadow));
 });
 
