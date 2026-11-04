@@ -72,21 +72,21 @@ test("player controller can climb both flights, cross the landing and descend",(
   assert.ok(Math.abs(controller.player.x-(building.stairX+.13*building.inward))<1e-8);
   walk(0,4);
   assert.ok(Math.abs(controller.player.z-(-6.72))<1e-8);
-  walk(Math.PI/2,12);
+  walk(Math.PI/2,13);
   assert.ok(Math.abs(controller.player.elevation-(.18+2.9/2))<1e-8);
 
   // Cross the landing and climb the second flight.
   walk(Math.PI,8);
   assert.ok(Math.abs(controller.player.z-(-5.28))<1e-8);
-  walk(-Math.PI/2,12);
+  walk(-Math.PI/2,13);
   assert.ok(Math.abs(controller.player.elevation-(.18+2.9))<1e-8);
 
   // Descend via the same two flights in reverse.
-  walk(Math.PI/2,12);
+  walk(Math.PI/2,13);
   assert.ok(Math.abs(controller.player.elevation-(.18+2.9/2))<1e-8);
   walk(0,8);
   assert.ok(Math.abs(controller.player.z-(-6.72))<1e-8);
-  walk(-Math.PI/2,12);
+  walk(-Math.PI/2,13);
   assert.ok(Math.abs(controller.player.elevation-.18)<1e-8);
 });
 
