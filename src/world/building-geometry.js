@@ -52,8 +52,9 @@ export function calculatePanelakLayout({
  const stairX=insideBack+inward*stairRearClearance;
  const landingX=stairX-inward*flightLength;
  const stairIsMin=stairX<landingX;
- const stairwellMinX=Math.min(stairX,landingX)-.18;
- const stairwellMaxX=Math.max(stairX,landingX)+.16;
+ const stairIsMin=stairX<landingX;
+ const stairwellMinX=Math.min(stairX,landingX)-(stairIsMin?.16:.18);
+ const stairwellMaxX=Math.max(stairX,landingX)+(stairIsMin?.18:.16);
  const apartmentDoorMinX=x-doorHalfWidth;
  const apartmentDoorMaxX=x+doorHalfWidth;
  const corridorClearance=Math.max(
@@ -95,8 +96,8 @@ export function calculateFloorSegmentsWithOpening({x,z,width,depth,opening}){
  * apartment shell, never the clear corridor.
  */
 export function calculateElevatorShaftLayout({
- stairX,inward,z,elevatorSideZ=1,hallHalf=1.42,
- doorWidth=1.12,shaftWidth=1.76,shaftDepth=1.62,wall=.24,cabDoorOffset=.66
+ stairX,inward,z,elevatorSideZ=1,hallHalf=1.72,
+ doorWidth=1.12,shaftWidth=1.76,shaftDepth=1.86,wall=.24,cabDoorOffset=.76
 }){
  const side=Math.sign(elevatorSideZ)||1;
  const centerX=stairX+inward*.40;
