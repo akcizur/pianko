@@ -1340,31 +1340,41 @@ const interactionHoverTargets=interactables.map(item=>{
 const interactionRaycaster=new THREE.Raycaster();
 const interactionCenter=new THREE.Vector2(0,0);
 const hoverProjection=new THREE.Vector3();
+function hideInteractionTooltip(){
+  controller.setHoveredInteractable(null);
+  interactionTooltip.hidden=true;$("crosshair").classList.remove("is-interactive");
+}
 function updateInteractionTooltip(){
-  const nearby=state.started&&!state.paused&&!state.combat&&!state.dialogue&&!state.inVehicle&&!state.inventory
-    ?controller.getNearestInteractable():null;
-  if(!nearby||!interactionTooltip||!matchMedia("(pointer:fine)").matches){
-    interactionTooltip.hidden=true;$("crosshair").classList.remove("is-interactive");return;
+  const canHover=state.started&&!state.paused&&!state.combat&&!state.dialogue&&!state.inVehicle&&!state.inventory&&
+    matchMedia("(pointer:fine)").matches;
+  if(!canHover||!interactionTooltip){hideInteractionTooltip();return;}
+  const candidates=[];
+  for(const entry of interactionHoverTargets){
+    const item=entry.item;
+    if(!controller.isInteractableInRange(item))continue;
+    const radius=item.hoverRadius??.38;
+    const hoverY=(item.levelY??0)+(item.hoverOffset??1.12);
+    entry.target.position.set(item.x,hoverY,item.z);
+    entry.target.scale.setScalar(radius);
+    entry.target.updateMatrixWorld(true);
+    candidates.push(entry);
   }
-  const entry=interactionHoverTargets.find(target=>target.item===nearby);
-  if(!entry){interactionTooltip.hidden=true;$("crosshair").classList.remove("is-interactive");return;}
+  if(!candidates.length){hideInteractionTooltip();return;}
+  interactionRaycaster.setFromCamera(interactionCenter,camera);
+  const hit=interactionRaycaster.intersectObjects(candidates.map(entry=>entry.target),false)[0];
+  const entry=hit&&candidates.find(candidate=>candidate.target===hit.object);
+  if(!entry){hideInteractionTooltip();return;}
   const item=entry.item,radius=item.hoverRadius??.38;
   const hoverY=(item.levelY??0)+(item.hoverOffset??1.12);
-  entry.target.position.set(item.x,hoverY,item.z);
-  entry.target.scale.setScalar(radius);
-  entry.target.updateMatrixWorld(true);
-  interactionRaycaster.setFromCamera(interactionCenter,camera);
-  const hit=interactionRaycaster.intersectObject(entry.target,false)[0];
-  if(!hit){
-    interactionTooltip.hidden=true;$("crosshair").classList.remove("is-interactive");return;
-  }
+  controller.setHoveredInteractable(item);
   hoverProjection.set(item.x,hoverY+radius+.16,item.z).project(camera);
   const rect=renderer.domElement.getBoundingClientRect();
   const screenX=rect.left+(hoverProjection.x*.5+.5)*rect.width;
   const screenY=rect.top+(-hoverProjection.y*.5+.5)*rect.height;
+  const horizontalPadding=Math.max(12,Math.min(164,window.innerWidth/2-12));
   interactionTooltip.textContent="E  "+(item.label||item.name||item.id||"POUŽÍT");
-  interactionTooltip.style.left=Math.max(12,Math.min(window.innerWidth-12,screenX))+"px";
-  interactionTooltip.style.top=Math.max(12,screenY)+"px";
+  interactionTooltip.style.left=Math.max(horizontalPadding,Math.min(window.innerWidth-horizontalPadding,screenX))+"px";
+  interactionTooltip.style.top=Math.max(34,Math.min(window.innerHeight-8,screenY))+"px";
   interactionTooltip.hidden=false;$("crosshair").classList.add("is-interactive");
 }
 if(!restoreBuildingDoorStates(buildingEntries,saved.buildings)&&apartmentEntry&&saved.panelak){
