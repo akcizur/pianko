@@ -13,3 +13,9 @@ export function calculateVehicleModelFit(bounds,target={width:1.62,height:1.415,
   dimensions:{width:target.width,height:target.height,length:target.length}
  };
 }
+
+/** Mesh names from this GLTF export are generic, so wheels are identified by material names. */
+export function isFavoritWheelMesh(materialNames=[],objectName=""){
+ const names=[objectName,...materialNames].map(value=>String(value??"").trim().toUpperCase());
+ return names.some(name=>/^(KOLO|PNEU|DISK)/.test(name));
+}

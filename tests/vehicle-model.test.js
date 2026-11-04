@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {calculateVehicleModelFit} from "../src/world/vehicle-model.js";
+import {calculateVehicleModelFit,isFavoritWheelMesh} from "../src/world/vehicle-model.js";
 
 test("Favorit GLTF normalization matches target width, height and length",()=>{
  const bounds={min:{x:-.871485,y:-.00288,z:-.101108},max:{x:.871485,y:1.52269,z:4.645391}};
@@ -23,4 +23,10 @@ test("Favorit GLTF normalization matches target width, height and length",()=>{
 });
 test("vehicle model fit rejects zero or invalid bounds",()=>{
  assert.throws(()=>calculateVehicleModelFit({min:{x:0,y:0,z:0},max:{x:0,y:1,z:2}}),RangeError);
+});
+
+test("Favorit wheel meshes are detected from their GLTF material names",()=>{
+ for(const name of ["PNEUZ","PNEU","DISKY","DISKZ"])assert.equal(isFavoritWheelMesh([name],"Object_7"),true);
+ assert.equal(isFavoritWheelMesh(["KAPOTA"],"Object_15"),false);
+ assert.equal(isFavoritWheelMesh([],"KOLO"),true);
 });

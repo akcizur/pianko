@@ -11,7 +11,7 @@ import { createBuildingElevationResolver } from "./world/building-navigation.js"
 import { calculateFloorSlabSegments, calculatePanelakLayout, calculateElevatorShaftLayout, calculateEntranceDoorLayout, calculateApartmentDoorPlacement, calculateRoofGuardrailSegments } from "./world/building-geometry.js";
 import { createBuildingElevator } from "./world/building-elevator.js";
 import { createVehicleCameraRig } from "./world/vehicle-camera.js";
-import { calculateVehicleModelFit } from "./world/vehicle-model.js";
+import { calculateVehicleModelFit, isFavoritWheelMesh } from "./world/vehicle-model.js";
 import { restoreBuildingDoorStates, serializeBuildingDoorStates } from "./world/building-state.js";
 
 const gameAudio=createGameAudio();
@@ -758,8 +758,7 @@ favoritLoader.load(import.meta.env.BASE_URL+"models/skoda-favorit/scene.gltf",gl
       mat.needsUpdate=true;return mat;
     });
     object.material=Array.isArray(object.material)?tuned:tuned[0];
-    const name=(object.name||"").trim().toUpperCase();
-    if(name.startsWith("KOLO")||name.startsWith("DISK"))importedWheelParts.push(object);
+    if(isFavoritWheelMesh(materials.map(mat=>mat.name),object.name))importedWheelParts.push(object);
     object.castShadow=true;object.receiveShadow=true;
   });
   model.updateMatrixWorld(true);
