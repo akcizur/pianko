@@ -94,10 +94,10 @@ export function calculateFloorSegmentsWithOpening({x,z,width,depth,opening}){
  */
 export function calculateElevatorShaftLayout({
  stairX,inward,z,elevatorSideZ=1,hallHalf=1.42,
- doorWidth=1.12,shaftWidth=1.72,shaftDepth=1.62,wall=.24,cabDoorOffset=.66
+ doorWidth=1.12,shaftWidth=1.76,shaftDepth=1.62,wall=.24,cabDoorOffset=.66
 }){
  const side=Math.sign(elevatorSideZ)||1;
- const centerX=stairX+inward*.42;
+ const centerX=stairX+inward*.40;
  const doorPlaneZ=z+side*hallHalf;
  const centerZ=doorPlaneZ+side*shaftDepth/2;
  const cabCenterZ=doorPlaneZ+side*cabDoorOffset;
@@ -109,7 +109,7 @@ export function calculateElevatorShaftLayout({
   sideWallXs:[centerX-sideWallOffset,centerX+sideWallOffset],
   minX:centerX-shaftWidth/2,maxX:centerX+shaftWidth/2,
   minZ:centerZ-shaftDepth/2,maxZ:centerZ+shaftDepth/2,
-  opening:{x:centerX,z:centerZ,width:shaftWidth+.04,depth:shaftDepth}
+  opening:{x:centerX,z:centerZ,width:shaftWidth,depth:shaftDepth}
  };
 }
 /** Six entrance bells sit in one vertical column on the wall beside the door. */
