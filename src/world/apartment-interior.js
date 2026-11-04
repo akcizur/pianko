@@ -28,7 +28,7 @@ export function buildApartmentInterior({THREE,scene,block,material,x,z,base,stor
  const {dividerX,livingWidth}=plan,wallY=floorTopY,wallH=storyHeight-.16-(floorTopY-base),wallThickness=.12;
  const bMin=unitMinX+.12,bMax=Math.min(unitMinX+2.02,dividerX-.16),bW=bMax-bMin;
  const furniture=calculateApartmentFurnitureLayout({unitMinX,unitMaxX,dividerX,bathroomMaxX:bMax,z,sideZ});
- if(elevatorOpening)furniture.televisionX=x-inward*.2;
+ if(elevatorOpening)furniture.televisionX=x-inward*.1;
  const bathroomFloorX=(bMin+bMax)/2,bathroomFloorZ=atZ(2.58);
  const palette=[
   {floor:0x86765f,wall:0xb7b1a3,accent:0x877a68,textile:0x59636a,wood:0x795c43},
