@@ -1492,9 +1492,10 @@ function toggleInventory(){
 function interact(){
   if(!state.started||state.combat||state.dialogue||state.paused)return;
   if(vehicle.occupied){exitVehicle();return;}
-  const p=controller.player;
-  if(Math.hypot(p.x-vehicle.x,p.z-vehicle.z)<3.8){enterVehicle();return;}
-  if(controller.doInteract())gameAudio.confirm();
+  const p=controller.player,target=controller.getNearestInteractable();
+  if(target===vehicleInteractable){enterVehicle();return;}
+  if(target){if(controller.doInteract())gameAudio.confirm();return;}
+  if(Math.hypot(p.x-vehicle.x,p.z-vehicle.z)<3.8)enterVehicle();
 }
 const input=bindInput({element:renderer.domElement,controller,state,onInteract:interact,onCombatAction(command){
   gameAudio.unlock();
