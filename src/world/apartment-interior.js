@@ -20,7 +20,7 @@ export function calculateApartmentLayout({unitMinX,unitMaxX,roomDepth=4.64}){
  return {unitWidth,roomDepth,dividerX,livingWidth,bedroomWidth,bathroomWidth,bathroomDepth,bathroomArea:bathroomWidth*bathroomDepth,livingArea:livingWidth*roomDepth,bedroomArea:bedroomWidth*roomDepth,bathroomDoorWidth:.72,roomDoorWidth:.88};
 }
 /** Build a genuinely walkable panel flat with living room, bedroom and bathroom. */
-export function buildApartmentInterior({THREE,scene,block,material,x,z,base,storyHeight,sideZ,unitMinX,unitMaxX,unitX,tone=0,lighting=true}){
+export function buildApartmentInterior({THREE,scene,block,material,x,z,base,storyHeight,sideZ,unitMinX,unitMaxX,unitX,tone=0,lighting=true,elevatorOpening=null,inward=1}){
  const side=Math.sign(sideZ)||1,width=unitMaxX-unitMinX,plan=calculateApartmentLayout({unitMinX,unitMaxX,roomDepth:4.64});
  const atZ=d=>z+side*d;
  const floorBottomY=base+APARTMENT_FLOOR_LAYERS.floorBottom;
@@ -28,6 +28,7 @@ export function buildApartmentInterior({THREE,scene,block,material,x,z,base,stor
  const {dividerX,livingWidth}=plan,wallY=floorTopY,wallH=storyHeight-.16-(floorTopY-base),wallThickness=.12;
  const bMin=unitMinX+.12,bMax=Math.min(unitMinX+2.02,dividerX-.16),bW=bMax-bMin;
  const furniture=calculateApartmentFurnitureLayout({unitMinX,unitMaxX,dividerX,bathroomMaxX:bMax,z,sideZ});
+ if(elevatorOpening)furniture.televisionX=x-inward*.2;
  const bathroomFloorX=(bMin+bMax)/2,bathroomFloorZ=atZ(2.58);
  const palette=[
   {floor:0x86765f,wall:0xb7b1a3,accent:0x877a68,textile:0x59636a,wood:0x795c43},
@@ -50,10 +51,15 @@ export function buildApartmentInterior({THREE,scene,block,material,x,z,base,stor
    if(upperHeight>.02)add(n+" — výplň nad průchodem",px,py+2.2,pz,.15,upperHeight,w+.16,palette.wall,true);
   }
  };
- const woodFloorSegments=calculateFloorSegmentsWithOpening({
+ let woodFloorSegments=calculateFloorSegmentsWithOpening({
   x:(unitMinX+unitMaxX)/2,z:z+side*3.84,width:width-.08,depth:4.56,
   opening:{x:bathroomFloorX,z:bathroomFloorZ,width:1.9,depth:2.04}
  });
+ if(elevatorOpening){
+  woodFloorSegments=woodFloorSegments.flatMap(segment=>
+   calculateFloorSegmentsWithOpening({...segment,opening:elevatorOpening})
+  );
+ }
  woodFloorSegments.forEach((segment,index)=>add("byt — parketová podlaha · "+(index+1),segment.x,floorBottomY,segment.z,segment.width,APARTMENT_FLOOR_LAYERS.woodThickness,segment.depth,palette.floor));
  add("byt — koupelnová dlažba",bathroomFloorX,floorBottomY,bathroomFloorZ,1.9,APARTMENT_FLOOR_LAYERS.tileThickness,2.04,0x777e7a);
  add("byt — sokl",dividerX-.08,floorTopY,atZ(4.35),.025,.08,3.15,0x645d51);
