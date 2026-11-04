@@ -2,7 +2,7 @@ import {calculateFloorSegmentsWithOpening} from "./building-geometry.js";
 /** Thin finish layers share one walkable floor datum and never overlap. */
 export const APARTMENT_FLOOR_LAYERS=Object.freeze({floorBottom:.001,woodThickness:.012,surfaceGap:.001,tileThickness:.012,rugThickness:.008});
 export function calculateApartmentFurnitureLayout({unitMinX,unitMaxX,dividerX,bathroomMaxX,z,sideZ}){
- const side=Math.sign(sideZ)||1,at=d=>z+side*d;
+ const side=Math.sign(sideZ)||1,at=d=>z+side*d,livingWidth=dividerX-unitMinX;
  const livingX=(bathroomMaxX+dividerX)/2,bedroomX=(dividerX+unitMaxX)/2;
  return {
   livingX,bedroomX,kitchenZ:at(5.78),diningZ:at(4.95),sofaZ:at(4.05),
