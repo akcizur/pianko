@@ -5,7 +5,7 @@ export function calculateBuildingEndWallCenters(z,depth,wall=.32){
 }
 export function calculateFloorSlabSegments({
  x,z,width,depth,stairX,landingX,storyIndex=0,
- stairEndMargin=.16,landingEndMargin=.48,openingHalfDepth=1.39,
+ stairEndMargin=.16,landingEndMargin=.18,openingHalfDepth=1.55,
  elevatorOpening=null,perimeterInset=0
 }){
  const inset=Math.max(0,Number(perimeterInset)||0);
@@ -36,8 +36,8 @@ export function calculateFloorSlabSegments({
  * historical name for the outward-facing facade normal (+/- X).
  */
 export function calculatePanelakLayout({
- x,z,width,depth,inward,wall=.32,hallHalf=1.42,
- flightLength=1.92,stairRearClearance=2.5,doorHalfWidth=.48
+ x,z,width,depth,inward,wall=.32,hallHalf=1.72,
+ flightLength=2.16,stairRearClearance=2.5,doorHalfWidth=.48
 }){
  const frontX=x+inward*width/2;
  const frontWallX=frontX-inward*wall/2;
@@ -51,8 +51,8 @@ export function calculatePanelakLayout({
  const stairX=insideBack+inward*stairRearClearance;
  const landingX=stairX-inward*flightLength;
  const stairIsMin=stairX<landingX;
- const stairwellMinX=Math.min(stairX,landingX)-(stairIsMin?.16:.48);
- const stairwellMaxX=Math.max(stairX,landingX)+(stairIsMin?.48:.16);
+ const stairwellMinX=Math.min(stairX,landingX)-.18;
+ const stairwellMaxX=Math.max(stairX,landingX)+.16;
  const apartmentDoorMinX=x-doorHalfWidth;
  const apartmentDoorMaxX=x+doorHalfWidth;
  const corridorClearance=Math.max(
