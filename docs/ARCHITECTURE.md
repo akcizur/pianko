@@ -36,6 +36,21 @@ Generátor v `src/world/world.js` je starší samostatná experimentální obytn
 | Ukládání | `src/core/persistence.js` | Bezpečné čtení a zápis JSON do localStorage |
 | Modely | `src/world/model-assets.js` | Cesty, licence, atribuce a záložní modely |
 
+## Převod herní vize do skutečné implementace
+
+| Prvek vize | Co je skutečně ve hře | Forma modelu / stav |
+| --- | --- | --- |
+| Sídliště Mír 1975 | Aktivní městská scéna se dvěma řadami budov, ulicí, chodníky, osvětlením a městskými rekvizitami | Procedurální Three.js geometrie, rozměry budov jsou v datovém manifestu |
+| Hlavní osmipatrový panelák | Průchozí vestibul, schodiště, mezipodesty, chodby, byty, výtah a střešní vstup | Procedurálně sestavená geometrie plus samostatné moduly pro geometrii, navigaci a stav výtahu |
+| Byty a zařízení | Místnosti, kuchyňské kouty, koupelny, nábytek, dveře a kolize | Procedurální interiérový generátor v `apartment-interior.js` |
+| Výtah | Pohyb mezi podlažími, kabinové a šachtové dveře, kolizní listy a ovládání uvnitř kabiny | Testovaný stavový automat v `building-elevator.js`; mesh sestavuje aktivní scéna |
+| Škoda Favorit | Říditelné auto s pozemní fyzikou, hover režimem, kolizemi a dvěma kamerovými režimy | Importovaný glTF model s BIN bufferem a procedurálním fallbackem |
+| Tramvaj Tatra T3 a policejní vůz | Modely existují v aktivní scéně a mají rozpoznatelné proporce a díly | Zatím procedurální geometrie z Three.js primitives, ne samostatné externí assety |
+| Obyvatelé a NPC | Postavy, trasy, idle/walk animace, interakce a příběhové události | Procedurální low-poly postavy a kódované trasy; nejde o externí rigged modely |
+| Mise a vedlejší úkoly | Hlavní příběhové kroky, střety, dialogy a úkol se sešitem | Pravidla jsou částečně oddělena do `core/story-rules.js`, orchestrace zůstává v `main.js` |
+
+Tabulka záměrně rozlišuje hotovou herní funkci od typu jejího assetu. Tramvaj, policejní vůz, obyvatelé, fasády a vybavení jsou již viditelné 3D objekty, ale nejsou dodané jako samostatné externí modelové soubory. Jejich výměna za detailní licencované modely je další obsahová fáze, nikoli něco, co by bylo možné označit za hotové pouhým přidáním odkazu.
+
 ## Modely a fallbacky
 
 Model Škody Favorit se načítá z `public/models/skoda-favorit/scene.gltf` a používá připojený `scene.bin`. Procedurální hatchback v `main.js` zůstává viditelný, dokud se GLTF úspěšně nenačte. Při chybě načtení zůstane procedurální varianta aktivní.
