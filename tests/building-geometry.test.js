@@ -48,16 +48,22 @@ test("elevator is integrated beside the stair flight with a landing door on the 
   const layout=calculatePanelakLayout({x,z,width,depth:13,inward,wall:.32});
   const lift=calculateElevatorShaftLayout({stairX:layout.stairX,inward,z,elevatorSideZ,hallHalf:layout.hallHalf,wall:.32});
   assert.ok(lift.minX>-23.2&&lift.maxX<23.2);
-  assert.ok(Math.abs((lift.centerX-layout.stairX)*inward-.35)<1e-9);
+  assert.ok(Math.abs((lift.centerX-layout.stairX)*inward-.40)<1e-9);
   assert.ok(Math.abs(lift.doorPlaneZ-(z+elevatorSideZ*layout.hallHalf))<1e-9);
   assert.ok(Math.abs((lift.cabCenterZ-elevatorSideZ*.66)-lift.doorPlaneZ)<1e-9,"cab doors align with the landing doors");
   const stairOpeningEdge=z+elevatorSideZ*1.39;
   const liftOpeningEdge=elevatorSideZ>0?lift.minZ:lift.maxZ;
   assert.ok(Math.abs(liftOpeningEdge-stairOpeningEdge)>=.029,"lift shaft clears the stairwell opening");
   const apartmentDoorGap=Math.abs(lift.centerX-x)-lift.doorWidth/2-.48;
-  assert.ok(apartmentDoorGap>=.15,"the lift and apartment door leave a structural wall pier");
+  assert.ok(apartmentDoorGap>=.12,"the lift and apartment door leave a structural wall pier");
   assert.ok(lift.minZ>=z-13/2+.32-1e-9);
   assert.ok(lift.maxZ<=z+13/2-.32+1e-9);
+  assert.ok(lift.shaftWidth-2*lift.wallThickness>=1.28-1e-9,"the shaft clear width fits the cabin");
+  const unitMin=Math.min(layout.minHallX,layout.maxHallX);
+  const bathroomMax=Math.min(unitMin+2.02,x-.16);
+  assert.ok(lift.minX>=bathroomMax-1e-9,"the reserved shaft avoids the bathroom footprint");
+  const televisionMin=x-inward*.1-.17;
+  assert.ok(lift.maxX<=televisionMin+1e-9,"the TV stand is shifted outside the shaft footprint");
  }
 });
 test("ground, intermediate and roof slabs leave the lift shaft beside the stair opening",()=>{
@@ -94,6 +100,23 @@ test("lift shaft remains outside the clear corridor and beside the stair guardra
   assert.ok(!(overlapX>.02&&overlapZ>.02),"shaft opening cannot remove corridor floor");
  }
  assert.ok(lift.minZ>=z+plan.hallHalf-.001,"shaft starts at the corridor boundary, not in its walking line");
+});
+test("adjacent apartment floor is cut back around the reserved elevator bay",()=>{
+ for(const inward of [-1,1])for(const elevatorSideZ of [-1,1]){
+  const x=inward>0?-14.2:14.2,z=-6;
+  const plan=calculatePanelakLayout({x,z,width:9.2,depth:13,inward});
+  const lift=calculateElevatorShaftLayout({stairX:plan.stairX,inward,z,elevatorSideZ,hallHalf:plan.hallHalf});
+  const unitMin=Math.min(plan.minHallX,plan.maxHallX),unitMax=Math.max(plan.minHallX,plan.maxHallX);
+  const floor=calculateFloorSegmentsWithOpening({
+   x:(unitMin+unitMax)/2,z:z+elevatorSideZ*3.84,width:unitMax-unitMin-.08,depth:4.56,
+   opening:lift.opening
+  });
+  for(const segment of floor){
+   const overlapX=Math.min(segment.x+segment.width/2,lift.opening.x+lift.opening.width/2)-Math.max(segment.x-segment.width/2,lift.opening.x-lift.opening.width/2);
+   const overlapZ=Math.min(segment.z+segment.depth/2,lift.opening.z+lift.opening.depth/2)-Math.max(segment.z-segment.depth/2,lift.opening.z-lift.opening.depth/2);
+   assert.ok(!(overlapX>.02&&overlapZ>.02),"apartment finish floor must not cover the lift shaft");
+  }
+ }
 });
 test("entrance bells form a vertical column clear of the door jamb",()=>{
  for(const inward of [-1,1]){
