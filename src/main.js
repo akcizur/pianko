@@ -580,7 +580,7 @@ function buildWalkablePanelak(x,z,width,depth,height,inward,options={}){
         const unitMaxX=unit===apartmentXs.length-1?maxHallX:(unitX+apartmentXs[unit+1])/2;
         buildApartmentInterior({
           THREE,scene,block:queueApartmentBlock,material,x:unitX,z,base,storyHeight,sideZ,unitMinX,unitMaxX,unitX,tone,
-          lighting:options.lighting!==false,elevatorOpening:sideZ===elevatorSideZ?elevatorLayout.opening:null,inward,hallHalf,depth
+          lighting:options.lighting!==false,elevatorOpening:sideZ===elevatorSideZ?elevatorLayout.opening:null,inward,hallHalf,depth,hallHalf,depth
         });
       }
     }
