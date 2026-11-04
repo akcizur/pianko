@@ -68,7 +68,8 @@ test("sliding elevator door colliders follow the leaves and leave a capsule-wide
  for(const orientation of [-1,1]){
   const closedLeft=calculateSlidingDoorLeafBounds({centerX:5,planeZ:2,side:-orientation,offset:.28,slide:0,halfWidth:.275});
   const closedRight=calculateSlidingDoorLeafBounds({centerX:5,planeZ:2,side:orientation,offset:.28,slide:0,halfWidth:.275});
-  assert.ok(Math.abs(Math.max(closedLeft.maxX,closedRight.maxX)-Math.min(closedLeft.minX,closedRight.minX))<1e-10||Math.abs(closedLeft.maxX-closedRight.minX)<1e-10||Math.abs(closedRight.maxX-closedLeft.minX)<1e-10);
+  const closedLeaves=[closedLeft,closedRight].sort((a,b)=>a.minX-b.minX);
+  assert.ok(Math.abs(closedLeaves[1].minX-closedLeaves[0].maxX-.01)<1e-10,"closed door leaves meet at the centre seam");
   const openLeft=calculateSlidingDoorLeafBounds({centerX:5,planeZ:2,side:-orientation,offset:.28,slide:.60,halfWidth:.275});
   const openRight=calculateSlidingDoorLeafBounds({centerX:5,planeZ:2,side:orientation,offset:.28,slide:.60,halfWidth:.275});
   const gap=Math.max(openLeft.minX,openRight.minX)-Math.min(openLeft.maxX,openRight.maxX);
