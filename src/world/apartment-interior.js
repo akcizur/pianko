@@ -7,7 +7,8 @@ export function calculateApartmentFurnitureLayout({unitMinX,unitMaxX,dividerX,ba
  return {
   livingX,bedroomX,kitchenZ:at(5.78),diningZ:at(4.95),sofaZ:at(4.05),
   sofaBackZ:at(4.35),coffeeTableZ:at(3.35),carpetZ:at(3.72),
-  televisionX:bathroomMaxX+.25,televisionZ:at(4.08),
+  televisionX:livingX,televisionZ:at(2.88),
+  fridgeX:livingX-Math.max(1.8,livingWidth-2.05)/2+.31,
   wardrobeZ:at(2.08),bedZ:at(4.05),nightstandZ:at(4.92),
   deskX:unitMaxX-.72,deskZ:at(5.55),radiatorZ:at(6.02)
  };

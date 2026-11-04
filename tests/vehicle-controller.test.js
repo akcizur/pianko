@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {moveVehicleWithCollisions,stepVehicleDynamics,vehicleAabb,vehicleOverlapsCollider} from "../src/core/vehicle-controller.js";
+import {moveVehicleWithCollisions,stepVehicleDynamics,vehicleAabb,vehicleOverlapsCollider,VEHICLE_TUNING} from "../src/core/vehicle-controller.js";
 const makeVehicle=(options={})=>({x:0,z:0,yaw:0,yawRate:0,speed:0,vx:0,vz:0,altitude:0,verticalSpeed:0,battery:100,...options});
 const run=(v,input,seconds,step=1/60)=>{for(let t=0;t<seconds-1e-9;t+=step)stepVehicleDynamics(v,input,Math.min(step,seconds-t));};
 test("ground car accelerates smoothly and remains speed limited",()=>{const c=makeVehicle();run(c,{throttle:1},8);assert.ok(c.speed>16&&c.speed<=18.5);assert.ok(c.vz<0);});
@@ -35,4 +35,11 @@ test("hover coasts with smooth inertial drag after releasing W",()=>{
  const before=Math.hypot(craft.vx,craft.vz);run(craft,{},.35);
  const after=Math.hypot(craft.vx,craft.vz);
  assert.ok(after<before&&after>before*.8);
+});
+
+test("default vehicle collision and steering dimensions match the Favorit hatchback",()=>{
+ assert.ok(Math.abs(VEHICLE_TUNING.halfWidth-.9)<1e-10);
+ assert.ok(Math.abs(VEHICLE_TUNING.halfLength-1.94)<1e-10);
+ assert.ok(Math.abs(VEHICLE_TUNING.bodyHeight-1.48)<1e-10);
+ assert.ok(Math.abs(VEHICLE_TUNING.ground.wheelbase-2.45)<1e-10);
 });

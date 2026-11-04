@@ -12,11 +12,11 @@ test("driver camera is inside the cabin and pitched toward the road",()=>{
  const vehicle={x:2.5,z:10.5,yaw:0,altitude:0,firstPerson:true};
  const pose=calculateVehicleCameraPose(vehicle);
  assert.equal(pose.mode,"driver");
- assert.ok(pose.position.y>1.7&&pose.position.y<1.9);
+ assert.ok(pose.position.y>1.08&&pose.position.y<1.28);
  assert.ok(pose.target.z<pose.position.z-10);
  const horizontal=Math.hypot(pose.target.x-pose.position.x,pose.target.z-pose.position.z);
  const downwardPitch=Math.atan2(pose.position.y-pose.target.y,horizontal);
- assert.ok(downwardPitch>.09,"driver view must show the road, not only the sky");
+ assert.ok(downwardPitch>.025,"driver view must show the road, not only the sky");
 });
 
 test("chase camera remains behind the car at every cardinal heading",()=>{

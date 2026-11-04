@@ -10,8 +10,8 @@ export function calculateVehicleCameraPose(vehicle={}){
   if(vehicle.firstPerson){
     return {
       mode:"driver",
-      position:rotateLocal(vehicle,{x:-.43,y:1.78,z:-.42}),
-      target:rotateLocal(vehicle,{x:-.43,y:.42,z:-13})
+      position:rotateLocal(vehicle,{x:-.36,y:1.17,z:-.38}),
+      target:rotateLocal(vehicle,{x:-.36,y:.72,z:-13})
     };
   }
   const followDistance=8.5+Math.min(speed*.05,1.1);

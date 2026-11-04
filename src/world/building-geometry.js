@@ -110,3 +110,15 @@ export function calculateApartmentDoorPlacement({doorX,wallZ,sideZ,floorY,doorWi
 }
 /** Bathroom lies on the low-X side in both mirror apartment orientations. */
 export function calculateBathroomDoorSwing(){return -1.12;}
+
+/** Four continuous perimeter guardrail runs for an accessible flat roof. */
+export function calculateRoofGuardrailSegments({x,z,width,depth,inset=.18}){
+ const minX=x-width/2+inset,maxX=x+width/2-inset;
+ const minZ=z-depth/2+inset,maxZ=z+depth/2-inset;
+ return [
+  {start:{x:minX,z:minZ},end:{x:maxX,z:minZ}},
+  {start:{x:minX,z:maxZ},end:{x:maxX,z:maxZ}},
+  {start:{x:minX,z:minZ},end:{x:minX,z:maxZ}},
+  {start:{x:maxX,z:minZ},end:{x:maxX,z:maxZ}}
+ ];
+}

@@ -3,8 +3,8 @@ const approach=(value,target,amount)=>value<target?Math.min(target,value+amount)
 const wrapAngle=value=>Math.atan2(Math.sin(value),Math.cos(value));
 
 export const VEHICLE_TUNING=Object.freeze({
- halfWidth:1.08,halfLength:2.12,bodyHeight:2.35,hoverThreshold:.8,maxAltitude:42,
- ground:Object.freeze({acceleration:7.8,reverseAcceleration:4.2,braking:11.5,rollingResistance:.72,aerodynamicDrag:.012,maxSpeed:18.5,maxReverseSpeed:7,wheelbase:2.62,maxSteerAngle:.49,maxYawRate:1.42,steeringResponse:9,lateralGrip:8.5,gripFade:.018}),
+ halfWidth:.9,halfLength:1.94,bodyHeight:1.48,hoverThreshold:.8,maxAltitude:42,
+ ground:Object.freeze({acceleration:7.8,reverseAcceleration:4.2,braking:11.5,rollingResistance:.72,aerodynamicDrag:.012,maxSpeed:18.5,maxReverseSpeed:7,wheelbase:2.45,maxSteerAngle:.49,maxYawRate:1.42,steeringResponse:9,lateralGrip:8.5,gripFade:.018}),
  hover:Object.freeze({acceleration:7.4,reverseAcceleration:5.2,braking:8.2,drag:.19,maxSpeed:24,maxReverseSpeed:10,yawRate:1.9,yawResponse:6.5,lateralGrip:.28,liftAcceleration:8.1,maxVerticalSpeed:5,verticalDamping:2.15,batteryDrain:.36,speedDrain:.025,liftDrain:.42,rechargeRate:1.4})
 });
 function initialiseVehicle(v){

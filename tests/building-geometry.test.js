@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {calculateBuildingEndWallCenters,calculateFloorSlabSegments,calculatePanelakLayout,calculateFloorSegmentsWithOpening,calculateElevatorShaftLayout,calculateEntranceDoorLayout,calculateApartmentDoorPlacement} from "../src/world/building-geometry.js";
+import {calculateBuildingEndWallCenters,calculateFloorSlabSegments,calculatePanelakLayout,calculateFloorSegmentsWithOpening,calculateElevatorShaftLayout,calculateEntranceDoorLayout,calculateApartmentDoorPlacement,calculateRoofGuardrailSegments} from "../src/world/building-geometry.js";
 test("end walls are symmetric and have the correct separation",()=>{
  for(const z of [11,-6,-23,-40,-57,-74]){
   const [a,b]=calculateBuildingEndWallCenters(z,13,.32);
@@ -60,4 +60,31 @@ test("door transforms put apartment prompts in the corridor and entrance collide
  const entrance=calculateEntranceDoorLayout({frontX:-9.6,inward:1,z:-6,doorWidth:1.34,floorOffset:.18});
  assert.ok(entrance.interactX>-9.6);
  assert.ok(entrance.collider.minX<entrance.planeX&&entrance.collider.maxX>entrance.planeX);
+});
+
+test("roof guardrails cover all four roof edges with a safe inset",()=>{
+ for(const [x,z,width,depth] of [[-14.2,-6,9.2,13],[14.2,-23,10,13],[-14.2,-40,13,13]]){
+  const rails=calculateRoofGuardrailSegments({x,z,width,depth});
+  assert.equal(rails.length,4);
+  const xs=rails.map(r=>[r.start.x,r.end.x]),zs=rails.map(r=>[r.start.z,r.end.z]);
+  assert.ok(Math.abs(Math.min(...xs.flat())-(x-width/2+.18))<1e-9);
+  assert.ok(Math.abs(Math.max(...xs.flat())-(x+width/2-.18))<1e-9);
+  assert.ok(Math.abs(Math.min(...zs.flat())-(z-depth/2+.18))<1e-9);
+  assert.ok(Math.abs(Math.max(...zs.flat())-(z+depth/2-.18))<1e-9);
+  assert.ok(rails.every(r=>Math.hypot(r.end.x-r.start.x,r.end.z-r.start.z)>1));
+ }
+});
+test("door approach, hinge and collider are consistent on both sides of the street",()=>{
+ for(const inward of [-1,1]){
+  const frontX=inward*9.6;
+  const door=calculateEntranceDoorLayout({frontX,inward,z:-6,doorWidth:1.34,floorOffset:.18});
+  assert.ok((door.interactX-frontX)*inward>.5);
+  assert.ok((door.planeX-frontX)*inward>0);
+  assert.ok(door.collider.minX<door.planeX&&door.collider.maxX>door.planeX);
+ }
+ for(const sideZ of [-1,1]){
+  const door=calculateApartmentDoorPlacement({doorX:14.2,wallZ:-6+sideZ*1.42,sideZ,floorY:3.093});
+  assert.ok((door.approachZ-door.pivotZ)*sideZ<0);
+  assert.ok(door.collider.minY===3.093);
+ }
 });

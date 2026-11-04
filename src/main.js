@@ -5,12 +5,13 @@ import { createPlayerController } from "./core/player-controller.js";
 import { bindInput } from "./core/input-controller.js";
 import { createGameAudio } from "./core/game-audio.js";
 import { advanceNeighborQuestStep, isCourierEncounterActive, normalizeNeighborQuestStep } from "./core/story-rules.js";
-import { moveVehicleWithCollisions, stepVehicleDynamics, vehicleAabb } from "./core/vehicle-controller.js";
+import { moveVehicleWithCollisions, stepVehicleDynamics, vehicleAabb, VEHICLE_TUNING } from "./core/vehicle-controller.js";
 import { buildApartmentInterior } from "./world/apartment-interior.js";
 import { createBuildingElevationResolver } from "./world/building-navigation.js";
-import { calculateFloorSlabSegments, calculatePanelakLayout, calculateElevatorShaftLayout, calculateEntranceDoorLayout, calculateApartmentDoorPlacement } from "./world/building-geometry.js";
+import { calculateFloorSlabSegments, calculatePanelakLayout, calculateElevatorShaftLayout, calculateEntranceDoorLayout, calculateApartmentDoorPlacement, calculateRoofGuardrailSegments } from "./world/building-geometry.js";
 import { createBuildingElevator } from "./world/building-elevator.js";
 import { createVehicleCameraRig } from "./world/vehicle-camera.js";
+import { calculateVehicleModelFit } from "./world/vehicle-model.js";
 import { restoreBuildingDoorStates, serializeBuildingDoorStates } from "./world/building-state.js";
 
 const gameAudio=createGameAudio();
@@ -99,8 +100,8 @@ function plasterMaterial(color) {
   return plasterMaterials.get(color);
 }
 const facadeMaterials={
-  windowDark:material(0x27343a,.3,0x111a1f,.08),
-  windowLit:material(0xe7b46a,.62,0x9a5927,.34),
+  windowDark:new THREE.MeshStandardMaterial({color:0x26363c,roughness:.3,transparent:true,opacity:.10,side:THREE.DoubleSide,depthWrite:false}),
+  windowLit:new THREE.MeshStandardMaterial({color:0xe7b46a,roughness:.62,emissive:0x9a5927,emissiveIntensity:.34,transparent:true,opacity:.18,side:THREE.DoubleSide,depthWrite:false}),
   frame:material(0xa6aaa6,.82),
   joint:material(0x596266,.96),
   slab:material(0x727a79,.9),
@@ -119,6 +120,7 @@ function flushFacadeParts(){
     const mesh=new THREE.InstancedMesh(boxGeo,facadeMaterials[type],parts.length);
     mesh.name=`fasádní prvky · ${type}`;mesh.castShadow=false;mesh.receiveShadow=true;
     if(type==="glass")mesh.renderOrder=8;
+    else if(type==="windowDark"||type==="windowLit")mesh.renderOrder=6;
     const position=new THREE.Vector3(),scale=new THREE.Vector3(),rotation=new THREE.Quaternion(),matrix=new THREE.Matrix4();
     for(let index=0;index<parts.length;index++){
       const part=parts[index];position.set(part.x,part.y,part.z);scale.set(part.w,part.h,part.d);matrix.compose(position,rotation,scale);mesh.setMatrixAt(index,matrix);
@@ -407,6 +409,23 @@ function buildWalkablePanelak(x,z,width,depth,height,inward,options={}){
   }
   beamBetween("střešní zábradlí — čelo šachty",{x:roofRailStart,y:roofY+.92,z:z-1.39},{x:roofRailStart,y:roofY+.92,z:z+1.39},.07,0x565c5a);
   for(let post=-2;post<=2;post++)block("střešní zábradlí — čelní sloupek",roofRailStart,roofY,z+post*.56,.065,.92,.065,0x5a605f,false);
+  const roofGuardSegments=calculateRoofGuardrailSegments({x,z,width,depth});
+  for(const segment of roofGuardSegments){
+    beamBetween("obvodové střešní zábradlí",{x:segment.start.x,y:roofY+.92,z:segment.start.z},{x:segment.end.x,y:roofY+.92,z:segment.end.z},.07,0x565c5a);
+    beamBetween("obvodové střešní madlo",{x:segment.start.x,y:roofY+.48,z:segment.start.z},{x:segment.end.x,y:roofY+.48,z:segment.end.z},.055,0x565c5a);
+    const length=Math.hypot(segment.end.x-segment.start.x,segment.end.z-segment.start.z);
+    const posts=Math.max(1,Math.ceil(length/1.25));
+    for(let post=0;post<=posts;post++){
+      const t=post/posts,px=segment.start.x+(segment.end.x-segment.start.x)*t,pz=segment.start.z+(segment.end.z-segment.start.z)*t;
+      block("obvodové střešní zábradlí — sloupek",px,roofY,pz,.065,.92,.065,0x5a605f,false);
+    }
+    colliders.push({
+      name:buildingId+" — ochranné zábradlí střechy",
+      minX:Math.min(segment.start.x,segment.end.x)-.06,maxX:Math.max(segment.start.x,segment.end.x)+.06,
+      minZ:Math.min(segment.start.z,segment.end.z)-.06,maxZ:Math.max(segment.start.z,segment.end.z)+.06,
+      minY:roofY,maxY:roofY+.94,enabled:true
+    });
+  }
   const roofDoorX=stairX+inward*.24,roofDoorZ=z+.72,roofDoorWidth=1.02;
   block(buildingId+" — střešní výlez levé ostění",roofDoorX,roofY,roofDoorZ-.63,.18,2.16,.22,concrete,true,0,0,shellMaterial);
   block(buildingId+" — střešní výlez pravé ostění",roofDoorX,roofY,roofDoorZ+.63,.18,2.16,.22,concrete,true,0,0,shellMaterial);
@@ -600,7 +619,7 @@ const stateCar=new THREE.Group();
 const fallbackCar=new THREE.Group();stateCar.add(fallbackCar);
 const importedCar=new THREE.Group();stateCar.add(importedCar);
 const cabinInterior=new THREE.Group();cabinInterior.visible=false;stateCar.add(cabinInterior);
-const carPaint=0x4d7652,carRoof=0x5b835f,carTrim=0x303432;
+const carPaint=0x175b36,carRoof=0x226b43,carTrim=0x232a27;
 const carGlass=new THREE.MeshPhysicalMaterial({color:0x738787,roughness:.2,metalness:.12,transparent:true,opacity:.5,side:THREE.DoubleSide,depthWrite:false});
 function carPart(w,h,d,color,x,y,z,roughness=.68){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material(color,roughness));m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;fallbackCar.add(m);return m;}
 function cabinPart(w,h,d,color,x,y,z,roughness=.68){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material(color,roughness));m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;cabinInterior.add(m);return m;}
@@ -660,7 +679,7 @@ carPart(.38,.3,.27,0x485c55,-.39,1.53,-.08,.86);
 carPart(.29,.34,.3,0xb48a6b,-.39,1.84,-.1,.88);
 carPart(.32,.1,.34,0x3c342c,-.39,2.01,-.1,.9);
 const steeringWheel=new THREE.Mesh(new THREE.TorusGeometry(.235,.035,6,16),material(0x252927,.55));
-steeringWheel.position.set(-.43,1.52,-.53);stateCar.add(steeringWheel);
+steeringWheel.position.set(-.43,1.52,-.53);fallbackCar.add(steeringWheel);
 carPart(.07,.22,.07,0x292d2a,-.43,1.35,-.62,.7);
 carPart(.08,.25,.08,0x46463f,.08,1.13,.03,.76);
 carPart(.34,.27,.35,0x70624d,-.43,1.04,1.55,.9);
@@ -687,7 +706,7 @@ for(const side of [-1,1]){const wiper=carPart(.64,.025,.035,carTrim,side*.36,2.0
 const rearWiper=carPart(.62,.025,.035,carTrim,.08,1.67,1.55,.62);rearWiper.rotation.z=-.18;
 const wheels=[],wheelHubs=[],frontWheelPivots=[];
 for(const x of [-1.03,1.03])for(const z of [-1.28,1.28]){
-  const pivot=new THREE.Group();pivot.position.set(x,0,z);stateCar.add(pivot);
+  const pivot=new THREE.Group();pivot.position.set(x,0,z);fallbackCar.add(pivot);
   const wheel=new THREE.Mesh(new THREE.CylinderGeometry(.38,.38,.25,12),material(0x292b29,.96));
   wheel.rotation.z=Math.PI/2;wheel.position.set(0,.48,0);wheel.castShadow=true;pivot.add(wheel);wheels.push(wheel);
   if(z<0)frontWheelPivots.push(pivot);
@@ -697,17 +716,69 @@ for(const x of [-1.03,1.03])for(const z of [-1.28,1.28]){
     for(let spokeIndex=0;spokeIndex<6;spokeIndex++){const spoke=new THREE.Mesh(new THREE.BoxGeometry(.04,.018,.29),material(0xc4c2b4,.46));spoke.position.set(0,side*.155,0);spoke.rotation.y=spokeIndex*Math.PI/3;wheel.add(spoke);wheelHubs.push(spoke);}
   }
 }
-const thrusters=[];
+const thrusters=[],hoverPods=[],hoverPodLights=[],importedWheelParts=[];
 const thrusterMaterial=new THREE.MeshBasicMaterial({color:0x41dfff,transparent:true,opacity:.82,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false});
-for(const x of [-.72,.72])for(const z of [-1.27,1.27]){
-  const flame=new THREE.Mesh(new THREE.ConeGeometry(.27,.9,8),thrusterMaterial);flame.rotation.x=Math.PI;flame.position.set(x,.12,z);flame.visible=false;stateCar.add(flame);thrusters.push(flame);
+const hoverPodShellMaterial=material(0x202a2d,.42,0x03141a,.08);
+const hoverPodGlowMaterial=new THREE.MeshBasicMaterial({color:0x31dfff,transparent:true,opacity:.84,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false});
+for(const x of [-.63,.63])for(const z of [-.7,1.4]){
+  const pod=new THREE.Group();pod.name="Favorit — výsuvný vznášecí modul";
+  const shell=new THREE.Mesh(new THREE.BoxGeometry(.43,.22,.58),hoverPodShellMaterial);shell.position.y=.02;shell.castShadow=true;pod.add(shell);
+  const underside=new THREE.Mesh(new THREE.BoxGeometry(.36,.035,.49),hoverPodGlowMaterial);underside.position.y=-.105;pod.add(underside);
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(.18,.018,6,18),hoverPodGlowMaterial);ring.rotation.x=Math.PI/2;ring.position.y=-.115;pod.add(ring);
+  pod.position.set(x,.19,z);pod.visible=false;stateCar.add(pod);hoverPods.push(pod);
+  const light=new THREE.PointLight(0x31dfff,.34,1.65,2);light.position.set(x,-.2,z);light.visible=false;stateCar.add(light);hoverPodLights.push(light);
+}
+for(const x of [-.63,.63])for(const z of [-.7,1.4]){
+  const flame=new THREE.Mesh(new THREE.ConeGeometry(.18,.45,8),thrusterMaterial);flame.rotation.x=Math.PI;flame.position.set(x,-.13,z);flame.visible=false;stateCar.add(flame);thrusters.push(flame);
 }
 stateCar.position.set(2.5,0,6);scene.add(stateCar);
+fallbackCar.visible=true;importedCar.visible=false;
+const favoritLoader=new GLTFLoader();
+favoritLoader.load(import.meta.env.BASE_URL+"models/skoda-favorit/scene.gltf",gltf=>{
+  const model=gltf.scene;
+  model.traverse(object=>{
+    if(object.isCamera||object.isLight){object.visible=false;return;}
+    if(!object.isMesh)return;
+    const materials=Array.isArray(object.material)?object.material:[object.material];
+    const tuned=materials.map(original=>{
+      const mat=original.clone(),name=(mat.name||"").toUpperCase();
+      if(/KAPOTA|KAPOZ/.test(name)){
+        mat.color.setHex(0x155b35);mat.roughness=.44;mat.metalness=.12;
+      }else if(/OKNA|ZATMAVENI/.test(name)){
+        mat.color.setHex(0x263b40);mat.transparent=true;mat.opacity=.3;mat.depthWrite=false;mat.side=THREE.DoubleSide;mat.roughness=.2;
+      }else if(/NARAZNIKY|ZASTERKY/.test(name)){
+        mat.color.setHex(0x202523);mat.roughness=.82;
+      }else if(/PNEU/.test(name)){
+        mat.color.setHex(0x202321);mat.roughness=.96;
+      }else if(/DISK/.test(name)){
+        mat.color.setHex(0x9b9d98);mat.metalness=.48;mat.roughness=.52;
+      }else if(/PRENI_SVETLA|ZADNI_.*SVETLA|BLINKRY/.test(name)){
+        mat.color.setHex(/BLINK/.test(name)?0xd17a38:/ZADNI/.test(name)?0xc84839:0xe9e7d7);
+      }
+      mat.needsUpdate=true;return mat;
+    });
+    object.material=Array.isArray(object.material)?tuned:tuned[0];
+    const name=(object.name||"").trim().toUpperCase();
+    if(name.startsWith("KOLO")||name.startsWith("DISK"))importedWheelParts.push(object);
+    object.castShadow=true;object.receiveShadow=true;
+  });
+  model.updateMatrixWorld(true);
+  const box=new THREE.Box3().setFromObject(model);
+  const fit=calculateVehicleModelFit({min:box.min,max:box.max});
+  const fitRoot=new THREE.Group();fitRoot.name="ŠKODA FAVORIT — normalizovaný model";fitRoot.rotation.y=Math.PI;fitRoot.add(model);
+  fitRoot.scale.set(fit.scale.x,fit.scale.y,fit.scale.z);
+  fitRoot.position.set(fit.position.x,fit.position.y,fit.position.z);
+  importedCar.add(fitRoot);
+  importedCar.visible=true;fallbackCar.visible=false;
+},undefined,error=>{
+  console.warn("Škoda Favorit GLTF se nepodařilo načíst; použit fallback.",error);
+  importedCar.visible=false;fallbackCar.visible=true;
+});
 const vehicle={x:savedVehicleSafe?saved.vehicle.x:2.5,z:savedVehicleSafe?saved.vehicle.z:10.5,yaw:savedVehicleSafe&&Number.isFinite(saved.vehicle.yaw)?saved.vehicle.yaw:0,yawRate:0,speed:0,vx:0,vz:0,horizontalSpeed:0,firstPerson:false,cameraSnap:true,altitude:savedVehicleSafe?THREE.MathUtils.clamp(Number(saved.vehicle.altitude)||0,0,42):0,verticalSpeed:0,battery:savedVehicleSafe?THREE.MathUtils.clamp(Number(saved.vehicle.battery??100)||0,0,100):100,occupied:savedInVehicle,lookSteer:0,lookSteerUntil:0};
-const vehicleCollider={name:"zelený hatchback",...vehicleAabb(vehicle.x,vehicle.z,vehicle.yaw),minY:vehicle.altitude,maxY:vehicle.altitude+2.35,enabled:!vehicle.occupied};colliders.push(vehicleCollider);
+const vehicleCollider={name:"ŠKODA FAVORIT",...vehicleAabb(vehicle.x,vehicle.z,vehicle.yaw),minY:vehicle.altitude,maxY:vehicle.altitude+VEHICLE_TUNING.bodyHeight,enabled:!vehicle.occupied};colliders.push(vehicleCollider);
 const vehicleCameraPosition=new THREE.Vector3(),vehicleLookTarget=new THREE.Vector3();
 const vehicleCameraRig=createVehicleCameraRig();
-function syncVehicleCollider(){Object.assign(vehicleCollider,vehicleAabb(vehicle.x,vehicle.z,vehicle.yaw));vehicleCollider.minY=vehicle.altitude;vehicleCollider.maxY=vehicle.altitude+2.35;}
+function syncVehicleCollider(){Object.assign(vehicleCollider,vehicleAabb(vehicle.x,vehicle.z,vehicle.yaw));vehicleCollider.minY=vehicle.altitude;vehicleCollider.maxY=vehicle.altitude+VEHICLE_TUNING.bodyHeight;}
 stateCar.position.set(vehicle.x,vehicle.altitude,vehicle.z);
 for(const flame of thrusters)flame.visible=vehicle.altitude>.8;
 $("vehicleHud").hidden=!vehicle.occupied;
@@ -1063,7 +1134,7 @@ updateBuildingElevators(0);
 mission.complete=mission.stage>=5;
 
 function enterVehicle(){
-  input.clear();controller.setAnalogMove(0,0);phoneDrawn=false;phoneGroup.visible=false;vehicle.occupied=true;vehicle.firstPerson=false;vehicle.cameraSnap=true;vehicleCollider.enabled=false;state.inVehicle=true;$("crosshair").hidden=true;$("vehicleViewLabel").textContent="THIRD PERSON · V";vehicle.speed=0;vehicle.vx=0;vehicle.vz=0;vehicle.yawRate=0;showToast("ZELENÝ HATCHBACK · SHIFT STOUPÁ · CTRL KLESÁ · E VYSTOUPIT");
+  input.clear();controller.setAnalogMove(0,0);phoneDrawn=false;phoneGroup.visible=false;vehicle.occupied=true;vehicle.firstPerson=false;vehicle.cameraSnap=true;vehicleCollider.enabled=false;state.inVehicle=true;$("crosshair").hidden=true;$("vehicleViewLabel").textContent="THIRD PERSON · V";vehicle.speed=0;vehicle.vx=0;vehicle.vz=0;vehicle.yawRate=0;showToast("ŠKODA FAVORIT · SHIFT STOUPÁ · CTRL KLESÁ · E VYSTOUPIT");
   vehicle.horizontalSpeed=0;
   gameAudio.door(true);
   camera.fov=80;camera.updateProjectionMatrix();$("vehicleHud").hidden=false;
@@ -1266,7 +1337,7 @@ function startNewGame(){
   scene.add(enemyMesh);scene.add(courierGuard);scene.add(courier);courierGuard.visible=false;courier.visible=false;courierBeacon.visible=false;miraBeacon.visible=false;markerRing.visible=false;towerBeacon.visible=false;endingPanel.hidden=true;dialoguePanel.hidden=true;
   for(const supply of supplies){supply.collected=false;supply.group.visible=true;supply.interactable.enabled=true;}
   pauseScreen.hidden=true;renderer.domElement.classList.remove("is-paused");combatPanel.hidden=true;$("vehicleHud").hidden=true;camera.fov=74;camera.updateProjectionMatrix();
-  phoneDrawn=false;state.inventory=false;$("inventoryPanel").hidden=true;phoneGroup.visible=false;vehicle.x=2.5;vehicle.z=10.5;vehicle.yaw=0;vehicle.yawRate=0;vehicle.speed=0;vehicle.vx=0;vehicle.vz=0;vehicle.horizontalSpeed=0;vehicle.altitude=0;vehicle.verticalSpeed=0;vehicle.battery=100;vehicleCollider.enabled=true;syncVehicleCollider();stateCar.position.set(vehicle.x,0,vehicle.z);stateCar.rotation.set(0,0,0);vehicle.firstPerson=false;vehicle.cameraSnap=false;$("crosshair").hidden=false;$("vehicleViewLabel").textContent="THIRD PERSON · V";for(const flame of thrusters)flame.visible=false;for(const wheel of [...wheels,...wheelHubs])wheel.visible=true;$("touchUI").querySelector('[data-touch-action="jump"]').textContent="SKOK";$("touchUI").querySelector('[data-touch-action="run"]').textContent="BĚH";
+  phoneDrawn=false;state.inventory=false;$("inventoryPanel").hidden=true;phoneGroup.visible=false;vehicle.x=2.5;vehicle.z=10.5;vehicle.yaw=0;vehicle.yawRate=0;vehicle.speed=0;vehicle.vx=0;vehicle.vz=0;vehicle.horizontalSpeed=0;vehicle.altitude=0;vehicle.verticalSpeed=0;vehicle.battery=100;vehicleCollider.enabled=true;syncVehicleCollider();stateCar.position.set(vehicle.x,0,vehicle.z);stateCar.rotation.set(0,0,0);vehicle.firstPerson=false;vehicle.cameraSnap=false;$("crosshair").hidden=false;$("vehicleViewLabel").textContent="THIRD PERSON · V";for(const flame of thrusters)flame.visible=false;for(const pod of hoverPods)pod.visible=false;for(const light of hoverPodLights)light.visible=false;for(const wheel of [...wheels,...wheelHubs,...importedWheelParts])wheel.visible=true;$("touchUI").querySelector('[data-touch-action="jump"]').textContent="SKOK";$("touchUI").querySelector('[data-touch-action="run"]').textContent="BĚH";
   controller.setSpawn({x:0,z:8,yaw:0});updateMission();updateStats();saveGame();closeMenu();showToast("MÍR 12 · PODZIM 1975");
 }
 function activateMenuItem(item=currentMenuItems()[menuSelection]){
@@ -1415,7 +1486,9 @@ renderer.setAnimationLoop(time=>{
       frontWheelPivots.forEach(pivot=>pivot.rotation.y=-steer*(inAir?.38:.5));
       if(typeof importedWheelBones!=="undefined")importedWheelBones.forEach(bone=>bone.rotation.x+=vehicle.speed*dt/.33);
       if(typeof importedFrontAxle!=="undefined"&&importedFrontAxle)importedFrontAxle.rotation.y=-steer*(inAir?.22:.42);
-      for(const wheel of [...wheels,...wheelHubs])wheel.visible=!inAir;
+      for(const wheel of [...wheels,...wheelHubs,...importedWheelParts])wheel.visible=!inAir;
+      hoverPods.forEach((pod,index)=>{pod.visible=inAir;pod.position.y=.19+.035*Math.sin(gameTime*5+index*.6);});
+      hoverPodLights.forEach((light,index)=>{light.visible=inAir;light.intensity=.25+.12*Math.sin(gameTime*7+index);});
       thrusters.forEach((flame,index)=>{flame.visible=inAir;flame.scale.setScalar(.78+.22*Math.sin(gameTime*13+index));});
       const cameraPose=vehicleCameraRig.update(vehicle,dt,vehicle.cameraSnap);
       vehicleCameraPosition.set(cameraPose.position.x,cameraPose.position.y,cameraPose.position.z);

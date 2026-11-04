@@ -27,3 +27,20 @@ test("large furniture stays within each room zone and does not reuse the bathroo
  assert.ok(tableDepth<sofaDepth-.45,"coffee table stays on the corridor-facing side of the sofa");
 });
 const furnitureBounds={maxX:-9.97};
+
+test("living room furniture clears the sofa, and the refrigerator joins the kitchen run",()=>{
+ for(const sideZ of [-1,1]){
+  const f=calculateApartmentFurnitureLayout({unitMinX:-18.27,unitMaxX:-9.97,dividerX:-14.12,bathroomMaxX:-16.25,z:-6,sideZ});
+  const kitchenLength=Math.max(1.8,(-14.12-(-18.27))-2.05);
+  const kitchenNearEdge=f.livingX-kitchenLength/2;
+  assert.ok(Math.abs(f.fridgeX-.31-kitchenNearEdge)<1e-8);
+  assert.ok(f.fridgeX-.31>=-16.25&&f.fridgeX+.31<=-14.12,"fridge stays within the living room and kitchen side");
+  assert.ok(Math.abs(f.televisionX-f.livingX)<1e-9);
+  assert.ok(Math.abs(f.televisionZ-f.sofaZ)-(.9/2+.76/2)>.1,"TV stays in front of the sofa, not inside its footprint");
+  const bed={minX:f.bedroomX-.81,maxX:f.bedroomX+.81,minZ:f.bedZ-1.02,maxZ:f.bedZ+1.02};
+  const desk={minX:f.deskX-.625,maxX:f.deskX+.625,minZ:f.deskZ-.275,maxZ:f.deskZ+.275};
+  const overlapX=bed.minX<desk.maxX&&bed.maxX>desk.minX;
+  const overlapZ=bed.minZ<desk.maxZ&&bed.maxZ>desk.minZ;
+  assert.ok(!overlapX||!overlapZ,"desk and bed footprints must not intersect");
+ }
+});
