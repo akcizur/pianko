@@ -62,8 +62,10 @@ test("elevator is integrated beside the stair flight with a landing door on the 
   const unitMin=Math.min(layout.minHallX,layout.maxHallX);
   const bathroomMax=Math.min(unitMin+2.02,x-.16);
   assert.ok(lift.minX>=bathroomMax-1e-9,"the reserved shaft avoids the bathroom footprint");
-  const televisionMin=x-inward*.1-.17;
-  assert.ok(lift.maxX<=televisionMin+1e-9,"the TV stand is shifted outside the shaft footprint");
+  const televisionCenter=x-inward*.1;
+  const televisionMin=televisionCenter-.17,televisionMax=televisionCenter+.17;
+  if(inward>0)assert.ok(lift.maxX<=televisionMin+1e-9,"the TV stand is shifted outside the shaft footprint");
+  else assert.ok(televisionMax<=lift.minX+1e-9,"the TV stand is shifted outside the shaft footprint");
  }
 });
 test("ground, intermediate and roof slabs leave the lift shaft beside the stair opening",()=>{
