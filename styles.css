@@ -287,3 +287,15 @@ button { font: inherit; }
 .inventory-item>strong{grid-column:2;color:#f3f3f3;font-size:9px;letter-spacing:.06em}
 .inventory-foot{display:flex;justify-content:space-between;gap:12px;padding-top:12px;border-top:1px solid #ffffff55;color:#aaa;font-size:8px;letter-spacing:.08em}
 @media(max-width:520px){.inventory-shell{padding:14px}.inventory-items{grid-template-columns:1fr}.inventory-item{min-height:67px}.inventory-foot{flex-direction:column;gap:7px}}
+
+.startup-error{position:fixed;z-index:100;inset:0;display:grid;place-items:center;padding:20px;background:rgba(0,0,0,.96);color:#f5f5f5;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.startup-error[hidden]{display:none}
+.startup-error-panel{width:min(560px,100%);padding:clamp(20px,4vw,34px);border:1px solid #999;background:#080a0b;box-shadow:0 24px 100px #000;text-align:left}
+.startup-error-kicker{color:#aaa;font-size:10px;letter-spacing:.16em}
+.startup-error h1{margin:18px 0 12px;font-size:clamp(20px,4vw,30px);line-height:1.15;letter-spacing:.02em}
+.startup-error p{color:#d1d5d5;font-size:13px;line-height:1.7}
+.startup-error details{margin:20px 0;color:#aaa;font-size:10px}
+.startup-error summary{cursor:pointer;letter-spacing:.12em}
+.startup-error code{display:block;margin-top:10px;padding:10px;background:#15191b;color:#ddd;white-space:pre-wrap;overflow-wrap:anywhere}
+.startup-error button{width:100%;margin-top:10px;padding:13px;border:1px solid #fff;background:#f4f4f4;color:#050505;font:700 12px ui-monospace,monospace;letter-spacing:.08em;cursor:pointer}
+.startup-error button:hover{background:#ccc}

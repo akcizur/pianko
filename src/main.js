@@ -14,7 +14,25 @@ import { createVehicleCameraRig } from "./world/vehicle-camera.js";
 import { calculateVehicleModelFit, isFavoritWheelMesh } from "./world/vehicle-model.js";
 import { restoreBuildingDoorStates, serializeBuildingDoorStates } from "./world/building-state.js";
 import { resolvePrimaryMenuAction } from "./ui/menu-flow.js";
+import { describeStartupError, WEBGL_RENDERER_OPTIONS } from "./ui/startup-error.js";
 
+function showStartupError(error){
+  const root=document.getElementById("startupError");
+  if(!root){console.error("MÍR 12 startup failed",error);return;}
+  const status=describeStartupError(error);
+  document.getElementById("startupErrorTitle").textContent=status.title;
+  document.getElementById("startupErrorMessage").textContent=status.message;
+  document.getElementById("startupErrorSteps").textContent=status.steps;
+  document.getElementById("startupErrorDetail").textContent=status.detail;
+  root.hidden=false;
+  document.getElementById("menuScreen")?.setAttribute("aria-hidden","true");
+  document.getElementById("startupRetry")?.addEventListener("click",()=>window.location.reload(),{once:true});
+  console.error("MÍR 12 startup failed",error);
+}
+
+function bootGame(){
+let renderer=null;
+try{
 const gameAudio=createGameAudio();
 const unlockGameAudio=()=>gameAudio.unlock();
 window.addEventListener("pointerdown",unlockGameAudio,{once:true,capture:true});
@@ -47,7 +65,12 @@ scene.fog = new THREE.Fog(0x536170, 74, 156);
 const camera = new THREE.PerspectiveCamera(74, 1, 0.05, 220);
 scene.add(camera);
 if(savedInVehicle){camera.fov=80;camera.updateProjectionMatrix();}
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+let rendererError=null;
+for(const options of WEBGL_RENDERER_OPTIONS){
+  try{renderer=new THREE.WebGLRenderer(options);break;}
+  catch(error){rendererError=error;}
+}
+if(!renderer)throw rendererError??new Error("WebGL 2 is unavailable.");
 const touchDevice=matchMedia("(pointer: coarse)").matches;
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, touchDevice ? 1.35 : 1.7));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -1342,6 +1365,7 @@ function startNewGame(){
 }
 function activateMenuItem(item=currentMenuItems()[menuSelection]){
   if(!item)return;
+  try{
   const actionName=item.dataset.menu;
   gameAudio.confirm();
   if(menuPage==="main"){
@@ -1360,6 +1384,7 @@ function activateMenuItem(item=currentMenuItems()[menuSelection]){
   if(item.dataset.setting==="crt")userSettings.crt=!userSettings.crt;
   if(item.dataset.setting==="sound")userSettings.sound=!userSettings.sound;
   renderSettings();
+  }catch(error){showStartupError(error);}
 }
 const continueOption=$("continueOption");
 const saveAvailable=Boolean(saved.player||saved.missionStage||saved.playSeconds);
@@ -1580,3 +1605,10 @@ renderer.setAnimationLoop(time=>{
 });
 updateMission();updateStats();
 window.addEventListener("beforeunload",()=>{saveGame();input.destroy();resizeObserver.disconnect();renderer.setAnimationLoop(null);renderer.dispose();});
+
+}catch(error){
+  try{renderer?.dispose();}catch{}
+  showStartupError(error);
+}
+}
+bootGame();
