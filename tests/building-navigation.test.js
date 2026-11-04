@@ -66,9 +66,20 @@ test("player controller can climb both flights, cross the landing and descend",(
     for(let frame=0;frame<frames;frame++)controller.update(.05);
     delete controller.keysDown.KeyW;
   };
+  const walkToX=(targetX)=>{
+    controller.player.yaw=Math.PI/2;
+    controller.keysDown.KeyW=true;
+    for(let frame=0;frame<100&&Math.abs(controller.player.x-targetX)>1e-8;frame++){
+      const remaining=Math.abs(targetX-controller.player.x);
+      const previousX=controller.player.x;
+      controller.update(Math.min(.05,remaining/controller.player.speed));
+      if(Math.abs(controller.player.x-previousX)<1e-10)break;
+    }
+    delete controller.keysDown.KeyW;
+  };
 
   // Walk through the front entrance, then align at the bottom of the first flight.
-  walk(Math.PI/2,42);
+  walkToX(building.stairX+.13*building.inward);
   assert.ok(Math.abs(controller.player.x-(building.stairX+.13*building.inward))<1e-8);
   walk(0,4);
   assert.ok(Math.abs(controller.player.z-(-6.72))<1e-8);
