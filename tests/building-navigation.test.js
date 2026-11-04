@@ -100,9 +100,9 @@ test("the final two-flight stair reaches the roof and stays there outside the st
 });
 test("elevator cabin elevation follows the live lift position",()=>{
  const entry=makeEntry();
- entry.elevator={x:-19.46,z:-6,motion:{y:6.08}};
+ entry.elevator={x:-19.46,z:-6,doorPlaneZ:-6.76,elevatorSideZ:1,motion:{y:6.08}};
  const resolve=createBuildingElevationResolver([entry]);
  assert.equal(resolve(-19.46,-6,6.08),6.08);
- assert.equal(resolve(-19.46,-6,.18),6.08);
- assert.equal(resolve(-18.7,-6,.18),.18);
+ assert.equal(resolve(-19.46,-6.36,.18),6.08);
+ assert.equal(resolve(-18.7,-6.36,.18),.18);
 });
