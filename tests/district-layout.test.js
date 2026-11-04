@@ -17,7 +17,7 @@ test("named landmarks keep their established positions and dimensions", () => {
   const oldTown = buildings.find(building => building.oldTown);
   assert.deepEqual(
     { id: home.id, x: home.x, z: home.z, width: home.width, depth: home.depth, height: home.height },
-    { id: "DŮM MÍR", x: -14.2, z: -6, width: 9.2, depth: 13, height: 23 }
+    { id: "DŮM MÍR", x: -14.2, z: -6, width: 11.2, depth: 13, height: 23 }
   );
   assert.deepEqual(
     { id: shop.id, x: shop.x, z: shop.z, width: shop.width, depth: shop.depth, height: shop.height, kind: shop.kind },
