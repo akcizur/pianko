@@ -81,7 +81,13 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.shadowMap.autoUpdate = true;
+// The district contains a large amount of static geometry. Refresh dynamic
+// shadows at a bounded cadence rather than rendering a full shadow map on
+// every frame. Moving doors, NPCs, the tram and the vehicle remain updated.
+renderer.shadowMap.autoUpdate = false;
+renderer.shadowMap.needsUpdate = true;
+const shadowRefreshInterval=touchDevice?1/15:1/24;
+let shadowRefreshAccumulator=0;
 renderer.domElement.id = "screenCanvas";
 renderer.domElement.setAttribute("aria-label", "Mír 12 — 3D herní scéna");
 renderer.domElement.tabIndex = 0;
@@ -966,7 +972,8 @@ for(const x of [-1.03,1.03])for(const z of [-1.28,1.28]){
     for(let spokeIndex=0;spokeIndex<6;spokeIndex++){const spoke=new THREE.Mesh(new THREE.BoxGeometry(.04,.018,.29),material(0xc4c2b4,.46));spoke.position.set(0,side*.155,0);spoke.rotation.y=spokeIndex*Math.PI/3;wheel.add(spoke);wheelHubs.push(spoke);}
   }
 }
-const thrusters=[],hoverPods=[],hoverPodLights=[],importedWheelParts=[];
+const thrusters=[],hoverPods=[],hoverPodLights=[];
+const vehicleGroundVisibilityParts=[...wheels,...wheelHubs];
 const thrusterMaterial=new THREE.MeshBasicMaterial({color:0x41dfff,transparent:true,opacity:.82,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false});
 const hoverPodShellMaterial=material(0x202a2d,.42,0x03141a,.08);
 const hoverPodGlowMaterial=new THREE.MeshBasicMaterial({color:0x31dfff,transparent:true,opacity:.84,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false});
@@ -1008,7 +1015,10 @@ favoritLoader.load(resolveModelAssetUrl(import.meta.env.BASE_URL,MODEL_ASSETS.sk
       mat.needsUpdate=true;return mat;
     });
     object.material=Array.isArray(object.material)?tuned:tuned[0];
-    if(isFavoritWheelMesh(materials.map(mat=>mat.name),object.name))importedWheelParts.push(object);
+    if(isFavoritWheelMesh(materials.map(mat=>mat.name),object.name)){
+      object.visible=vehicle.altitude<=.8;
+      vehicleGroundVisibilityParts.push(object);
+    }
     object.castShadow=true;object.receiveShadow=true;
   });
   model.updateMatrixWorld(true);
@@ -1661,7 +1671,7 @@ function startNewGame(){
   scene.add(enemyMesh);scene.add(courierGuard);scene.add(courier);courierGuard.visible=false;courier.visible=false;courierBeacon.visible=false;miraBeacon.visible=false;markerRing.visible=false;towerBeacon.visible=false;endingPanel.hidden=true;dialoguePanel.hidden=true;
   for(const supply of supplies){supply.collected=false;supply.group.visible=true;supply.interactable.enabled=true;}
   pauseScreen.hidden=true;renderer.domElement.classList.remove("is-paused");combatPanel.hidden=true;$("vehicleHud").hidden=true;camera.fov=74;camera.updateProjectionMatrix();
-  phoneDrawn=false;state.inventory=false;$("inventoryPanel").hidden=true;phoneGroup.visible=false;vehicle.x=2.5;vehicle.z=10.5;vehicle.yaw=0;vehicle.yawRate=0;vehicle.speed=0;vehicle.vx=0;vehicle.vz=0;vehicle.horizontalSpeed=0;vehicle.altitude=0;vehicle.verticalSpeed=0;vehicle.battery=100;vehicleCollider.enabled=true;syncVehicleCollider();stateCar.position.set(vehicle.x,0,vehicle.z);stateCar.rotation.set(0,0,0);vehicle.firstPerson=false;vehicle.cameraSnap=false;$("crosshair").hidden=false;$("vehicleViewLabel").textContent="THIRD PERSON · V";for(const flame of thrusters)flame.visible=false;for(const pod of hoverPods)pod.visible=false;for(const light of hoverPodLights)light.visible=false;for(const wheel of [...wheels,...wheelHubs,...importedWheelParts])wheel.visible=true;$("touchUI").querySelector('[data-touch-action="jump"]').textContent="SKOK";$("touchUI").querySelector('[data-touch-action="run"]').textContent="BĚH";
+  phoneDrawn=false;state.inventory=false;$("inventoryPanel").hidden=true;phoneGroup.visible=false;vehicle.x=2.5;vehicle.z=10.5;vehicle.yaw=0;vehicle.yawRate=0;vehicle.speed=0;vehicle.vx=0;vehicle.vz=0;vehicle.horizontalSpeed=0;vehicle.altitude=0;vehicle.verticalSpeed=0;vehicle.battery=100;vehicleCollider.enabled=true;syncVehicleCollider();stateCar.position.set(vehicle.x,0,vehicle.z);stateCar.rotation.set(0,0,0);vehicle.firstPerson=false;vehicle.cameraSnap=false;$("crosshair").hidden=false;$("vehicleViewLabel").textContent="THIRD PERSON · V";for(const flame of thrusters)flame.visible=false;for(const pod of hoverPods)pod.visible=false;for(const light of hoverPodLights)light.visible=false;for(const wheel of vehicleGroundVisibilityParts)wheel.visible=true;$("touchUI").querySelector('[data-touch-action="jump"]').textContent="SKOK";$("touchUI").querySelector('[data-touch-action="run"]').textContent="BĚH";
   controller.setSpawn({x:0,z:8,yaw:0});updateMission();updateStats();saveGame();closeMenu();showToast("MÍR 12 · PODZIM 1975");
 }
 function activateMenuItem(item=currentMenuItems()[menuSelection]){
@@ -1788,6 +1798,11 @@ const resizeObserver=new ResizeObserver(resize);resizeObserver.observe(mount);re
 let previousTime=0,gameTime=0,nextAutosave=6,nextFootstep=0,nextVehicleImpact=0;
 renderer.setAnimationLoop(time=>{
   const dt=previousTime?Math.min((time-previousTime)/1000,.05):0;previousTime=time;gameTime+=dt;
+  shadowRefreshAccumulator+=dt;
+  if(shadowRefreshAccumulator>=shadowRefreshInterval){
+    renderer.shadowMap.needsUpdate=true;
+    shadowRefreshAccumulator%=shadowRefreshInterval;
+  }
   let playerMoved=false;
   if(state.started&&!state.paused&&!state.combat)totalPlaySeconds+=dt;
   const clockSeconds=Math.floor(totalPlaySeconds),clockHours=String(Math.floor(clockSeconds/3600)).padStart(2,"0"),clockMinutes=String(Math.floor(clockSeconds/60)%60).padStart(2,"0"),clockRemainder=String(clockSeconds%60).padStart(2,"0");
@@ -1817,7 +1832,7 @@ renderer.setAnimationLoop(time=>{
       frontWheelPivots.forEach(pivot=>pivot.rotation.y=-steer*(inAir?.38:.5));
       if(typeof importedWheelBones!=="undefined")importedWheelBones.forEach(bone=>bone.rotation.x+=vehicle.speed*dt/.33);
       if(typeof importedFrontAxle!=="undefined"&&importedFrontAxle)importedFrontAxle.rotation.y=-steer*(inAir?.22:.42);
-      for(const wheel of [...wheels,...wheelHubs,...importedWheelParts])wheel.visible=!inAir;
+      for(const wheel of vehicleGroundVisibilityParts)wheel.visible=!inAir;
       hoverPods.forEach((pod,index)=>{pod.visible=inAir;pod.position.y=.19+.035*Math.sin(gameTime*5+index*.6);});
       hoverPodLights.forEach((light,index)=>{light.visible=inAir;light.intensity=.25+.12*Math.sin(gameTime*7+index);});
       thrusters.forEach((flame,index)=>{flame.visible=inAir;flame.scale.setScalar(.78+.22*Math.sin(gameTime*13+index));});
