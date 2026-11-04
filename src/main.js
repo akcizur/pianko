@@ -288,11 +288,11 @@ function buildWalkablePanelak(x,z,width,depth,height,inward,options={}){
     const liftDoorCollider={name:buildingId+" — zavřené dveře výtahu · "+(story+1),minX:liftDoorX-.07,maxX:liftDoorX+.07,minZ:z-elevatorDoorWidth/2,maxZ:z+elevatorDoorWidth/2,minY:base,maxY:base+2.08,enabled:story!==0};
     colliders.push(liftDoorCollider);
     elevatorFloorDoors.push({left:liftDoorLeft,right:liftDoorRight,collider:liftDoorCollider,base,floor:story});
-    const callZ=z+elevatorLayout.shaftDepth/2+.24;
-    const callPanelX=liftDoorX-inward*.10;
-    const callX=liftDoorX-inward*.30;
-    block(buildingId+" — panel přivolání výtahu",callPanelX,base+1.08,callZ,.07,.46,.18,0x343b3b,false);
-    block(buildingId+" — tlačítko výtahu",callPanelX+inward*.045,base+1.27,callZ,.025,.075,.075,0xd7c99e,false,0x9d8756,.12);
+    const callPanelZ=z+hallHalf-.10;
+    const callPanelX=liftDoorX-inward*.18;
+    const callX=liftDoorX-inward*.42,callZ=callPanelZ-.33;
+    block(buildingId+" — panel přivolání výtahu",callPanelX,base+1.08,callPanelZ,.18,.46,.07,0x343b3b,false);
+    block(buildingId+" — tlačítko výtahu",callPanelX,base+1.27,callPanelZ-.08,.075,.075,.025,0xd7c99e,false,0x9d8756,.12);
     elevatorCallInteractables.push({id:buildingId+" — přivolat výtah · "+(story+1)+". patro",x:callX,z:callZ,levelY:base,verticalRange:.55,range:1.25,enabled:true,
       action(){elevatorMotion.requestFloor(story);gameAudio.ui();showToast("VÝTAH · PŘIVOLÁNÍ DO "+(story+1)+". PATRA");}});
     const floorSlabSegments=calculateFloorSlabSegments({
