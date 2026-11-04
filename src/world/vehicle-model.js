@@ -19,3 +19,9 @@ export function isFavoritWheelMesh(materialNames=[],objectName=""){
  const names=[objectName,...materialNames].map(value=>String(value??"").trim().toUpperCase());
  return names.some(name=>/^(KOLO|PNEU|DISK)/.test(name));
 }
+
+/** Detect tyre meshes separately from wheel discs in the imported glTF. */
+export function isFavoritTireMesh(materialNames=[],objectName=""){
+ const names=[objectName,...materialNames].map(value=>String(value??"").trim().toUpperCase());
+ return names.some(name=>/^PNEU/.test(name));
+}

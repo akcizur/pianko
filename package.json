@@ -8,9 +8,17 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test"
+    "test": "node --test",
+    "check:models": "node scripts/check-model-assets.js"
   },
-  "dependencies": { "nipplejs": "1.0.4", "three": "0.169.0" },
-  "devDependencies": { "vite": "6.4.5" },
-  "engines": { "node": ">=20.0.0" }
+  "dependencies": {
+    "nipplejs": "1.0.4",
+    "three": "0.169.0"
+  },
+  "devDependencies": {
+    "vite": "6.4.5"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
 }
