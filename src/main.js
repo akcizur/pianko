@@ -295,7 +295,7 @@ function buildWalkablePanelak(x,z,width,depth,height,inward,options={}){
       minZ:liftDoorZ-.07,maxZ:liftDoorZ+.07,minY:base,maxY:base+2.08,enabled:story!==0};
     colliders.push(liftDoorCollider);
     elevatorFloorDoors.push({left:liftDoorLeft,right:liftDoorRight,collider:liftDoorCollider,base,floor:story});
-    const callPanelX=elevatorLayout.centerX+inward*(elevatorDoorWidth/2+.055);
+    const callPanelX=elevatorLayout.centerX+inward*(elevatorDoorWidth/2+.065);
     const callPanelZ=liftDoorZ-elevatorSideZ*.10;
     const callX=callPanelX,callZ=liftDoorZ-elevatorSideZ*.42;
     block(buildingId+" — panel přivolání výtahu",callPanelX,base+1.08,callPanelZ,.10,.46,.06,0x343b3b,false);
