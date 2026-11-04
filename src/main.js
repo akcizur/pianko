@@ -4,15 +4,18 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { createPlayerController } from "./core/player-controller.js";
 import { bindInput } from "./core/input-controller.js";
 import { createGameAudio } from "./core/game-audio.js";
+import { readStoredJson, writeStoredJson } from "./core/persistence.js";
 import { advanceNeighborQuestStep, isCourierEncounterActive, normalizeNeighborQuestStep } from "./core/story-rules.js";
 import { moveVehicleWithCollisions, stepVehicleDynamics, vehicleAabb, VEHICLE_TUNING } from "./core/vehicle-controller.js";
 import { buildApartmentInterior } from "./world/apartment-interior.js";
+import { createDistrictBuildingPlan } from "./world/district-layout.js";
 import { createBuildingElevationResolver } from "./world/building-navigation.js";
 import { calculateFloorSlabSegments, calculatePanelakLayout, calculateElevatorShaftLayout, calculateEntranceDoorLayout, calculateEntranceBellLayout, calculateApartmentDoorPlacement, calculateRoofGuardrailSegments } from "./world/building-geometry.js";
 import { createBuildingElevator, isPlayerInsideElevatorCab, calculateSlidingDoorLeafBounds } from "./world/building-elevator.js";
 import { stepDoorAnimation } from "./world/door-animation.js";
 import { createVehicleCameraRig } from "./world/vehicle-camera.js";
 import { calculateVehicleModelFit, isFavoritWheelMesh } from "./world/vehicle-model.js";
+import { MODEL_ASSETS, resolveModelAssetUrl } from "./world/model-assets.js";
 import { restoreBuildingDoorStates, serializeBuildingDoorStates } from "./world/building-state.js";
 import { resolvePrimaryMenuAction } from "./ui/menu-flow.js";
 import { describeStartupError, WEBGL_RENDERER_OPTIONS } from "./ui/startup-error.js";
@@ -43,8 +46,7 @@ const mount = $("game"), coordinates = $("coordinates"), toast = $("toast"), hin
 const pauseScreen = $("pauseScreen"), combatPanel = $("combatPanel");
 const SAVE_KEY = "mir12-save-v1";
 function readSave() {
-  try { return JSON.parse(localStorage.getItem(SAVE_KEY) || "null") || {}; }
-  catch { return {}; }
+  return readStoredJson(SAVE_KEY, {});
 }
 const saved = readSave();
 let neighborQuestStep=normalizeNeighborQuestStep(saved.neighborQuestStep);
@@ -766,46 +768,38 @@ let apartmentEntry=null;
 const buildingEntries=[];
 for (const side of [-1,1]) {
   plane(3.5,150,0x8e8879,side*7,-.005,-20);
-  for (let z=11; z>=-76; z-=17) {
-    const height=16+((Math.abs(z*7+side*19)%9));
-    const width=9.2+((Math.abs(z+side*11)%3));
-    const x=side*14.2;
-    const oldTown=side===-1&&z===11;
-    const departmentStore=side===1&&z===-40;
-    const specialPanelak=side===-1&&z===-6;
-    const buildingVariant=Math.abs(Math.floor(z/17)+side+8)%4;
-    const color=oldTown?0x776b60:departmentStore?0x747a7b:[0x737b7d,0x80827d,0x697277,0x89877f][buildingVariant];
-    const buildingId=specialPanelak?"DŮM MÍR":departmentStore?"OBCHODNÍ DŮM MÍR":oldTown?"ČINŽOVNÍ DŮM":"PANELÁK "+(side<0?"ZÁPAD":"VÝCHOD")+" · "+Math.abs(z);
-    const buildingKind=departmentStore?"shop":oldTown?"tenement":"panelak";
-    const buildingWallColor=oldTown?0x817365:departmentStore?0x788080:[0x737b7d,0x80827d,0x697277,0x89877f][buildingVariant];
-    const buildingHeight=departmentStore?12:oldTown?11:height;
-    const entry=buildWalkablePanelak(x,z,departmentStore?13:width,departmentStore?15:13,buildingHeight,-side,{
-      id:buildingId,kind:buildingKind,wallColor:buildingWallColor,lighting:specialPanelak
-    });
-    buildingEntries.push(entry);
-    if(specialPanelak){
-      apartmentEntry=entry;
-      printedSign("domovní cedule vchodu",entry.frontX+entry.inward*.22,2.72,z+1.02,.82,.34,"VCHOD 12","DŮM MÍR",entry.inward*Math.PI/2,"#ddd7c8","#33393a");
-    }
-    if(departmentStore){
-      printedSign("nápis obchodní dům Mír",entry.frontX+entry.inward*.22,6.8,z,6.2,1.2,"OBCHODNÍ DŮM MÍR","POTRAVINY · TEXTIL · DOMÁCÍ POTŘEBY",side===1?-Math.PI/2:Math.PI/2,"#ded4bd","#762c25");
-    }
-    if(oldTown)propagandaPoster(entry.frontX+entry.inward*.12,6.3,z-1.1,1.1,1.8,Math.PI/2);
-    if(z===-57&&side===1)printedSign("smaltovaná cedule Potraviny",entry.frontX+entry.inward*.12,5.1,z,2.8,.65,"POTRAVINY","8.00—18.00",-Math.PI/2,"#d7d0b9","#a2382e");
-    // Trees, sodium lamps and telephone poles repeat along the block.
-    if(z%34!==0) {
-      const tx=side*5.3, tz=z+5;
-      block("kmen",tx,0,tz,.36,2,.36,0x574438,false);
-      const crown=block("koruna",tx,2,tz,2.1,2.4,2.1,0x4b5e45,false);
-      crown.material=material(0x53664b,.96);
-    }
-    block("stožár veřejného osvětlení",side*8.5,0,z+2,.13,5,.13,0x4b4c48,false);
-    block("žluté pouliční svítidlo",side*8.5,4.65,z+2,.72,.2,.42,0xf0c06a,false,0xb77735,.58);
-    if(z%34!==0){
-      const streetLight=new THREE.PointLight(0xffc77f,.62,10.5,2);
-      streetLight.position.set(side*8.5,4.45,z+2);
-      scene.add(streetLight);
-    }
+}
+for (const building of createDistrictBuildingPlan()) {
+  const {
+    side,z,x,width,depth,height,inward,oldTown,departmentStore,specialPanelak,
+    wallColor,kind,hasStreetTree
+  } = building;
+  const entry=buildWalkablePanelak(x,z,width,depth,height,inward,{
+    id:building.id,kind,wallColor,lighting:specialPanelak
+  });
+  buildingEntries.push(entry);
+  if(specialPanelak){
+    apartmentEntry=entry;
+    printedSign("domovní cedule vchodu",entry.frontX+entry.inward*.22,2.72,z+1.02,.82,.34,"VCHOD 12","DŮM MÍR",entry.inward*Math.PI/2,"#ddd7c8","#33393a");
+  }
+  if(departmentStore){
+    printedSign("nápis obchodní dům Mír",entry.frontX+entry.inward*.22,6.8,z,6.2,1.2,"OBCHODNÍ DŮM MÍR","POTRAVINY · TEXTIL · DOMÁCÍ POTŘEBY",side===1?-Math.PI/2:Math.PI/2,"#ded4bd","#762c25");
+  }
+  if(oldTown)propagandaPoster(entry.frontX+entry.inward*.12,6.3,z-1.1,1.1,1.8,Math.PI/2);
+  if(z===-57&&side===1)printedSign("smaltovaná cedule Potraviny",entry.frontX+entry.inward*.12,5.1,z,2.8,.65,"POTRAVINY","8.00—18.00",-Math.PI/2,"#d7d0b9","#a2382e");
+  // Street-side props remain positioned from the same authored building descriptor.
+  if(hasStreetTree) {
+    const tx=side*5.3, tz=z+5;
+    block("kmen",tx,0,tz,.36,2,.36,0x574438,false);
+    const crown=block("koruna",tx,2,tz,2.1,2.4,2.1,0x4b5e45,false);
+    crown.material=material(0x53664b,.96);
+  }
+  block("stožár veřejného osvětlení",side*8.5,0,z+2,.13,5,.13,0x4b4c48,false);
+  block("žluté pouliční svítidlo",side*8.5,4.65,z+2,.72,.2,.42,0xf0c06a,false,0xb77735,.58);
+  if(hasStreetTree){
+    const streetLight=new THREE.PointLight(0xffc77f,.62,10.5,2);
+    streetLight.position.set(side*8.5,4.45,z+2);
+    scene.add(streetLight);
   }
 }
 // Batch static apartment floors, partitions, kitchen and furniture while keeping per-item AABB collision.
@@ -990,7 +984,7 @@ for(const x of [-.63,.63])for(const z of [-.7,1.4]){
 stateCar.position.set(2.5,0,6);scene.add(stateCar);
 fallbackCar.visible=true;importedCar.visible=false;
 const favoritLoader=new GLTFLoader();
-favoritLoader.load(import.meta.env.BASE_URL+"models/skoda-favorit/scene.gltf",gltf=>{
+favoritLoader.load(resolveModelAssetUrl(import.meta.env.BASE_URL,MODEL_ASSETS.skodaFavorit.path),gltf=>{
   const model=gltf.scene;
   model.traverse(object=>{
     if(object.isCamera||object.isLight){object.visible=false;return;}
@@ -1137,7 +1131,7 @@ const supplies=[
 for(const supply of supplies)supply.group.visible=!supply.collected;
 function saveGame() {
   const p=controller?.player;
-  try { localStorage.setItem(SAVE_KEY,JSON.stringify({
+  const stored=writeStoredJson(SAVE_KEY,{
     missionStage:mission.stage,foeDefeated:foe.defeated,courierDefeated:secondFoe.defeated,ending:endingChoice,inVehicle:state.inVehicle,
     neighborQuestStep,
     stats:{hp:stats.hp,maxHp:stats.maxHp,energy:stats.energy,maxEnergy:stats.maxEnergy,xp:stats.xp,level:stats.level,credits:stats.credits,medkits:stats.medkits,weaponLevel:stats.weaponLevel,armorLevel:stats.armorLevel},
@@ -1146,7 +1140,10 @@ function saveGame() {
     buildings:serializeBuildingDoorStates(buildingEntries),
     panelak:apartmentEntry?{entranceOpen:apartmentEntry.open,doors:apartmentEntry.apartmentDoors.map(door=>door.open)}:null,
     vehicle:{x:vehicle.x,z:vehicle.z,yaw:vehicle.yaw,altitude:vehicle.altitude,battery:vehicle.battery},playSeconds:totalPlaySeconds
-  }));const continueButton=document.getElementById("continueOption");if(continueButton)continueButton.disabled=false; } catch { showToast("POSTUP SE NEPODAŘILO ULOŽIT"); }
+  });
+  const continueButton=document.getElementById("continueOption");
+  if(stored){if(continueButton)continueButton.disabled=false;}
+  else showToast("POSTUP SE NEPODAŘILO ULOŽIT");
 }
 function awardXP(amount) {
   stats.xp+=amount;
@@ -1640,13 +1637,13 @@ const menuPages={main:menuMain,settings:menuSettings,controls:menuControls,newco
 let menuPage="main",menuSelection=0;
 const settingsKey=SAVE_KEY+"-settings";
 let userSettings={sensitivity:5,crt:true,sound:true};
-try{userSettings={...userSettings,...JSON.parse(localStorage.getItem(settingsKey)||"{}")};}catch{}
+Object.assign(userSettings,readStoredJson(settingsKey,{}));
 function renderSettings(){
   $("sensitivityValue").textContent=String(userSettings.sensitivity).padStart(2,"0");$("crtValue").textContent=userSettings.crt?"ZAP":"VYP";
   $("soundValue").textContent=userSettings.sound?"ZAP":"VYP";gameAudio.setMuted(!userSettings.sound);
   input.setMouseSensitivity(.00035+userSettings.sensitivity*.00013);
   document.documentElement.style.setProperty("--crt-line-opacity",userSettings.crt?".17":"0");
-  try{localStorage.setItem(settingsKey,JSON.stringify(userSettings));}catch{}
+  writeStoredJson(settingsKey,userSettings);
 }
 function currentMenuItems(){return [...menuPages[menuPage].querySelectorAll("button:not(:disabled)")];}
 function selectMenuItem(){currentMenuItems().forEach((b,i)=>b.classList.toggle("selected",i===menuSelection));gameAudio.ui();}
