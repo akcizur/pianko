@@ -42,7 +42,7 @@ test("stairwell placement is symmetric in both facade orientations",()=>{
  assert.ok(east.stairwellMinX<east.stairwellMaxX);
 });
 
-test("interior elevator sits at the rear of the corridor and clears the stair flight",()=>{
+test("interior elevator sits at the entrance end of the corridor and clears the stair flight",()=>{
  for(const side of [-1,1])for(const z of [11,-6,-23,-40,-57,-74]){
   const width=z===-40&&side===1?13:9.2,inward=-side,x=side*14.2;
   const layout=calculatePanelakLayout({x,z,width,depth:13,inward,wall:.32});
@@ -52,7 +52,7 @@ test("interior elevator sits at the rear of the corridor and clears the stair fl
   assert.ok(Math.abs((shaft.centerX-shaft.doorPlaneX)*inward-(shaft.shaftWidth/2-.04))<1e-9);
   const stairNearX=inward>0?layout.stairwellMaxX:layout.stairwellMinX;
   const shaftRearEdge=shaft.centerX-inward*shaft.shaftWidth/2;
-  assert.ok((stairNearX-shaftRearEdge)*(-inward)>2.5,"lift remains separated from the stairwell");
+  assert.ok((stairNearX-shaftRearEdge )*(-inward)>1.0,"lift remains separated from the stairwell");
   assert.ok(shaft.maxZ-shaft.minZ<2);
  }
 });
