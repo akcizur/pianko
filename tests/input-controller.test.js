@@ -33,11 +33,16 @@ function installHarness(onVehicleLook = () => {}, onTogglePhone = () => {}, onTo
   const window = new EventHub();
   const jump = new MockElement("jump");
   const run = new MockElement("run");
+  const interact = new MockElement("interact");
+  const pause = new MockElement("pause");
+  const phone = new MockElement("phone");
+  const inventory = new MockElement("inventory");
+  const view = new MockElement("view");
   const look = new MockElement();
   const root = new EventHub();
   root.getElementById = () => null;
   root.querySelector = selector => selector === "#touchLookZone" ? look : selector.includes("data-touch-action") ? run : null;
-  root.querySelectorAll = () => [jump, run];
+  root.querySelectorAll = () => [jump, run, interact, pause, phone, inventory, view];
   root.pointerLockElement = null;
   root.hidden = false;
   const frames = [];
@@ -54,7 +59,7 @@ function installHarness(onVehicleLook = () => {}, onTogglePhone = () => {}, onTo
   const controller = { player: { yaw: 0, pitch: 0 }, keysDown: Object.create(null), setAnalogMove() {}, jump() {} };
   const input = bindInput({ element, controller, state, touchRoot: root, onVehicleLook, onTogglePhone, onToggleInventory, onToggleVehicleView });
   return {
-    state, controller, input, window, root, element, look, jump, run, frames,
+    state, controller, input, window, root, element, look, jump, run, interact, pause, phone, inventory, view, frames,
     setGamepad(value) { gamepad = value; },
     restore() {
       input.destroy();
@@ -144,5 +149,24 @@ test("V switches view only while driving and ignores key repeat",()=>{
   h.window.emit("keydown",key("KeyV",true));assert.equal(views,1);
   h.state.inVehicle=false;h.window.emit("keydown",key("KeyV"));assert.equal(views,1);
   h.state.inVehicle=true;h.state.paused=true;h.window.emit("keydown",key("KeyV"));assert.equal(views,1);
+ }finally{h.restore();}
+});
+
+
+test("mobile utility buttons open phone, inventory and vehicle view",()=>{
+ let phoneToggles=0,inventoryToggles=0,views=0;
+ const h=installHarness(()=>{},()=>phoneToggles++,()=>inventoryToggles++,()=>views++);
+ try{
+  const tap=button=>button.emit("pointerdown",{pointerType:"touch",pointerId:44,preventDefault(){}});
+  h.state.inVehicle=false;
+  tap(h.phone);tap(h.inventory);tap(h.view);
+  assert.equal(phoneToggles,1);
+  assert.equal(inventoryToggles,1);
+  assert.equal(views,0,"vehicle camera is unavailable while walking");
+  h.state.inVehicle=true;
+  tap(h.view);
+  assert.equal(views,1,"the view button calls the vehicle camera action");
+  tap(h.pause);
+  assert.equal(h.state.paused,true,"the pause control opens pause state");
  }finally{h.restore();}
 });
