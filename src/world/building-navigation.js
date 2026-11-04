@@ -6,7 +6,10 @@ export function createBuildingElevationResolver(entries = []) {
       const {z:centerZ,frontX,inward,doorWidth=1.34,floorOffset=0,entryStepLength=0,
         stairX,landingX,flightLength,storyHeight,storyCount}=entry;
       const lift=entry.elevator;
-      if(lift&&Math.abs(x-lift.x)<.49&&Math.abs(z-lift.z)<.53)return lift.motion.y;
+      if(lift){
+        const cabinDepth=(z-lift.doorPlaneZ)*(lift.elevatorSideZ||1);
+        if(Math.abs(x-lift.x)<=.32&&cabinDepth>=-.24&&cabinDepth<=1.5)return lift.motion.y;
+      }
       const doorAxis=(x-frontX)*inward;
       if(Math.abs(z-centerZ)<doorWidth/2+.18&&doorAxis>=0&&doorAxis<=entryStepLength)
         return floorOffset*clamp(1-doorAxis/Math.max(entryStepLength,.01),0,1);
