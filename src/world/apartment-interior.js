@@ -19,14 +19,21 @@ export function calculateApartmentLayout({unitMinX,unitMaxX,roomDepth=4.64}){
  const bathroomWidth=Math.min(1.9,Math.max(0,livingWidth-.28)),bathroomDepth=1.94;
  return {unitWidth,roomDepth,dividerX,livingWidth,bedroomWidth,bathroomWidth,bathroomDepth,bathroomArea:bathroomWidth*bathroomDepth,livingArea:livingWidth*roomDepth,bedroomArea:bedroomWidth*roomDepth,bathroomDoorWidth:.72,roomDoorWidth:.88};
 }
+/** Remap the apartment's authored furniture depth into the clear room zone behind a wider corridor. */
+export function calculateApartmentDepthMapping({hallHalf=1.42,depth=13,sourceRoomStart=1.56,sourceRoomEnd=6.12,wallEndInset=.38}={}){
+ const start=hallHalf+.14,end=depth/2-wallEndInset;
+ if(!Number.isFinite(start)||!Number.isFinite(end)||end<=start||sourceRoomEnd<=sourceRoomStart)
+  throw new RangeError("Apartment depth must leave a positive room behind the corridor.");
+ const scale=(end-start)/(sourceRoomEnd-sourceRoomStart);
+ const offset=start-sourceRoomStart*scale;
+ return {start,end,scale,offset,map:value=>offset+value*scale};
+}
 /** Build a genuinely walkable panel flat with living room, bedroom and bathroom. */
 export function buildApartmentInterior({THREE,scene,block,material,x,z,base,storyHeight,sideZ,unitMinX,unitMaxX,unitX,tone=0,lighting=true,elevatorOpening=null,inward=1,hallHalf=1.42,depth=13}){
  const side=Math.sign(sideZ)||1,width=unitMaxX-unitMinX;
- const sourceRoomStart=1.56,sourceRoomEnd=6.12;
- const roomStart=hallHalf+.14,roomEnd=depth/2-.38;
- const depthScale=(roomEnd-roomStart)/(sourceRoomEnd-sourceRoomStart);
- const depthOffset=roomStart-sourceRoomStart*depthScale;
- const mapDepth=d=>depthOffset+d*depthScale;
+ const depthLayout=calculateApartmentDepthMapping({hallHalf,depth});
+ const {start:roomStart,end:roomEnd,scale:depthScale,offset:depthOffset}=depthLayout;
+ const mapDepth=depthLayout.map;
  const plan=calculateApartmentLayout({unitMinX,unitMaxX,roomDepth:roomEnd-roomStart});
  const atZ=d=>z+side*mapDepth(d);
  const floorBottomY=base+APARTMENT_FLOOR_LAYERS.floorBottom;
