@@ -46,19 +46,19 @@ test("interior elevator sits at the rear of the corridor and clears the stair fl
  for(const side of [-1,1])for(const z of [11,-6,-23,-40,-57,-74]){
   const width=z===-40&&side===1?13:9.2,inward=-side,x=side*14.2;
   const layout=calculatePanelakLayout({x,z,width,depth:13,inward,wall:.32});
-  const shaft=calculateElevatorShaftLayout({backX:layout.backX,insideBack:layout.insideBack,inward,z,wall:.32});
+  const shaft=calculateElevatorShaftLayout({backX:layout.backX,insideFront:layout.insideFront,inward,z,wall:.32});
   assert.ok(shaft.minX>-23.2&&shaft.maxX<23.2);
-  assert.ok(Math.abs((shaft.centerX-layout.insideBack)*inward-.82)<1e-9);
-  assert.ok(Math.abs((shaft.doorPlaneX-shaft.centerX)*inward-(shaft.shaftWidth/2-.04))<1e-9);
-  const stairNearX=inward>0?layout.stairwellMinX:layout.stairwellMaxX;
-  const shaftFrontX=shaft.centerX+inward*shaft.shaftWidth/2;
-  assert.ok((stairNearX-shaftFrontX)*inward>=.49,"lift remains separated from the stairwell");
+  assert.ok(Math.abs((layout.insideFront-shaft.centerX)*inward-1.8)<1e-9);
+  assert.ok(Math.abs((shaft.centerX-shaft.doorPlaneX)*inward-(shaft.shaftWidth/2-.04))<1e-9);
+  const stairNearX=inward>0?layout.stairwellMaxX:layout.stairwellMinX;
+  const shaftRearEdge=shaft.centerX-inward*shaft.shaftWidth/2;
+  assert.ok((stairNearX-shaftRearEdge)*(-inward)>2.5,"lift remains separated from the stairwell");
   assert.ok(shaft.maxZ-shaft.minZ<2);
  }
 });
 test("ground, intermediate and roof slabs leave a continuous lift-shaft opening",()=>{
  const input={x:-14.2,z:-6,width:9.2,depth:13,stairX:-15.77,landingX:-13.85};
- const elevatorOpening={x:-17.45,z:-6,width:1.48,depth:1.8};
+ const elevatorOpening={x:-11.77,z:-6,width:1.48,depth:1.8};
  for(const storyIndex of [0,2,6]){
   const parts=calculateFloorSlabSegments({...input,storyIndex,elevatorOpening,perimeterInset:.045});
   assert.ok(parts.length>=4);
