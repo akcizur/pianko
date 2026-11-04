@@ -34,6 +34,15 @@ function safeInteger(value, fallback, min, max) {
   return Number.isSafeInteger(number) && number >= min && number <= max ? number : fallback;
 }
 
+function finiteWithin(value, fallback, min, max, { exclusiveMin = false, exclusiveMax = false } = {}) {
+  if (value === null || value === undefined || value === "" || typeof value === "boolean") return fallback;
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  if (exclusiveMin ? number <= min : number < min) return fallback;
+  if (exclusiveMax ? number >= max : number > max) return fallback;
+  return number;
+}
+
 function normalizeStats(raw) {
   const source = isRecord(raw) ? raw : {};
   const maxHp = boundedNumber(source.maxHp, DEFAULT_STATS.maxHp, 74, 1000, true);
@@ -55,8 +64,8 @@ function normalizeStats(raw) {
 
 function normalizePlayer(raw) {
   if (!isRecord(raw)) return null;
-  const x = boundedNumber(raw.x, NaN, -22.9, 22.9);
-  const z = boundedNumber(raw.z, NaN, -88, 25);
+  const x = finiteWithin(raw.x, NaN, -22.9, 22.9);
+  const z = finiteWithin(raw.z, NaN, -88, 25, { exclusiveMin: true, exclusiveMax: true });
   if (!Number.isFinite(x) || !Number.isFinite(z) || z <= -88 || z >= 25) return null;
   const elevation = boundedNumber(raw.elevation, 0, 0, 50);
   return {
@@ -70,8 +79,8 @@ function normalizePlayer(raw) {
 
 function normalizeVehicle(raw) {
   if (!isRecord(raw)) return null;
-  const x = boundedNumber(raw.x, NaN, -23, 23);
-  const z = boundedNumber(raw.z, NaN, -101, 34);
+  const x = finiteWithin(raw.x, NaN, -23, 23);
+  const z = finiteWithin(raw.z, NaN, -101, 34, { exclusiveMin: true, exclusiveMax: true });
   if (!Number.isFinite(x) || !Number.isFinite(z) || z <= -101 || z >= 34) return null;
   return {
     x,
