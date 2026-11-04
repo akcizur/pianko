@@ -113,6 +113,6 @@ export function buildApartmentInterior({THREE,scene,block,material,x,z,base,stor
  add("byt — stolní lampa",deskX+.38,base+1.08,deskZ,.16,.58,.16,0xd5b77e);
  add("byt — radiátor",bedroomX,base+.3,radiatorZ,1.1,.5,.14,0x8b918d,true);
  add("byt — stropní svítidlo",x,base+storyHeight-.2,z+side*4.05,.34,.08,.48,0xffd7a2);
- if(lighting){const light=new THREE.PointLight(0xffd1a0,.22,5.6,2);light.position.set(x,base+storyHeight-.52,z+side*4.12);scene.add(light);}
+ if(lighting){const light=new THREE.PointLight(0xffd1a0,.52,6.5,2);light.position.set(x,base+storyHeight-.52,z+side*4.12);scene.add(light);}
  return {dividerX,roomArea:plan.livingArea+plan.bedroomArea,bathroomArea:plan.bathroomArea};
 }
