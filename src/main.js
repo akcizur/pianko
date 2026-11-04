@@ -1637,7 +1637,7 @@ const menuPages={main:menuMain,settings:menuSettings,controls:menuControls,newco
 let menuPage="main",menuSelection=0;
 const settingsKey=SAVE_KEY+"-settings";
 let userSettings={sensitivity:5,crt:true,sound:true};
-Object.assign(userSettings,readStoredJson(settingsKey,{}));
+userSettings={...userSettings,...readStoredJson(settingsKey,{})};
 function renderSettings(){
   $("sensitivityValue").textContent=String(userSettings.sensitivity).padStart(2,"0");$("crtValue").textContent=userSettings.crt?"ZAP":"VYP";
   $("soundValue").textContent=userSettings.sound?"ZAP":"VYP";gameAudio.setMuted(!userSettings.sound);
