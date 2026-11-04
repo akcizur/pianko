@@ -269,7 +269,7 @@ export function bindInput({
   for (const button of touchButtons) {
     const action = button.dataset.touchAction;
 
-    if (action === "jump" || action === "interact" || action === "pause") {
+    if (["jump", "interact", "pause", "phone", "inventory", "view"].includes(action)) {
       const releaseJump = event => {
         if (event && !jumpPointers.has(event.pointerId)) return;
         if (event) jumpPointers.delete(event.pointerId);
@@ -277,17 +277,20 @@ export function bindInput({
         for (const code of ["Space", "ShiftLeft"]) setKey(code, [...jumpPointers.values()].includes(code), "touchButtons");
       };
       listen(button, "pointerdown", event => {
-        if (event.pointerType === "mouse" || state.paused) return;
+        if (event.pointerType === "mouse" || state.paused || !state.started) return;
         event.preventDefault();
-        if (action === "jump") {
+        if (action === "jump" && !state.combat && !state.dialogue && !state.inventory) {
           if (state.inVehicle) {
             jumpPointers.set(event.pointerId, "ShiftLeft");
             setKey("ShiftLeft", true, "touchButtons");
             button.setPointerCapture?.(event.pointerId);
           } else controller.jump?.();
         }
-        if (action === "interact") onInteract();
+        if (action === "interact" && !state.combat && !state.dialogue && !state.inventory) onInteract();
         if (action === "pause") togglePause();
+        if (action === "phone" && !state.combat && !state.dialogue && !state.inventory) onTogglePhone();
+        if (action === "inventory" && !state.combat && !state.dialogue) onToggleInventory();
+        if (action === "view" && state.inVehicle && !state.combat && !state.dialogue) onToggleVehicleView();
       });
       if (action === "jump") {
         listen(button, "pointerup", releaseJump);
