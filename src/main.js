@@ -405,11 +405,11 @@ function buildWalkablePanelak(x,z,width,depth,height,inward,options={}){
     const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material(color,roughness));mesh.name=name;
     mesh.position.set(xp,yp,zp);mesh.castShadow=true;mesh.receiveShadow=true;elevatorCab.add(mesh);return mesh;
   };
-  cabPart("výtah — podlaha",1.22,.12,1.42,0x777a76,0,.06,0);
-  cabPart("výtah — zadní stěna",.07,2.22,1.42,0x8b8c84,-.66,1.17,0);
+  cabPart("výtah — podlaha",1.42,.12,1.28,0x777a76,0,.06,0);
+  cabPart("výtah — zadní stěna",.07,2.22,1.28,0x8b8c84,-.66,1.17,0);
   cabPart("výtah — levá stěna",1.42,2.22,.07,0x99998f,0,1.17,-.605);
   cabPart("výtah — pravá stěna",1.42,2.22,.07,0x99998f,0,1.17,.605);
-  cabPart("výtah — strop",1.22,.07,1.42,0x676e6b,0,2.27,0);
+  cabPart("výtah — strop",1.42,.07,1.28,0x676e6b,0,2.27,0);
   cabPart("výtah — madlo",.05,.08,.84,0xb8b7a9,.43,1.0,.1,.52);
   cabPart("výtah — ovládací panel",.045,.62,.46,0x303a3b,.40,1.42,.38,.52);
   cabPart("výtah — tlačítko o patro výš",.045,.085,.075,0xd6dfc4,.40,1.58,.28,.4);
@@ -1814,6 +1814,7 @@ renderer.setAnimationLoop(time=>{
     }
   }
   if(state.started&&!state.combat&&gameTime>=nextAutosave){saveGame();nextAutosave=gameTime+6;}
+  updateAnimatedDoors(dt);
   tram.position.x=Math.sin(gameTime*.075)*13;tramCollider.minX=tram.position.x-5.75;tramCollider.maxX=tram.position.x+5.75;
   supplies.forEach((supply,index)=>{if(!supply.collected){supply.group.position.y=.035+Math.sin(gameTime*1.5+index*1.8)*.055;supply.group.rotation.y=Math.sin(gameTime*.7+index)*.08;}});
   residents.forEach(resident=>{
@@ -1871,6 +1872,7 @@ renderer.setAnimationLoop(time=>{
   phoneGroup.visible=phoneDrawn&&state.started&&!state.paused&&!state.inVehicle&&!state.dialogue&&!state.combat&&!state.inventory;
   phoneGroup.position.y=-.22+(walking?Math.sin(gameTime*10)*.008:Math.sin(gameTime*1.4)*.002);
   phoneGroup.rotation.x=-.08+Math.sin(gameTime*1.2)*.008;
+  updateInteractionTooltip();
   renderer.render(scene,camera);
 });
 updateMission();updateStats();
