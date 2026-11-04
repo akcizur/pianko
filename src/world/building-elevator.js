@@ -6,7 +6,7 @@
  */
 export function isPlayerInsideElevatorCab({
  playerX,playerZ,elevation,cabX,doorPlaneZ,side=1,floorY,
- halfWidth=.32,minDepth=-.24,maxDepth=1.5,verticalTolerance=.72
+ halfWidth=.32,minDepth=.05,maxDepth=1.5,verticalTolerance=.72
 }){
  const inwardDepth=(playerZ-doorPlaneZ)*(Math.sign(side)||1);
  return Number.isFinite(playerX)&&Number.isFinite(playerZ)&&Number.isFinite(elevation)&&
