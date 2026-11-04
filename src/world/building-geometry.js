@@ -87,22 +87,29 @@ export function calculateFloorSegmentsWithOpening({x,z,width,depth,opening}){
  ].filter(part=>part.width>.02&&part.depth>.02);
 }
 
-/** Place the lift inside the rear end of the corridor, separated from the stair flight. */
-/** Place the lift at the entrance end of the corridor, opposite the stairwell. */
+/**
+ * Put the elevator beside the stair flights, with its landing door opening
+ * from the corridor wall. The shaft occupies a reserved bay in the adjacent
+ * apartment shell, never the clear corridor.
+ */
 export function calculateElevatorShaftLayout({
- backX,insideFront=null,inward,z,doorWidth=1.12,shaftWidth=1.4,shaftDepth=1.72,wall=.32
+ stairX,inward,z,elevatorSideZ=1,hallHalf=1.42,
+ doorWidth=1.12,shaftWidth=1.4,shaftDepth=1.62,wall=.32,cabDoorOffset=.66
 }){
- const centerX=Number.isFinite(insideFront)?insideFront-inward*1.8:backX-inward*.82;
- const doorPlaneX=centerX+inward*(shaftWidth/2-.04);
- const shaftBackX=centerX-inward*(shaftWidth/2-wall/2);
- const sideWallLengthX=Math.max(.1,shaftWidth-wall-.04);
- const sideWallCenterX=(shaftBackX+inward*wall/2+doorPlaneX)/2;
+ const side=Math.sign(elevatorSideZ)||1;
+ const centerX=stairX+inward*.35;
+ const doorPlaneZ=z+side*hallHalf;
+ const centerZ=doorPlaneZ+side*shaftDepth/2;
+ const cabCenterZ=doorPlaneZ+side*cabDoorOffset;
+ const backWallZ=centerZ+side*(shaftDepth/2-wall/2);
+ const sideWallOffset=shaftWidth/2-wall/2;
  return {
-  centerX,z,doorWidth,shaftWidth,shaftDepth,doorPlaneX,shaftBackX,
-  sideWallLengthX,sideWallCenterX,
+  centerX,centerZ,cabCenterZ,z:doorPlaneZ,
+  inward,elevatorSideZ:side,doorWidth,shaftWidth,shaftDepth,doorPlaneZ,backWallZ,
+  sideWallXs:[centerX-sideWallOffset,centerX+sideWallOffset],
   minX:centerX-shaftWidth/2,maxX:centerX+shaftWidth/2,
-  minZ:z-shaftDepth/2,maxZ:z+shaftDepth/2,
-  opening:{x:centerX,z,width:shaftWidth+.08,depth:shaftDepth+.08}
+  minZ:centerZ-shaftDepth/2,maxZ:centerZ+shaftDepth/2,
+  opening:{x:centerX,z:centerZ,width:shaftWidth+.04,depth:shaftDepth}
  };
 }
 /** Six entrance bells sit in one vertical column on the wall beside the door. */
