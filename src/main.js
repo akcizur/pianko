@@ -1325,7 +1325,8 @@ const apartmentDoorInteractables=buildingEntries.flatMap(entry=>entry.apartmentD
     gameAudio.door(door.open);showToast(door.open?"BYT OTEVŘEN":"BYT ZAVŘEN");saveGame();
   }
 })));
-const interactables=[enemyInteractable,relayInteractable,mechanicInteractable,courierInteractable,towerInteractable,patternInteractable,...supplyInteractables,...residentInteractables,...buildingDoorInteractables,...apartmentDoorInteractables,...elevatorCallInteractables,...elevatorControlInteractables,...roofDoorInteractables];
+const vehicleInteractable={id:"vehicle-favorit",label:"NASTOUPIT DO ŠKODY FAVORIT",x:vehicle.x,z:vehicle.z,range:3.8,hoverOffset:1.15,hoverRadius:1.0,enabled:true,action(){enterVehicle();}};
+const interactables=[vehicleInteractable,enemyInteractable,relayInteractable,mechanicInteractable,courierInteractable,towerInteractable,patternInteractable,...supplyInteractables,...residentInteractables,...buildingDoorInteractables,...apartmentDoorInteractables,...elevatorCallInteractables,...elevatorControlInteractables,...roofDoorInteractables];
 const navigation={bounds:{minX:-23.2,maxX:23.2,minZ:-92,maxZ:29},elevationAt:createBuildingElevationResolver(buildingEntries)};
 const controller=createPlayerController({camera,colliders,interactables,state,ui:{showToast},navigation});
 const interactionTooltip=$("interactionTooltip");
@@ -1885,6 +1886,7 @@ renderer.setAnimationLoop(time=>{
   phoneGroup.visible=phoneDrawn&&state.started&&!state.paused&&!state.inVehicle&&!state.dialogue&&!state.combat&&!state.inventory;
   phoneGroup.position.y=-.22+(walking?Math.sin(gameTime*10)*.008:Math.sin(gameTime*1.4)*.002);
   phoneGroup.rotation.x=-.08+Math.sin(gameTime*1.2)*.008;
+  vehicleInteractable.x=vehicle.x;vehicleInteractable.z=vehicle.z;
   updateInteractionTooltip();
   renderer.render(scene,camera);
 });
