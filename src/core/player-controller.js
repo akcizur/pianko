@@ -272,6 +272,7 @@ export function createPlayerController({
     update,
     jump,
     doInteract,
+    getNearestInteractable: nearestInteractable,
     setSpawn,
     setAnalogMove,
     getAnalogMove: () => ({ x: analogMove.x, y: analogMove.y }),
