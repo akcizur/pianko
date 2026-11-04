@@ -15,8 +15,8 @@ test("upper slab is split around the stair opening while ground slab stays solid
  assert.equal(ground.length,1);
  assert.equal(upper.length,4);
  const area=upper.reduce((sum,p)=>sum+p.width*p.depth,0);
- const holeWidth=Math.abs(input.stairX-input.landingX)+.64;
- const holeDepth=2.78;
+ const holeWidth=Math.abs(input.stairX-input.landingX)+.34;
+ const holeDepth=3.10;
  assert.ok(Math.abs(area-(input.width*input.depth-holeWidth*holeDepth))<1e-8);
  assert.ok(upper.every(p=>p.width>0&&p.depth>0));
 });
@@ -51,7 +51,7 @@ test("elevator is integrated beside the stair flight with a landing door on the 
   assert.ok(Math.abs((lift.centerX-layout.stairX)*inward-.40)<1e-9);
   assert.ok(Math.abs(lift.doorPlaneZ-(z+elevatorSideZ*layout.hallHalf))<1e-9);
   assert.ok(Math.abs((lift.cabCenterZ-elevatorSideZ*.66)-lift.doorPlaneZ)<1e-9,"cab doors align with the landing doors");
-  const stairOpeningEdge=z+elevatorSideZ*1.39;
+  const stairOpeningEdge=z+elevatorSideZ*1.55;
   const liftOpeningEdge=elevatorSideZ>0?lift.minZ:lift.maxZ;
   assert.ok(Math.abs(liftOpeningEdge-stairOpeningEdge)>=.029,"lift shaft clears the stairwell opening");
   const apartmentDoorGap=Math.abs(lift.centerX-x)-lift.doorWidth/2-.48;
@@ -167,4 +167,15 @@ test("door approach, hinge and collider are consistent on both sides of the stre
   assert.ok((door.approachZ-door.pivotZ)*sideZ<0);
   assert.ok(door.collider.minY===3.093);
  }
+});
+
+test("corridor, stair flights and intermediate landing use the widened circulation envelope",()=>{
+ const layout=calculatePanelakLayout({x:-14.2,z:-6,width:9.2,depth:13,inward:1});
+ assert.equal(layout.hallHalf,1.72);
+ assert.equal(layout.flightLength,2.16);
+ assert.equal(layout.stairCenterOffset,.78);
+ assert.equal(layout.stairFlightWidth,1.42);
+ assert.equal(layout.landingDepth,3.06);
+ assert.ok(layout.hallHalf*2>=3.4,"clear corridor is at least 3.4 metres wide");
+ assert.ok(layout.stairCenterOffset+layout.stairFlightWidth/2<=1.55,"stair flights stay within the wider opening");
 });
