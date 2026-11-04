@@ -51,7 +51,8 @@ export function bindInput({
   const moveStick = touchRoot.getElementById?.("moveStick") ?? touchRoot.querySelector?.("#moveStick");
   const lookZone = touchRoot.getElementById?.("touchLookZone") ?? touchRoot.querySelector?.("#touchLookZone");
   let touchMove = { x: 0, y: 0 };
-  const movementJoystick = moveStick ? nipplejs.create({
+  const touchControlsEnabled = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
+  const movementJoystick = moveStick && touchControlsEnabled ? nipplejs.create({
     zone: moveStick,
     mode: "static",
     position: { left: "50%", top: "50%" },
