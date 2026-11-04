@@ -14,7 +14,7 @@ export function calculateApartmentFurnitureLayout({unitMinX,unitMaxX,dividerX,ba
  };
 }
 /** Wall spans between room doors, measured on the authored apartment depth axis. */
-export function calculateRoomPartitionSegments({start=2.5,end=6.16,doorCenters=[3.02,4.72],doorWidth=.88,depthScale=1}={}){
+export function calculateRoomPartitionSegments({start=2.5,end=6.12,doorCenters=[3.02,4.72],doorWidth=.88,depthScale=1}={}){
  if(!Number.isFinite(start)||!Number.isFinite(end)||end<=start||!Number.isFinite(depthScale)||depthScale<=0||doorWidth<=0)
   throw new RangeError("Room partition dimensions must be positive and finite.");
  const sorted=[...doorCenters].filter(Number.isFinite).sort((a,b)=>a-b);
