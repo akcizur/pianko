@@ -1390,30 +1390,31 @@ function updateBuildingElevators(deltaTime){
   for(const entry of buildingEntries){
     const lift=entry.elevator,motion=lift.motion;
     const frame=motion.step(deltaTime),doorAmount=frame.doorOpen;
+    const doorEase=doorAmount*doorAmount*(3-2*doorAmount);
     lift.cab.position.y=frame.y-.12;
     for(const floorDoor of lift.shaftDoors){
-      const amount=floorDoor.floor===frame.currentFloor?doorAmount:0;
+      const amount=floorDoor.floor===frame.currentFloor?doorEase:0;
       floorDoor.left.position.x=lift.x-1.12/4-amount*.58;
       floorDoor.right.position.x=lift.x+1.12/4+amount*.58;
-      floorDoor.collider.enabled=!(floorDoor.floor===frame.currentFloor&&amount>.92);
+      floorDoor.collider.enabled=!(floorDoor.floor===frame.currentFloor&&amount>.96);
     }
-    cabDoorLeftPosition(lift.cabDoorLeft,-.28-doorAmount*.58);
-    cabDoorLeftPosition(lift.cabDoorRight,.28+doorAmount*.58);
+    cabDoorLeftPosition(lift.cabDoorLeft,-.28-doorEase*.58);
+    cabDoorLeftPosition(lift.cabDoorRight,.28+doorEase*.58);
     Object.assign(lift.cabDoorCollider,{
       minX:lift.x-.62,maxX:lift.x+.62,
       minZ:lift.doorPlaneZ-.07,maxZ:lift.doorPlaneZ+.07,minY:frame.y,maxY:frame.y+2.08,
-      enabled:doorAmount<.92
+      enabled:doorEase<.96
     });
     const inCab=isPlayerInsideElevatorCab({
       playerX:player.x,playerZ:player.z,elevation:player.elevation,
       cabX:lift.x,doorPlaneZ:lift.doorPlaneZ,side:lift.elevatorSideZ,floorY:frame.y
     });
     if(motion.rider&&!inCab)motion.rider=false;
-    if(inCab&&doorAmount>.92)motion.rider=true;
+    if(inCab&&doorEase>.96)motion.rider=true;
     lift.upInteractable.x=lift.controlX-lift.elevatorSideZ*.10;lift.upInteractable.z=lift.controlZ;lift.upInteractable.levelY=frame.y;
     lift.downInteractable.x=lift.controlX+lift.elevatorSideZ*.10;lift.downInteractable.z=lift.controlZ;lift.downInteractable.levelY=frame.y;
-    lift.upInteractable.enabled=inCab&&doorAmount>.92&&!frame.moving&&frame.currentFloor<lift.motion.floorCount-1;
-    lift.downInteractable.enabled=inCab&&doorAmount>.92&&!frame.moving&&frame.currentFloor>0;
+    lift.upInteractable.enabled=inCab&&doorEase>.96&&!frame.moving&&frame.currentFloor<lift.motion.floorCount-1;
+    lift.downInteractable.enabled=inCab&&doorEase>.96&&!frame.moving&&frame.currentFloor>0;
     if(motion.rider&&inCab&&frame.moving){
       player.elevation=frame.y;
       controller.syncCamera(deltaTime);
