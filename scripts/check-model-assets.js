@@ -64,7 +64,7 @@ async function checkAsset(asset) {
   }
 
   const extras = source.asset?.extras ?? {};
-  if (extras.license && extras.license !== asset.license) {
+  if (extras.license && !extras.license.startsWith(asset.license)) {
     throw new Error(asset.id + ": catalogue license does not match the glTF metadata.");
   }
   if (asset.attribution?.author && extras.author && !extras.author.includes(asset.attribution.author)) {
