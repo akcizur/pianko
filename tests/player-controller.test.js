@@ -57,3 +57,27 @@ test("paused state prevents movement", () => {
   controller.update(1 / 30);
   assert.equal(controller.player.z, 0);
 });
+test("crosshair hover selects the aimed object instead of the nearest neighbour",()=>{
+ const activated=[];
+ const nearby={id:"nearby",x:.2,z:0,range:1,action(){activated.push("nearby");}};
+ const aimed={id:"aimed",x:.45,z:0,range:1,action(){activated.push("aimed");}};
+ const controller=createPlayerController({camera:createCamera(),state:{started:true,paused:false},interactables:[nearby,aimed]});
+ assert.equal(controller.setHoveredInteractable(aimed),aimed);
+ assert.equal(controller.doInteract(),true);
+ assert.deepEqual(activated,["aimed"]);
+ aimed.enabled=false;
+ assert.equal(controller.setHoveredInteractable(aimed),null);
+ assert.equal(controller.doInteract(),true);
+ assert.deepEqual(activated,["aimed","nearby"]);
+});
+
+test("hovered interaction cannot bypass vertical floor or distance limits",()=>{
+ const item={id:"upper-floor",x:0,z:0,range:1,levelY:3,verticalRange:.5,action(){}};
+ const controller=createPlayerController({camera:createCamera(),state:{started:true,paused:false},interactables:[item]});
+ assert.equal(controller.setHoveredInteractable(item),null);
+ assert.equal(controller.isInteractableInRange(item),false);
+ controller.player.elevation=3;
+ assert.equal(controller.setHoveredInteractable(item),item);
+ controller.player.x=5;
+ assert.equal(controller.isInteractableInRange(item),false);
+});
