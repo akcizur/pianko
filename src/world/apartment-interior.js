@@ -13,6 +13,22 @@ export function calculateApartmentFurnitureLayout({unitMinX,unitMaxX,dividerX,ba
   deskX:unitMaxX-.72,deskZ:at(5.55),radiatorZ:at(6.02)
  };
 }
+/** Wall spans between room doors, measured on the authored apartment depth axis. */
+export function calculateRoomPartitionSegments({start=2.5,end=6.16,doorCenters=[3.02,4.72],doorWidth=.88,depthScale=1}={}){
+ if(!Number.isFinite(start)||!Number.isFinite(end)||end<=start||!Number.isFinite(depthScale)||depthScale<=0||doorWidth<=0)
+  throw new RangeError("Room partition dimensions must be positive and finite.");
+ const sorted=[...doorCenters].filter(Number.isFinite).sort((a,b)=>a-b);
+ const halfDoor=doorWidth/(2*depthScale),segments=[];
+ let cursor=start;
+ for(const center of sorted){
+  const openingStart=center-halfDoor,openingEnd=center+halfDoor;
+  if(openingStart<cursor-.001||openingEnd>end+.001)throw new RangeError("Room door openings overlap or leave the apartment.");
+  if(openingStart-cursor>.02)segments.push({centerDepth:(cursor+openingStart)/2,length:(openingStart-cursor)*depthScale});
+  cursor=openingEnd;
+ }
+ if(end-cursor>.02)segments.push({centerDepth:(cursor+end)/2,length:(end-cursor)*depthScale});
+ return segments;
+}
 /** Compact 1970s panel-flat dimensions in metres. */
 export function calculateApartmentLayout({unitMinX,unitMaxX,roomDepth=4.64}){
  const unitWidth=Math.max(0,unitMaxX-unitMinX),dividerX=(unitMinX+unitMaxX)/2,livingWidth=dividerX-unitMinX,bedroomWidth=unitMaxX-dividerX;
@@ -76,14 +92,12 @@ export function buildApartmentInterior({THREE,scene,block,material,x,z,base,stor
  }
  woodFloorSegments.forEach((segment,index)=>add("byt — parketová podlaha · "+(index+1),segment.x,floorBottomY,segment.z,segment.width,APARTMENT_FLOOR_LAYERS.woodThickness,segment.depth,palette.floor));
  add("byt — koupelnová dlažba",bathroomFloorX,floorBottomY,bathroomFloorZ,1.9,APARTMENT_FLOOR_LAYERS.tileThickness,bathroomDepth,0x777e7a);
- add("byt — sokl",dividerX-.08,floorTopY,atZ(4.35),.025,.08,3.15,0x645d51);
- let cursor=2.5;
- for(const d of [{center:3.02,label:"obytné části"},{center:4.72,label:"ložnice"}]){
-  const w=.88,start=d.center-w/2,end=d.center+w/2;
-  if(start-cursor>.06)add("byt — příčka mezi pokoji",dividerX,wallY,atZ((cursor+start)/2),wallThickness,wallH,start-cursor,palette.wall,true);
-  frame("byt — průchod do "+d.label,dividerX,floorTopY,atZ(d.center),w,"z");cursor=end;
+ add("byt — sokl",dividerX-.08,floorTopY,atZ(4.35),.025,.08,3.15*depthScale,0x645d51);
+ const roomDoors=[{center:3.02,label:"obytné části"},{center:4.72,label:"ložnice"}];
+ for(const segment of calculateRoomPartitionSegments({depthScale})){
+  add("byt — příčka mezi pokoji",dividerX,wallY,atZ(segment.centerDepth),wallThickness,wallH,segment.length,palette.wall,true);
  }
- if(6.16-cursor>.06)add("byt — příčka mezi pokoji",dividerX,wallY,atZ((cursor+6.16)/2),wallThickness,wallH,6.16-cursor,palette.wall,true);
+ for(const door of roomDoors)frame("byt — průchod do "+door.label,dividerX,floorTopY,atZ(door.center),.88,"z");
  const bNear=atZ(1.62),bFar=atZ(3.56),bDoor=atZ(2.62),doorW=plan.bathroomDoorWidth;
  const openA=Math.min(bDoor-side*doorW/2,bDoor+side*doorW/2),openB=Math.max(bDoor-side*doorW/2,bDoor+side*doorW/2);
  add("byt — zadní příčka koupelny",(bMin+bMax)/2,wallY,(bNear+bFar)/2,bW,wallH,.12,palette.wall,true);
@@ -126,7 +140,7 @@ export function buildApartmentInterior({THREE,scene,block,material,x,z,base,stor
  add("byt — psací stůl",deskX,base+.72,deskZ,1.25,.12,.55,palette.wood,true);
  add("byt — stolní lampa",deskX+.38,base+1.08,deskZ,.16,.58,.16,0xd5b77e);
  add("byt — radiátor",bedroomX,base+.3,radiatorZ,1.1,.5,.14,0x8b918d,true);
- add("byt — stropní svítidlo",x,base+storyHeight-.2,z+side*4.05,.34,.08,.48,0xffd7a2);
- if(lighting){const light=new THREE.PointLight(0xffd1a0,.52,6.5,2);light.position.set(x,base+storyHeight-.52,z+side*4.12);scene.add(light);}
+ add("byt — stropní svítidlo",x,base+storyHeight-.2,atZ(4.05),.34,.08,.48,0xffd7a2);
+ if(lighting){const light=new THREE.PointLight(0xffd1a0,.52,6.5,2);light.position.set(x,base+storyHeight-.52,atZ(4.12));scene.add(light);}
  return {dividerX,roomArea:plan.livingArea+plan.bedroomArea,bathroomArea:plan.bathroomArea};
 }
