@@ -93,10 +93,13 @@ export function calculateElevatorShaftLayout({
  backX,insideFront=null,inward,z,doorWidth=1.12,shaftWidth=1.4,shaftDepth=1.72,wall=.32
 }){
  const centerX=Number.isFinite(insideFront)?insideFront-inward*1.8:backX-inward*.82;
- const doorPlaneX=centerX-inward*(shaftWidth/2-.04);
- const shaftBackX=centerX+inward*(shaftWidth/2-wall/2);
+ const doorPlaneX=centerX+inward*(shaftWidth/2-.04);
+ const shaftBackX=centerX-inward*(shaftWidth/2-wall/2);
+ const sideWallLengthX=Math.max(.1,shaftWidth-wall-.04);
+ const sideWallCenterX=(shaftBackX+inward*wall/2+doorPlaneX)/2;
  return {
   centerX,z,doorWidth,shaftWidth,shaftDepth,doorPlaneX,shaftBackX,
+  sideWallLengthX,sideWallCenterX,
   minX:centerX-shaftWidth/2,maxX:centerX+shaftWidth/2,
   minZ:z-shaftDepth/2,maxZ:z+shaftDepth/2,
   opening:{x:centerX,z,width:shaftWidth+.08,depth:shaftDepth+.08}
