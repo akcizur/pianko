@@ -16,7 +16,7 @@ import { calculateFloorSlabSegments, calculatePanelakLayout, calculateElevatorSh
 import { createBuildingElevator, isPlayerInsideElevatorCab, calculateSlidingDoorLeafBounds } from "./world/building-elevator.js";
 import { stepDoorAnimation } from "./world/door-animation.js";
 import { createVehicleCameraRig } from "./world/vehicle-camera.js";
-import { calculateVehicleModelFit, isFavoritWheelMesh } from "./world/vehicle-model.js";
+import { calculateVehicleModelFit, isFavoritWheelMesh, isFavoritTireMesh } from "./world/vehicle-model.js";
 import { MODEL_ASSETS, resolveModelAssetUrl } from "./world/model-assets.js";
 import { restoreBuildingDoorStates, serializeBuildingDoorStates } from "./world/building-state.js";
 import { resolvePrimaryMenuAction } from "./ui/menu-flow.js";
@@ -975,6 +975,7 @@ for(const x of [-1.03,1.03])for(const z of [-1.28,1.28]){
 }
 const thrusters=[],hoverPods=[],hoverPodLights=[];
 const vehicleGroundVisibilityParts=[...wheels,...wheelHubs];
+const importedWheelPivots=[];
 const thrusterMaterial=new THREE.MeshBasicMaterial({color:0x41dfff,transparent:true,opacity:.82,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false});
 const hoverPodShellMaterial=material(0x202a2d,.42,0x03141a,.08);
 const hoverPodGlowMaterial=new THREE.MeshBasicMaterial({color:0x31dfff,transparent:true,opacity:.84,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false});
@@ -991,9 +992,47 @@ for(const x of [-.63,.63])for(const z of [-.7,1.4]){
 }
 stateCar.position.set(2.5,0,6);scene.add(stateCar);
 fallbackCar.visible=true;importedCar.visible=false;
+
+function createImportedFavoritWheel(center,front){
+  const wheelRadius=.285,wheelWidth=.205;
+  const pivot=new THREE.Group();
+  pivot.name=front?"Favorit — přední otočné kolo":"Favorit — zadní otočné kolo";
+  pivot.position.copy(center);
+  pivot.rotation.order="YXZ";
+  importedCar.add(pivot);
+
+  const rubber=material(0x222523,.96);
+  const steel=material(0x9b9d98,.54,0x171918,.025);
+  const darkSteel=material(0x424745,.68);
+  const addPart=(geometry,mat,x=0,y=0,z=0)=>{
+    const mesh=new THREE.Mesh(geometry,mat);
+    mesh.position.set(x,y,z);
+    mesh.castShadow=true;mesh.receiveShadow=true;
+    mesh.visible=vehicle.altitude<=.8;
+    pivot.add(mesh);vehicleGroundVisibilityParts.push(mesh);
+    return mesh;
+  };
+  const tyre=addPart(new THREE.CylinderGeometry(wheelRadius,wheelRadius,wheelWidth,16),rubber);
+  tyre.rotation.z=Math.PI/2;
+  for(const side of [-1,1]){
+    const faceX=side*wheelWidth*.34;
+    const disc=addPart(new THREE.CylinderGeometry(wheelRadius*.64,wheelRadius*.64,.032,12),darkSteel,faceX);
+    disc.rotation.z=Math.PI/2;
+    const ring=addPart(new THREE.TorusGeometry(wheelRadius*.58,.009,5,16),steel,faceX+side*.018);
+    ring.rotation.y=Math.PI/2;
+    const hub=addPart(new THREE.CylinderGeometry(.052,.052,.038,10),steel,faceX+side*.022);
+    hub.rotation.z=Math.PI/2;
+    for(let spoke=0;spoke<5;spoke++){
+      const bar=addPart(new THREE.BoxGeometry(.025,wheelRadius*.82,.028),steel,faceX+side*.019);
+      bar.rotation.x=spoke*Math.PI*2/5;
+    }
+  }
+  importedWheelPivots.push({pivot,front,radius:wheelRadius});
+}
 const favoritLoader=new GLTFLoader();
 favoritLoader.load(resolveModelAssetUrl(import.meta.env.BASE_URL,MODEL_ASSETS.skodaFavorit.path),gltf=>{
   const model=gltf.scene;
+  const importedWheelMeshes=[],importedTireMeshes=[];
   model.traverse(object=>{
     if(object.isCamera||object.isLight){object.visible=false;return;}
     if(!object.isMesh)return;
@@ -1016,10 +1055,9 @@ favoritLoader.load(resolveModelAssetUrl(import.meta.env.BASE_URL,MODEL_ASSETS.sk
       mat.needsUpdate=true;return mat;
     });
     object.material=Array.isArray(object.material)?tuned:tuned[0];
-    if(isFavoritWheelMesh(materials.map(mat=>mat.name),object.name)){
-      object.visible=vehicle.altitude<=.8;
-      vehicleGroundVisibilityParts.push(object);
-    }
+    const materialNames=materials.map(mat=>mat.name);
+    if(isFavoritWheelMesh(materialNames,object.name))importedWheelMeshes.push(object);
+    if(isFavoritTireMesh(materialNames,object.name))importedTireMeshes.push(object);
     object.castShadow=true;object.receiveShadow=true;
   });
   model.updateMatrixWorld(true);
@@ -1029,6 +1067,28 @@ favoritLoader.load(resolveModelAssetUrl(import.meta.env.BASE_URL,MODEL_ASSETS.sk
   fitRoot.scale.set(fit.scale.x,fit.scale.y,fit.scale.z);
   fitRoot.position.set(fit.position.x,fit.position.y,fit.position.z);
   importedCar.add(fitRoot);
+  importedCar.updateMatrixWorld(true);
+  const tyreCenters=importedTireMeshes.map(mesh=>{
+    const bounds=new THREE.Box3().setFromObject(mesh,true);
+    return importedCar.worldToLocal(bounds.getCenter(new THREE.Vector3()));
+  }).filter(center=>Number.isFinite(center.x)&&Number.isFinite(center.y)&&Number.isFinite(center.z));
+  const uniqueTyreCenters=[];
+  for(const center of tyreCenters){
+    if(!uniqueTyreCenters.some(other=>other.distanceTo(center)<.06))uniqueTyreCenters.push(center);
+  }
+  if(uniqueTyreCenters.length===4){
+    // The source glTF has static skinned tyre/rim surfaces. Replace them with
+    // four wheel assemblies driven by the same speed and steering as the car.
+    importedWheelMeshes.forEach(mesh=>{mesh.visible=false;});
+    const frontZ=Math.min(...uniqueTyreCenters.map(center=>center.z));
+    uniqueTyreCenters.forEach(center=>createImportedFavoritWheel(center,center.z<=frontZ+.08));
+  }else{
+    // Preserve the source wheels if its geometry changes and no four-wheel set is found.
+    for(const mesh of importedWheelMeshes){
+      mesh.visible=vehicle.altitude<=.8;
+      vehicleGroundVisibilityParts.push(mesh);
+    }
+  }
   importedCar.visible=true;fallbackCar.visible=false;
 },undefined,error=>{
   console.warn("Škoda Favorit GLTF se nepodařilo načíst; použit fallback.",error);
@@ -1826,8 +1886,10 @@ renderer.setAnimationLoop(time=>{
       stateCar.rotation.set(bodyPitch,vehicle.yaw,bodyRoll);
       wheels.forEach(w=>w.rotation.x+=vehicle.speed*dt/.34);
       frontWheelPivots.forEach(pivot=>pivot.rotation.y=-steer*(inAir?.38:.5));
-      if(typeof importedWheelBones!=="undefined")importedWheelBones.forEach(bone=>bone.rotation.x+=vehicle.speed*dt/.33);
-      if(typeof importedFrontAxle!=="undefined"&&importedFrontAxle)importedFrontAxle.rotation.y=-steer*(inAir?.22:.42);
+      for(const wheel of importedWheelPivots){
+        wheel.pivot.rotation.x+=vehicle.speed*dt/wheel.radius;
+        wheel.pivot.rotation.y=wheel.front?-steer*(inAir?.38:.5):0;
+      }
       for(const wheel of vehicleGroundVisibilityParts)wheel.visible=!inAir;
       hoverPods.forEach((pod,index)=>{pod.visible=inAir;pod.position.y=.19+.035*Math.sin(gameTime*5+index*.6);});
       hoverPodLights.forEach((light,index)=>{light.visible=inAir;light.intensity=.25+.12*Math.sin(gameTime*7+index);});
