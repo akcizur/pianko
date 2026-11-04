@@ -1,5 +1,3 @@
-import nipplejs from "nipplejs";
-
 // Unified keyboard, mouse, touch and Gamepad API input.
 // Input sources are tracked independently so one device cannot cancel another.
 export function bindInput({
@@ -52,41 +50,49 @@ export function bindInput({
   const lookZone = touchRoot.getElementById?.("touchLookZone") ?? touchRoot.querySelector?.("#touchLookZone");
   let touchMove = { x: 0, y: 0 };
   const touchControlsEnabled = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
-  const movementJoystick = moveStick && touchControlsEnabled ? nipplejs.create({
-    zone: moveStick,
-    mode: "static",
-    position: { left: "50%", top: "50%" },
-    size: 128,
-    threshold: 0.1,
-    fadeTime: 120,
-    restOpacity: 0.52,
-    restJoystick: true,
-    color: {
-      back: "rgba(10, 14, 16, 0.44)",
-      front: "rgba(230, 237, 235, 0.30)"
-    }
-  }) : null;
-  movementJoystick?.on("start", () => moveStick.classList.add("active"));
-  movementJoystick?.on("move", event => {
-    if (!state.started || state.paused || state.combat || state.dialogue || state.inventory) {
-      touchMove = { x: 0, y: 0 };
-      controller.setAnalogMove?.(0, 0);
-      return;
-    }
-    const vector = event.data?.vector ?? { x: 0, y: 0 };
-    const x = clamp(Number(vector.x) || 0, -1, 1);
-    const y = clamp(Number(vector.y) || 0, -1, 1);
-    const magnitude = Math.hypot(x, y);
-    const deadZone = 0.12;
-    const scale = magnitude <= deadZone ? 0 : Math.min(1, (magnitude - deadZone) / (1 - deadZone)) / Math.max(magnitude, 0.001);
-    touchMove = { x: x * scale, y: y * scale };
-    controller.setAnalogMove?.(touchMove.x, touchMove.y);
-  });
-  movementJoystick?.on("end", () => {
-    touchMove = { x: 0, y: 0 };
-    controller.setAnalogMove?.(0, 0);
-    moveStick.classList.remove("active");
-  });
+  let movementJoystick = null;
+  if (moveStick && touchControlsEnabled) {
+    import("nipplejs").then(({ default: nipplejs }) => {
+      if (destroyed) return;
+      movementJoystick = nipplejs.create({
+        zone: moveStick,
+        mode: "static",
+        position: { left: "50%", top: "50%" },
+        size: 128,
+        threshold: 0.1,
+        fadeTime: 120,
+        restOpacity: 0.52,
+        restJoystick: true,
+        color: {
+          back: "rgba(10, 14, 16, 0.44)",
+          front: "rgba(230, 237, 235, 0.30)"
+        }
+      });
+      movementJoystick.on("start", () => moveStick.classList.add("active"));
+      movementJoystick.on("move", event => {
+        if (!state.started || state.paused || state.combat || state.dialogue || state.inventory) {
+          touchMove = { x: 0, y: 0 };
+          controller.setAnalogMove?.(0, 0);
+          return;
+        }
+        const vector = event.data?.vector ?? { x: 0, y: 0 };
+        const x = clamp(Number(vector.x) || 0, -1, 1);
+        const y = clamp(Number(vector.y) || 0, -1, 1);
+        const magnitude = Math.hypot(x, y);
+        const deadZone = 0.12;
+        const scale = magnitude <= deadZone ? 0 : Math.min(1, (magnitude - deadZone) / (1 - deadZone)) / Math.max(magnitude, 0.001);
+        touchMove = { x: x * scale, y: y * scale };
+        controller.setAnalogMove?.(touchMove.x, touchMove.y);
+      });
+      movementJoystick.on("end", () => {
+        touchMove = { x: 0, y: 0 };
+        controller.setAnalogMove?.(0, 0);
+        moveStick.classList.remove("active");
+      });
+    }).catch(error => {
+      console.warn("NippleJS touch joystick could not be initialized.", error);
+    });
+  }
   const resumeButton = touchRoot.getElementById?.("resumeButton") ?? touchRoot.querySelector?.("#resumeButton");
 
   function listen(target, type, callback, options) {
