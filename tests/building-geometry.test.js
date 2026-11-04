@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {calculateBuildingEndWallCenters,calculateFloorSlabSegments,calculatePanelakLayout,calculateFloorSegmentsWithOpening,calculateElevatorShaftLayout,calculateEntranceDoorLayout,calculateApartmentDoorPlacement,calculateRoofGuardrailSegments} from "../src/world/building-geometry.js";
+import {calculateBuildingEndWallCenters,calculateFloorSlabSegments,calculatePanelakLayout,calculateFloorSegmentsWithOpening,calculateElevatorShaftLayout,calculateEntranceDoorLayout,calculateEntranceBellLayout,calculateApartmentDoorPlacement,calculateRoofGuardrailSegments} from "../src/world/building-geometry.js";
 test("end walls are symmetric and have the correct separation",()=>{
  for(const z of [11,-6,-23,-40,-57,-74]){
   const [a,b]=calculateBuildingEndWallCenters(z,13,.32);
@@ -42,14 +42,47 @@ test("stairwell placement is symmetric in both facade orientations",()=>{
  assert.ok(east.stairwellMinX<east.stairwellMaxX);
 });
 
-test("rear elevator shaft fits beside every playable building without crossing world bounds",()=>{
+test("interior elevator sits at the rear of the corridor and clears the stair flight",()=>{
  for(const side of [-1,1])for(const z of [11,-6,-23,-40,-57,-74]){
-  const width=z===-40&&side===1?13:9.2;
-  const inward=-side,backX=side*14.2-inward*(width/2-.32);
-  const shaft=calculateElevatorShaftLayout({backX,inward,z});
+  const width=z===-40&&side===1?13:9.2,inward=-side,x=side*14.2;
+  const layout=calculatePanelakLayout({x,z,width,depth:13,inward,wall:.32});
+  const shaft=calculateElevatorShaftLayout({backX:layout.backX,insideBack:layout.insideBack,inward,z,wall:.32});
   assert.ok(shaft.minX>-23.2&&shaft.maxX<23.2);
-  assert.ok(Math.abs(Math.abs(shaft.doorPlaneX-shaft.centerX)-shaft.shaftWidth/2-.04)<1e-9);
+  assert.ok(Math.abs((shaft.centerX-layout.insideBack)*inward-.82)<1e-9);
+  assert.ok(Math.abs((shaft.doorPlaneX-shaft.centerX)*inward-(shaft.shaftWidth/2-.04))<1e-9);
+  const stairNearX=inward>0?layout.stairwellMinX:layout.stairwellMaxX;
+  const shaftFrontX=shaft.centerX+inward*shaft.shaftWidth/2;
+  assert.ok((stairNearX-shaftFrontX)*inward>=.49,"lift remains separated from the stairwell");
   assert.ok(shaft.maxZ-shaft.minZ<2);
+ }
+});
+test("ground, intermediate and roof slabs leave a continuous lift-shaft opening",()=>{
+ const input={x:-14.2,z:-6,width:9.2,depth:13,stairX:-15.77,landingX:-13.85};
+ const elevatorOpening={x:-17.45,z:-6,width:1.48,depth:1.8};
+ for(const storyIndex of [0,2,6]){
+  const parts=calculateFloorSlabSegments({...input,storyIndex,elevatorOpening,perimeterInset:.045});
+  assert.ok(parts.length>=4);
+  for(const part of parts){
+   const overlapX=Math.min(part.x+part.width/2,elevatorOpening.x+elevatorOpening.width/2)-Math.max(part.x-part.width/2,elevatorOpening.x-elevatorOpening.width/2);
+   const overlapZ=Math.min(part.z+part.depth/2,elevatorOpening.z+elevatorOpening.depth/2)-Math.max(part.z-part.depth/2,elevatorOpening.z-elevatorOpening.depth/2);
+   assert.ok(!(overlapX>.02&&overlapZ>.02),"no slab segment may cover the lift opening");
+   assert.ok(part.x-part.width/2>=input.x-input.width/2+.045-1e-9);
+   assert.ok(part.x+part.width/2<=input.x+input.width/2-.045+1e-9);
+   assert.ok(part.z-part.depth/2>=input.z-input.depth/2+.045-1e-9);
+   assert.ok(part.z+part.depth/2<=input.z+input.depth/2-.045+1e-9);
+  }
+ }
+});
+test("entrance bells form a vertical column clear of the door jamb",()=>{
+ for(const inward of [-1,1]){
+  const layout=calculateEntranceBellLayout({frontX:inward*9.6,inward,z:-6,doorWidth:1.34,floorOffset:.18,wall:.32});
+  const {panel,buttons}=layout;
+  const frameOuterEdge=1.34/2+.09+.075;
+  assert.equal(buttons.length,6);
+  assert.ok(panel.z-(-6)-panel.depth/2>frameOuterEdge);
+  assert.ok(buttons.every(button=>Math.abs(button.z-panel.z)<1e-9));
+  assert.ok(buttons.every((button,index)=>index===0||buttons[index-1].y>button.y));
+  assert.ok(buttons.every(button=>button.y>=panel.y&&button.y+button.height<=panel.y+panel.height));
  }
 });
 test("door transforms put apartment prompts in the corridor and entrance collider on the leaf",()=>{
