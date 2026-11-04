@@ -77,7 +77,7 @@ function normalizeVehicle(raw) {
 }
 
 function normalizeDoorStates(raw) {
-  if (!Array.isArray(raw)) return [];
+  if (!Array.isArray(raw)) return null;
   return raw.slice(0, 64).filter(item => isRecord(item) && typeof item.id === "string" && item.id.length > 0)
     .map(item => ({
       id: item.id.slice(0, 100),
