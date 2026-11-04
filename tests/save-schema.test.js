@@ -59,6 +59,12 @@ test("invalid values are bounded and malformed nested objects use safe defaults"
   assert.deepEqual(save.collectedSupplies, ["ok"]);
 });
 
+test("both actual campaign ending choices survive normalization", () => {
+  assert.equal(normalizeSaveData({ ending: "public" }).ending, "public");
+  assert.equal(normalizeSaveData({ ending: "eva" }).ending, "eva");
+  assert.equal(normalizeSaveData({ ending: "private" }).ending, null);
+});
+
 test("older saves without optional fields remain compatible", () => {
   const save = normalizeSaveData({ missionStage: 2, panelak: { entranceOpen: true, doors: [true] } });
   assert.equal(save.missionStage, 2);
