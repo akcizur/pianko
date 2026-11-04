@@ -375,3 +375,24 @@ button { font: inherit; }
 .startup-error code{display:block;margin-top:10px;padding:10px;background:#15191b;color:#ddd;white-space:pre-wrap;overflow-wrap:anywhere}
 .startup-error button{width:100%;margin-top:10px;padding:13px;border:1px solid #fff;background:#f4f4f4;color:#050505;font:700 12px ui-monospace,monospace;letter-spacing:.08em;cursor:pointer}
 .startup-error button:hover{background:#ccc}
+
+
+/* Context labels anchored to the currently targeted world interaction. */
+.interaction-tooltip {
+  position: fixed;
+  z-index: 6;
+  transform: translate(-50%, -100%);
+  max-width: min(320px, calc(100vw - 24px));
+  padding: 6px 9px;
+  color: #fff;
+  background: rgba(0, 0, 0, .52);
+  border: 1px solid rgba(255, 255, 255, .18);
+  box-shadow: 0 5px 18px rgba(0, 0, 0, .2);
+  font: 700 10px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .06em;
+  text-align: center;
+  white-space: normal;
+  pointer-events: none;
+}
+.interaction-tooltip[hidden] { display: none; }
+.crosshair.is-interactive { opacity: 1; filter: drop-shadow(0 0 4px rgba(255, 255, 255, .85)); }
