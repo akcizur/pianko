@@ -28,6 +28,12 @@ function boundedNumber(value, fallback, min, max, integer = false) {
   return integer ? Math.round(clamped) : clamped;
 }
 
+function safeInteger(value, fallback, min, max) {
+  if (value === null || value === undefined || value === "" || typeof value === "boolean") return fallback;
+  const number = Number(value);
+  return Number.isSafeInteger(number) && number >= min && number <= max ? number : fallback;
+}
+
 function normalizeStats(raw) {
   const source = isRecord(raw) ? raw : {};
   const maxHp = boundedNumber(source.maxHp, DEFAULT_STATS.maxHp, 74, 1000, true);
@@ -106,12 +112,12 @@ export function normalizeSaveData(raw) {
   const vehicle = normalizeVehicle(source.vehicle);
   const ending = source.ending === "public" || source.ending === "private" ? source.ending : null;
   return {
-    missionStage: boundedNumber(source.missionStage, 0, 0, 5, true),
+    missionStage: safeInteger(source.missionStage, 0, 0, 5),
     foeDefeated: source.foeDefeated === true,
     courierDefeated: source.courierDefeated === true,
     ending,
     inVehicle: source.inVehicle === true && vehicle !== null,
-    neighborQuestStep: boundedNumber(source.neighborQuestStep, 0, 0, 3, true),
+    neighborQuestStep: safeInteger(source.neighborQuestStep, 0, 0, 3),
     playSeconds: boundedNumber(source.playSeconds, 0, 0, 100000000),
     stats: normalizeStats(source.stats),
     player: normalizePlayer(source.player),
