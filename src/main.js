@@ -483,7 +483,7 @@ function buildWalkablePanelak(x,z,width,depth,height,inward,options={}){
   colliders.push(doorCollider);
   const cabDoorPlaneX=elevatorLayout.centerX+inward*.66;
   const elevator={x:elevatorLayout.centerX,z,layout:elevatorLayout,motion:elevatorMotion,cab:elevatorCab,
-    cabDoorLeft,cabDoorRight,shaftDoors:elevatorFloorDoors,cabDoorCollider,
+    cabDoorLeft,cabDoorRight,shaftDoors:elevatorFloorDoors,cabDoorCollider:elevatorCabDoorCollider,
     callInteractables:elevatorCallInteractables,upInteractable:elevatorUpInteractable,downInteractable:elevatorDownInteractable,
     controlX:elevatorLayout.centerX+inward*.25,doorPlaneX:cabDoorPlaneX};
   return {id:buildingId,kind,x,z,width,depth,floorOffset,entryStepLength,doorWidth,frontX,inward,
