@@ -87,14 +87,14 @@ export function calculateFloorSegmentsWithOpening({x,z,width,depth,opening}){
  ].filter(part=>part.width>.02&&part.depth>.02);
 }
 
-/** Shared placement for the rear elevator shaft attached to a panel block. */
 /** Place the lift inside the rear end of the corridor, separated from the stair flight. */
+/** Place the lift at the entrance end of the corridor, opposite the stairwell. */
 export function calculateElevatorShaftLayout({
- backX,insideBack=null,inward,z,doorWidth=1.12,shaftWidth=1.4,shaftDepth=1.72,wall=.32
+ backX,insideFront=null,inward,z,doorWidth=1.12,shaftWidth=1.4,shaftDepth=1.72,wall=.32
 }){
- const centerX=Number.isFinite(insideBack)?insideBack+inward*.82:backX-inward*.82;
- const doorPlaneX=centerX+inward*(shaftWidth/2-.04);
- const shaftBackX=centerX-inward*(shaftWidth/2-wall/2);
+ const centerX=Number.isFinite(insideFront)?insideFront-inward*1.8:backX-inward*.82;
+ const doorPlaneX=centerX-inward*(shaftWidth/2-.04);
+ const shaftBackX=centerX+inward*(shaftWidth/2-wall/2);
  return {
   centerX,z,doorWidth,shaftWidth,shaftDepth,doorPlaneX,shaftBackX,
   minX:centerX-shaftWidth/2,maxX:centerX+shaftWidth/2,
