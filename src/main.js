@@ -826,6 +826,7 @@ for(const flame of thrusters)flame.visible=vehicle.altitude>.8;
 $("vehicleHud").hidden=!vehicle.occupied;
 $("crosshair").hidden=vehicle.occupied;
 $("vehicleViewLabel").textContent="THIRD PERSON · V";
+$("touchUI").classList.toggle("is-vehicle",vehicle.occupied);
   if(vehicle.occupied){$("touchUI").querySelector('[data-touch-action="jump"]').textContent="STOUPAT";$("touchUI").querySelector('[data-touch-action="run"]').textContent="KLESAT";}
 
 // Parked yellow-and-white Veřejná bezpečnost patrol car at the curb.
@@ -1176,7 +1177,7 @@ updateBuildingElevators(0);
 mission.complete=mission.stage>=5;
 
 function enterVehicle(){
-  input.clear();controller.setAnalogMove(0,0);phoneDrawn=false;phoneGroup.visible=false;vehicle.occupied=true;vehicle.firstPerson=false;vehicle.cameraSnap=true;vehicleCollider.enabled=false;state.inVehicle=true;$("crosshair").hidden=true;$("vehicleViewLabel").textContent="THIRD PERSON · V";vehicle.speed=0;vehicle.vx=0;vehicle.vz=0;vehicle.yawRate=0;showToast("ŠKODA FAVORIT · SHIFT STOUPÁ · CTRL KLESÁ · E VYSTOUPIT");
+  input.clear();controller.setAnalogMove(0,0);phoneDrawn=false;phoneGroup.visible=false;vehicle.occupied=true;vehicle.firstPerson=false;vehicle.cameraSnap=true;vehicleCollider.enabled=false;state.inVehicle=true;$("touchUI").classList.add("is-vehicle");$("crosshair").hidden=true;$("vehicleViewLabel").textContent="THIRD PERSON · V";vehicle.speed=0;vehicle.vx=0;vehicle.vz=0;vehicle.yawRate=0;showToast("ŠKODA FAVORIT · SHIFT STOUPÁ · CTRL KLESÁ · E VYSTOUPIT");
   vehicle.horizontalSpeed=0;
   gameAudio.door(true);
   camera.fov=80;camera.updateProjectionMatrix();$("vehicleHud").hidden=false;
@@ -1195,7 +1196,7 @@ function exitVehicle(){
   ];
   if(!exits.some(spawn=>controller.setSpawn(spawn))){showToast("KOLEM VOZU NENÍ BEZPEČNÉ MÍSTO K VYSTOUPENÍ");return false;}
   input.clear();
-  vehicle.occupied=false;vehicle.firstPerson=false;vehicle.cameraSnap=false;state.inVehicle=false;$("crosshair").hidden=false;vehicle.speed=0;vehicle.vx=0;vehicle.vz=0;vehicle.yawRate=0;vehicle.altitude=0;vehicle.verticalSpeed=0;stateCar.position.y=0;vehicleCollider.enabled=true;syncVehicleCollider();controller.setAnalogMove(0,0);
+  vehicle.occupied=false;vehicle.firstPerson=false;vehicle.cameraSnap=false;state.inVehicle=false;$("touchUI").classList.remove("is-vehicle");$("crosshair").hidden=false;vehicle.speed=0;vehicle.vx=0;vehicle.vz=0;vehicle.yawRate=0;vehicle.altitude=0;vehicle.verticalSpeed=0;stateCar.position.y=0;vehicleCollider.enabled=true;syncVehicleCollider();controller.setAnalogMove(0,0);
   vehicle.horizontalSpeed=0;
   gameAudio.door(false);
   camera.fov=74;camera.updateProjectionMatrix();$("vehicleHud").hidden=true;
@@ -1374,7 +1375,7 @@ function closeMenu(){menuScreen.hidden=true;state.started=true;renderer.domEleme
 function startNewGame(){
   try{localStorage.removeItem(SAVE_KEY);}catch{}
   for(const entry of buildingEntries){entry.open=false;entry.doorPivot.rotation.y=0;entry.doorCollider.enabled=true;entry.roofOpen=false;entry.roofDoor.rotation.y=0;entry.roofDoorCollider.enabled=true;entry.elevator.motion.rider=false;entry.elevator.motion.requestFloor(0);for(const door of entry.apartmentDoors){door.open=false;door.doorPivot.rotation.y=0;door.doorCollider.enabled=true;}}
-  mission.stage=0;mission.complete=false;neighborQuestStep=0;patternBook.visible=false;patternInteractable.enabled=false;endingChoice=null;state.dialogue=false;state.paused=false;state.combat=false;state.inVehicle=false;state.inventory=false;phoneDrawn=false;vehicle.occupied=false;activeFoe=foe;activeEnemyMesh=enemyMesh;activeEnemyCollider=enemyCollider;foe.hp=foe.maxHp;foe.defeated=false;foe.busy=false;secondFoe.hp=secondFoe.maxHp;secondFoe.defeated=false;secondFoe.busy=false;enemyCollider.enabled=true;courierCollider.enabled=false;enemyInteractable.enabled=true;courierInteractable.enabled=false;relayInteractable.enabled=false;mechanicInteractable.enabled=false;towerInteractable.enabled=false;
+  mission.stage=0;mission.complete=false;neighborQuestStep=0;patternBook.visible=false;patternInteractable.enabled=false;endingChoice=null;state.dialogue=false;state.paused=false;state.combat=false;state.inVehicle=false;$("touchUI").classList.remove("is-vehicle");state.inventory=false;phoneDrawn=false;vehicle.occupied=false;activeFoe=foe;activeEnemyMesh=enemyMesh;activeEnemyCollider=enemyCollider;foe.hp=foe.maxHp;foe.defeated=false;foe.busy=false;secondFoe.hp=secondFoe.maxHp;secondFoe.defeated=false;secondFoe.busy=false;enemyCollider.enabled=true;courierCollider.enabled=false;enemyInteractable.enabled=true;courierInteractable.enabled=false;relayInteractable.enabled=false;mechanicInteractable.enabled=false;towerInteractable.enabled=false;
   stats.hp=74;stats.maxHp=74;stats.energy=32;stats.maxEnergy=32;stats.xp=0;stats.level=1;stats.credits=120;stats.medkits=2;stats.weaponLevel=0;stats.armorLevel=0;stats.guard=false;totalPlaySeconds=0;
   scene.add(enemyMesh);scene.add(courierGuard);scene.add(courier);courierGuard.visible=false;courier.visible=false;courierBeacon.visible=false;miraBeacon.visible=false;markerRing.visible=false;towerBeacon.visible=false;endingPanel.hidden=true;dialoguePanel.hidden=true;
   for(const supply of supplies){supply.collected=false;supply.group.visible=true;supply.interactable.enabled=true;}
