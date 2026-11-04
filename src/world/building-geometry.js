@@ -3,23 +3,32 @@ export function calculateBuildingEndWallCenters(z,depth,wall=.32){
   const halfDepth=Math.max(0,depth/2-wall/2);
   return [z-halfDepth,z+halfDepth];
 }
-export function calculateFloorSlabSegments({x,z,width,depth,stairX,landingX,storyIndex=0,stairEndMargin=.16,landingEndMargin=.48,openingHalfDepth=1.39}){
-  const full={x,z,width,depth};
-  if(storyIndex<=0)return [full];
-  const bounds={minX:x-width/2,maxX:x+width/2,minZ:z-depth/2,maxZ:z+depth/2};
+export function calculateFloorSlabSegments({
+ x,z,width,depth,stairX,landingX,storyIndex=0,
+ stairEndMargin=.16,landingEndMargin=.48,openingHalfDepth=1.39,
+ elevatorOpening=null,perimeterInset=0
+}){
+ const inset=Math.max(0,Number(perimeterInset)||0);
+ const slabWidth=width-inset*2,slabDepth=depth-inset*2;
+ if(slabWidth<=.02||slabDepth<=.02)return [];
+ const bounds={minX:x-slabWidth/2,maxX:x+slabWidth/2,minZ:z-slabDepth/2,maxZ:z+slabDepth/2};
+ const openings=[];
+ if(storyIndex>0){
   const stairIsMin=stairX<landingX;
   const cutMinX=Math.max(bounds.minX,Math.min(stairX,landingX)-(stairIsMin?stairEndMargin:landingEndMargin));
   const cutMaxX=Math.min(bounds.maxX,Math.max(stairX,landingX)+(stairIsMin?landingEndMargin:stairEndMargin));
   const cutMinZ=Math.max(bounds.minZ,z-openingHalfDepth);
   const cutMaxZ=Math.min(bounds.maxZ,z+openingHalfDepth);
-  if(cutMaxX-cutMinX<.1||cutMaxZ-cutMinZ<.1)return [full];
-  const middleWidth=cutMaxX-cutMinX;
-  return [
-    {x:(bounds.minX+cutMinX)/2,z,width:cutMinX-bounds.minX,depth},
-    {x:(cutMaxX+bounds.maxX)/2,z,width:bounds.maxX-cutMaxX,depth},
-    {x:(cutMinX+cutMaxX)/2,z:(bounds.minZ+cutMinZ)/2,width:middleWidth,depth:cutMinZ-bounds.minZ},
-    {x:(cutMinX+cutMaxX)/2,z:(cutMaxZ+bounds.maxZ)/2,width:middleWidth,depth:bounds.maxZ-cutMaxZ}
-  ].filter(segment=>segment.width>.02&&segment.depth>.02);
+  if(cutMaxX-cutMinX>.1&&cutMaxZ-cutMinZ>.1){
+   openings.push({x:(cutMinX+cutMaxX)/2,z:(cutMinZ+cutMaxZ)/2,width:cutMaxX-cutMinX,depth:cutMaxZ-cutMinZ});
+  }
+ }
+ if(elevatorOpening)openings.push(elevatorOpening);
+ let segments=[{x,z,width:slabWidth,depth:slabDepth}];
+ for(const opening of openings){
+  segments=segments.flatMap(segment=>calculateFloorSegmentsWithOpening({...segment,opening}));
+ }
+ return segments;
 }
 
 /**
@@ -79,14 +88,31 @@ export function calculateFloorSegmentsWithOpening({x,z,width,depth,opening}){
 }
 
 /** Shared placement for the rear elevator shaft attached to a panel block. */
-export function calculateElevatorShaftLayout({backX,inward,z,doorWidth=1.12,shaftWidth=1.4,shaftDepth=1.72}){
- const centerX=backX-inward*.82;
+/** Place the lift inside the rear end of the corridor, separated from the stair flight. */
+export function calculateElevatorShaftLayout({
+ backX,insideBack=null,inward,z,doorWidth=1.12,shaftWidth=1.4,shaftDepth=1.72,wall=.32
+}){
+ const centerX=Number.isFinite(insideBack)?insideBack+inward*.82:backX-inward*.82;
+ const doorPlaneX=centerX+inward*(shaftWidth/2-.04);
+ const shaftBackX=centerX-inward*(shaftWidth/2-wall/2);
  return {
-  centerX,z,doorWidth,shaftWidth,shaftDepth,
-  doorPlaneX:backX-inward*.08,
-  shaftBackX:backX-inward*(.82+shaftWidth/2-.06),
+  centerX,z,doorWidth,shaftWidth,shaftDepth,doorPlaneX,shaftBackX,
   minX:centerX-shaftWidth/2,maxX:centerX+shaftWidth/2,
-  minZ:z-shaftDepth/2,maxZ:z+shaftDepth/2
+  minZ:z-shaftDepth/2,maxZ:z+shaftDepth/2,
+  opening:{x:centerX,z,width:shaftWidth+.08,depth:shaftDepth+.08}
+ };
+}
+/** Six entrance bells sit in one vertical column on the wall beside the door. */
+export function calculateEntranceBellLayout({frontX,inward,z,doorWidth,floorOffset,wall=.32}){
+ const panelZ=z+doorWidth/2+.28;
+ const panelX=frontX+inward*(wall/2+.07);
+ return {
+  panel:{x:panelX,y:floorOffset+1.02,z:panelZ,width:.08,height:.58,depth:.18},
+  buttons:Array.from({length:6},(_,index)=>({
+   x:frontX+inward*(wall/2+.12),
+   y:floorOffset+1.50-index*.064,
+   z:panelZ,width:.04,height:.035,depth:.045
+  }))
  };
 }
 /** Entrance door placement is used by both visible leaf and collision bounds. */
