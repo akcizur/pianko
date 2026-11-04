@@ -75,16 +75,35 @@ const touchDevice=matchMedia("(pointer: coarse)").matches;
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, touchDevice ? 1.35 : 1.7));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.12;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.autoUpdate = true;
 renderer.domElement.id = "screenCanvas";
 renderer.domElement.setAttribute("aria-label", "Mír 12 — 3D herní scéna");
 renderer.domElement.tabIndex = 0;
 mount.appendChild(renderer.domElement);
 
-scene.add(new THREE.HemisphereLight(0x9eafc1, 0x3d3d38, 1.25));
-const sun = new THREE.DirectionalLight(0xe4c9a1, .72);
-sun.position.set(-18, 8, 15); scene.add(sun);
-const fill = new THREE.PointLight(0xffb468, 7, 38); fill.position.set(4.8, 4, -5); scene.add(fill);
+scene.add(new THREE.HemisphereLight(0xb8c7d2, 0x34332f, .92));
+const sun = new THREE.DirectionalLight(0xf0d1a5, 2.05);
+sun.position.set(-42, 72, 28);
+sun.target.position.set(0, 0, -30);
+sun.castShadow = true;
+sun.shadow.mapSize.set(touchDevice ? 1024 : 2048, touchDevice ? 1024 : 2048);
+sun.shadow.camera.left = -42;
+sun.shadow.camera.right = 42;
+sun.shadow.camera.top = 64;
+sun.shadow.camera.bottom = -64;
+sun.shadow.camera.near = .5;
+sun.shadow.camera.far = 180;
+sun.shadow.camera.updateProjectionMatrix();
+sun.shadow.bias = -.00015;
+sun.shadow.normalBias = .025;
+sun.shadow.radius = 3;
+scene.add(sun, sun.target);
+const fill = new THREE.PointLight(0xffbd7d, 5.2, 32, 2);
+fill.position.set(4.8, 4.2, -5);
+scene.add(fill);
 
 const colliders = [];
 const boxGeo = new THREE.BoxGeometry(1, 1, 1);
@@ -117,21 +136,138 @@ function getPlasterTexture() {
   plasterTexture.anisotropy=Math.min(renderer.capabilities.getMaxAnisotropy(),8);
   return plasterTexture;
 }
+let microSurfaceTexture = null;
+function getMicroSurfaceTexture() {
+  if (microSurfaceTexture) return microSurfaceTexture;
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = size; canvas.height = size;
+  const context = canvas.getContext("2d");
+  const image = context.createImageData(size, size);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const index = (y * size + x) * 4;
+    const grain = Math.abs(Math.sin(x * 127.1 + y * 311.7) * 43758.5453) % 1;
+    const fine = Math.abs(Math.sin(x * 19.19 + y * 73.73) * 9631.417) % 1;
+    const value = Math.max(0, Math.min(255, 142 + Math.round(grain * 72 + fine * 28)));
+    image.data[index] = image.data[index + 1] = image.data[index + 2] = value;
+    image.data[index + 3] = 255;
+  }
+  context.putImageData(image, 0, 0);
+  microSurfaceTexture = new THREE.CanvasTexture(canvas);
+  microSurfaceTexture.colorSpace = THREE.NoColorSpace;
+  microSurfaceTexture.wrapS = microSurfaceTexture.wrapT = THREE.RepeatWrapping;
+  microSurfaceTexture.repeat.set(3.5, 3.5);
+  microSurfaceTexture.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), 8);
+  return microSurfaceTexture;
+}
+function cloneMicroSurfaceTexture(repeatX = 3.5, repeatY = 3.5) {
+  const texture = getMicroSurfaceTexture().clone();
+  texture.repeat.set(repeatX, repeatY);
+  texture.needsUpdate = true;
+  return texture;
+}
 function plasterMaterial(color) {
-  if(!plasterMaterials.has(color)) plasterMaterials.set(color,new THREE.MeshStandardMaterial({
-    color,map:getPlasterTexture(),roughness:.97
-  }));
+  if(!plasterMaterials.has(color)) {
+    const detail = cloneMicroSurfaceTexture(3.5, 3.5);
+    plasterMaterials.set(color,new THREE.MeshStandardMaterial({
+      color,
+      map:getPlasterTexture(),
+      roughness:.94,
+      roughnessMap:detail,
+      bumpMap:detail,
+      bumpScale:.022
+    }));
+  }
   return plasterMaterials.get(color);
 }
+let woodFloorTexture = null;
+function getWoodFloorTexture() {
+  if (woodFloorTexture) return woodFloorTexture;
+  const canvas = document.createElement("canvas");
+  canvas.width = 256; canvas.height = 256;
+  const context = canvas.getContext("2d");
+  context.fillStyle = "#ded2bf";
+  context.fillRect(0, 0, 256, 256);
+  const plankTones = ["#e4d8c5", "#d8c9b3", "#e0d3c0", "#d9cbb6"];
+  for (let plank = 0; plank < 4; plank++) {
+    const top = plank * 64;
+    context.fillStyle = plankTones[plank];
+    context.fillRect(0, top + 1, 256, 62);
+    context.strokeStyle = "rgba(80,59,39,.18)";
+    context.lineWidth = 2;
+    context.beginPath(); context.moveTo(0, top + 1); context.lineTo(256, top + 1); context.stroke();
+    context.strokeStyle = "rgba(93,69,46,.11)";
+    context.lineWidth = 1;
+    for (let line = 0; line < 9; line++) {
+      const y = top + 8 + line * 6;
+      context.beginPath();
+      context.moveTo(0, y);
+      context.bezierCurveTo(66, y - 2, 176, y + 2, 256, y);
+      context.stroke();
+    }
+    context.fillStyle = "rgba(86,61,39,.13)";
+    context.fillRect((plank % 2) * 118 + 82, top + 1, 1, 62);
+  }
+  woodFloorTexture = new THREE.CanvasTexture(canvas);
+  woodFloorTexture.colorSpace = THREE.SRGBColorSpace;
+  woodFloorTexture.wrapS = woodFloorTexture.wrapT = THREE.RepeatWrapping;
+  woodFloorTexture.repeat.set(1.5, 1.5);
+  woodFloorTexture.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), 8);
+  return woodFloorTexture;
+}
+let tileFloorTexture = null;
+function getTileFloorTexture() {
+  if (tileFloorTexture) return tileFloorTexture;
+  const canvas = document.createElement("canvas");
+  canvas.width = 256; canvas.height = 256;
+  const context = canvas.getContext("2d");
+  context.fillStyle = "#e7e4da";
+  context.fillRect(0, 0, 256, 256);
+  for (let row = 0; row < 4; row++) for (let column = 0; column < 4; column++) {
+    const tone = (row + column) % 2 ? "#e4e1d7" : "#eeebe2";
+    context.fillStyle = tone;
+    context.fillRect(column * 64 + 2, row * 64 + 2, 60, 60);
+  }
+  context.strokeStyle = "rgba(82,88,83,.38)";
+  context.lineWidth = 3;
+  for (let point = 0; point <= 256; point += 64) {
+    context.beginPath(); context.moveTo(point, 0); context.lineTo(point, 256); context.stroke();
+    context.beginPath(); context.moveTo(0, point); context.lineTo(256, point); context.stroke();
+  }
+  tileFloorTexture = new THREE.CanvasTexture(canvas);
+  tileFloorTexture.colorSpace = THREE.SRGBColorSpace;
+  tileFloorTexture.wrapS = tileFloorTexture.wrapT = THREE.RepeatWrapping;
+  tileFloorTexture.repeat.set(1, 1);
+  tileFloorTexture.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), 8);
+  return tileFloorTexture;
+}
+const apartmentFinishMaterials = new Map();
+function apartmentFinishMaterial(color, surface) {
+  const key = color + "/" + surface;
+  if (!apartmentFinishMaterials.has(key)) {
+    const detail = cloneMicroSurfaceTexture(surface === "woodFloor" ? 2.5 : 4, surface === "woodFloor" ? 2.5 : 4);
+    const isWood = surface === "woodFloor";
+    apartmentFinishMaterials.set(key, new THREE.MeshStandardMaterial({
+      color,
+      map: isWood ? getWoodFloorTexture() : getTileFloorTexture(),
+      roughness: isWood ? .82 : .58,
+      roughnessMap: detail,
+      bumpMap: detail,
+      bumpScale: isWood ? .009 : .004,
+      metalness: 0
+    }));
+  }
+  return apartmentFinishMaterials.get(key);
+}
 const facadeMaterials={
-  windowDark:new THREE.MeshStandardMaterial({color:0x26363c,roughness:.3,transparent:true,opacity:.10,side:THREE.DoubleSide,depthWrite:false}),
-  windowLit:new THREE.MeshStandardMaterial({color:0xe7b46a,roughness:.62,emissive:0x9a5927,emissiveIntensity:.34,transparent:true,opacity:.18,side:THREE.DoubleSide,depthWrite:false}),
+  windowDark:new THREE.MeshStandardMaterial({color:0x26363c,roughness:.3,transparent:true,opacity:.18,side:THREE.DoubleSide,depthWrite:false}),
+  windowLit:new THREE.MeshStandardMaterial({color:0xe7b46a,roughness:.48,emissive:0xa86730,emissiveIntensity:.48,transparent:true,opacity:.3,side:THREE.DoubleSide,depthWrite:false}),
   frame:material(0xa6aaa6,.82),
   joint:material(0x596266,.96),
   slab:material(0x727a79,.9),
   rail:material(0x485153,.62),
   pipe:material(0x4a5354,.74),
-  glass:new THREE.MeshStandardMaterial({color:0xd5e6e9,roughness:.08,metalness:.015,transparent:true,opacity:.14,side:THREE.DoubleSide,depthWrite:false}),
+  glass:new THREE.MeshPhysicalMaterial({color:0xc4d6d8,roughness:.2,metalness:.035,clearcoat:.72,clearcoatRoughness:.18,transparent:true,opacity:.28,side:THREE.DoubleSide,depthWrite:false}),
   laundry:new THREE.MeshStandardMaterial({color:0xffffff,roughness:.95})
 };
 const facadeInstances=new Map();
@@ -176,14 +312,15 @@ for(let row=0;row<3;row++)for(let column=0;column<3;column++){const key=new THRE
 const phoneAntenna=new THREE.Mesh(new THREE.CylinderGeometry(.003,.003,.052,6),material(0x858a80,.5));phoneAntenna.position.set(.047,.15,-.002);phoneAntenna.rotation.z=-.12;phoneGroup.add(phoneAntenna);
 function block(name, x, y, z, w, h, d, color, solid = true, emissive = 0, intensity = 0, materialOverride = null) {
   const mesh = new THREE.Mesh(boxGeo, materialOverride ?? material(color, .88, emissive, intensity));
-  mesh.name = name; mesh.position.set(x, y + h / 2, z); mesh.scale.set(w, h, d); mesh.castShadow = h > 2; mesh.receiveShadow = true; scene.add(mesh);
+  mesh.name = name; mesh.position.set(x, y + h / 2, z); mesh.scale.set(w, h, d); mesh.castShadow = h > .9; mesh.receiveShadow = true; scene.add(mesh);
   if (solid) colliders.push({ name, minX:x-w/2, maxX:x+w/2, minZ:z-d/2, maxZ:z+d/2, minY:y, maxY:y+h });
   return mesh;
 }
 const apartmentBlockBatches=new Map();
 function queueApartmentBlock(name,x,y,z,w,h,d,color,solid=false){
-  const key=String(color);
-  if(!apartmentBlockBatches.has(key))apartmentBlockBatches.set(key,{color,items:[]});
+  const surface=name.includes("parketová podlaha")?"woodFloor":name.includes("koupelnová dlažba")?"tileFloor":"plain";
+  const key=String(color)+"/"+surface;
+  if(!apartmentBlockBatches.has(key))apartmentBlockBatches.set(key,{color,surface,items:[]});
   apartmentBlockBatches.get(key).items.push({name,x,y,z,w,h,d});
   if(solid)colliders.push({name,minX:x-w/2,maxX:x+w/2,minZ:z-d/2,maxZ:z+d/2,minY:y,maxY:y+h});
 }
@@ -191,7 +328,10 @@ function flushApartmentBlocks(){
   const position=new THREE.Vector3(),scale=new THREE.Vector3(),rotation=new THREE.Quaternion(),matrix=new THREE.Matrix4();
   let total=0;
   for(const batch of apartmentBlockBatches.values()){
-    const instances=new THREE.InstancedMesh(boxGeo,material(batch.color,.88),batch.items.length);
+    const surfaceMaterial=batch.surface==="woodFloor"||batch.surface==="tileFloor"
+      ?apartmentFinishMaterial(batch.color,batch.surface)
+      :material(batch.color,.88);
+    const instances=new THREE.InstancedMesh(boxGeo,surfaceMaterial,batch.items.length);
     instances.name="bytový interiér — sdílené stavební a nábytkové instance";
     instances.castShadow=true;instances.receiveShadow=true;
     for(let index=0;index<batch.items.length;index++){
@@ -415,7 +555,7 @@ function buildWalkablePanelak(x,z,width,depth,height,inward,options={}){
     }
     block(buildingId+" — osvětlení chodby",frontX-inward*2.25,top-.38,z,.18,.07,.46,0xffd28a,false,0xb97631,.62);
     if(options.lighting!==false){
-      const corridorLight=new THREE.PointLight(0xffc982,kind==="shop"?.5:.32,5,2);
+      const corridorLight=new THREE.PointLight(0xffc982,kind==="shop"?1.05:.72,6.5,2);
       corridorLight.position.set(frontX-inward*2.25,top-.55,z);scene.add(corridorLight);
     }
     if(story<storyCount){
@@ -526,8 +666,16 @@ function buildWalkablePanelak(x,z,width,depth,height,inward,options={}){
     interactX:entranceDoorPlan.interactX,doorPivot,doorCollider,openAngle:entranceDoorPlan.openAngle,open:false,roofOpen:false};
 }
 function plane(w, d, color, x=0, y=0, z=0, roughness=.9, metalness=0) {
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w,d), new THREE.MeshStandardMaterial({color,roughness,metalness}));
-  mesh.rotation.x=-Math.PI/2; mesh.position.set(x,y,z); scene.add(mesh); return mesh;
+  const surfaceMaterial = new THREE.MeshStandardMaterial({color,roughness,metalness});
+  if(color===0x363c42||color===0x8e8879){
+    const detail=cloneMicroSurfaceTexture(Math.max(2,w*1.8),Math.max(2,d*1.8));
+    surfaceMaterial.bumpMap=detail;
+    surfaceMaterial.roughnessMap=detail;
+    surfaceMaterial.bumpScale=color===0x363c42?.028:.016;
+    surfaceMaterial.roughness=color===0x363c42?.96:.94;
+  }
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w,d), surfaceMaterial);
+  mesh.rotation.x=-Math.PI/2; mesh.position.set(x,y,z); mesh.receiveShadow=true; scene.add(mesh); return mesh;
 }
 function puddle(x,z,width,depth,rotation=0) {
   const shape=new THREE.Shape();
@@ -567,7 +715,7 @@ function propagandaPoster(x,y,z,width,height,rotationY=0) {
 
 // Sídliště Mír, 1975: paneláky, stará zástavba, tramvajový most a ručně lepené plakáty.
 plane(150,150,0x666a69,0,-.09,0);
-plane(10.5,150,0x363c42,0,-.025,-20,.34,.12);
+plane(10.5,150,0x363c42,0,-.025,-20,.96,.01);
 puddle(-2.8,-12,2.8,1.1,-.18);puddle(2.1,-31,1.9,.7,.24);puddle(-1.1,-49,3.1,.85,-.08);puddle(3.2,-71,2.2,.8,.17);
 let apartmentEntry=null;
 const buildingEntries=[];
@@ -607,7 +755,12 @@ for (const side of [-1,1]) {
       crown.material=material(0x53664b,.96);
     }
     block("stožár veřejného osvětlení",side*8.5,0,z+2,.13,5,.13,0x4b4c48,false);
-    block("žluté pouliční svítidlo",side*8.5,4.65,z+2,.72,.2,.42,0xf0c06a,false,0x9f6828,.35);
+    block("žluté pouliční svítidlo",side*8.5,4.65,z+2,.72,.2,.42,0xf0c06a,false,0xb77735,.58);
+    if(z%34!==0){
+      const streetLight=new THREE.PointLight(0xffc77f,.62,10.5,2);
+      streetLight.position.set(side*8.5,4.45,z+2);
+      scene.add(streetLight);
+    }
   }
 }
 // Batch static apartment floors, partitions, kitchen and furniture while keeping per-item AABB collision.
