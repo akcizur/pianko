@@ -13,6 +13,7 @@ import { createBuildingElevator } from "./world/building-elevator.js";
 import { createVehicleCameraRig } from "./world/vehicle-camera.js";
 import { calculateVehicleModelFit, isFavoritWheelMesh } from "./world/vehicle-model.js";
 import { restoreBuildingDoorStates, serializeBuildingDoorStates } from "./world/building-state.js";
+import { resolvePrimaryMenuAction } from "./ui/menu-flow.js";
 
 const gameAudio=createGameAudio();
 const unlockGameAudio=()=>gameAudio.unlock();
@@ -1344,7 +1345,10 @@ function activateMenuItem(item=currentMenuItems()[menuSelection]){
   const actionName=item.dataset.menu;
   gameAudio.confirm();
   if(menuPage==="main"){
-    if(actionName==="continue")closeMenu();
+    if(actionName==="continue"){
+      if(resolvePrimaryMenuAction(saveAvailable)==="start-new")startNewGame();
+      else closeMenu();
+    }
     if(actionName==="new")setMenuPage("newconfirm");
     if(actionName==="settings")setMenuPage("settings");
     if(actionName==="controls")setMenuPage("controls");
@@ -1359,8 +1363,10 @@ function activateMenuItem(item=currentMenuItems()[menuSelection]){
 }
 const continueOption=$("continueOption");
 const saveAvailable=Boolean(saved.player||saved.missionStage||saved.playSeconds);
-continueOption.disabled=!saveAvailable;
-  if(!saveAvailable){continueOption.title="Zatím není uložená hra.";menuSelection=0;}
+continueOption.disabled=false;
+continueOption.textContent=saveAvailable?"POKRAČOVAT":"ZAČÍT HRU";
+continueOption.title=saveAvailable?"Obnovit poslední uloženou pozici.":"Spustit novou hru. Uložený postup nebyl nalezen.";
+menuSelection=0;
 menuScreen.querySelectorAll("button").forEach(button=>{
   button.addEventListener("click",()=>{const items=currentMenuItems();const index=items.indexOf(button);if(index>=0)menuSelection=index;activateMenuItem(button);});
 });
