@@ -1,3 +1,17 @@
+/**
+ * Axis-aligned collision bounds for one horizontally sliding lift-door leaf.
+ * The local door side is mirrored with the cabin orientation when needed.
+ */
+export function calculateSlidingDoorLeafBounds({
+ centerX,planeZ,side=1,offset=.28,slide=0,halfWidth=.28,thickness=.07,minY=0,maxY=2.08
+}){
+ const direction=Math.sign(side)||1;
+ const leafCenterX=centerX+direction*(offset+Math.max(0,slide));
+ return {
+  minX:leafCenterX-halfWidth,maxX:leafCenterX+halfWidth,
+  minZ:planeZ-thickness/2,maxZ:planeZ+thickness/2,minY,maxY
+ };
+}
 /** Smooth, deterministic multi-floor elevator motion with resumable state. */
 /**
  * Test whether the player capsule has crossed the lift threshold and is
