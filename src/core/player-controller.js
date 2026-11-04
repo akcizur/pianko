@@ -98,21 +98,33 @@ export function createPlayerController({
     if (Math.abs(dz) > 0) tryMoveTo(player.x, player.z + dz);
   }
 
+  let hoveredInteractable = null;
+
+  function isInteractableInRange(item) {
+    if (!item || item.enabled === false) return false;
+    if (item.levelY !== undefined && Math.abs(player.elevation - item.levelY) > (item.verticalRange ?? 1)) return false;
+    if (item.minY !== undefined && item.maxY !== undefined) {
+      const bodyBottom = player.elevation;
+      const bodyTop = bodyBottom + settings.eyeHeight + 0.16;
+      if (bodyBottom >= item.maxY || bodyTop <= item.minY) return false;
+    }
+    return Math.hypot(item.x - player.x, item.z - player.z) <= (item.range ?? 2);
+  }
+
+  function setHoveredInteractable(item) {
+    hoveredInteractable = isInteractableInRange(item) ? item : null;
+    return hoveredInteractable;
+  }
+
   function nearestInteractable() {
+    if (isInteractableInRange(hoveredInteractable)) return hoveredInteractable;
     let nearest = null;
     let nearestDistance = Infinity;
 
     for (const item of interactables) {
-      if (item.enabled === false) continue;
-      if (item.levelY !== undefined && Math.abs(player.elevation - item.levelY) > (item.verticalRange ?? 1)) continue;
-      if (item.minY !== undefined && item.maxY !== undefined) {
-        const bodyBottom = player.elevation;
-        const bodyTop = bodyBottom + settings.eyeHeight + 0.16;
-        if (bodyBottom >= item.maxY || bodyTop <= item.minY) continue;
-      }
+      if (!isInteractableInRange(item)) continue;
       const distance = Math.hypot(item.x - player.x, item.z - player.z);
-      const range = item.range ?? 2;
-      if (distance <= range && distance < nearestDistance) {
+      if (distance < nearestDistance) {
         nearest = item;
         nearestDistance = distance;
       }
@@ -273,6 +285,8 @@ export function createPlayerController({
     jump,
     doInteract,
     getNearestInteractable: nearestInteractable,
+    isInteractableInRange,
+    setHoveredInteractable,
     setSpawn,
     setAnalogMove,
     getAnalogMove: () => ({ x: analogMove.x, y: analogMove.y }),
