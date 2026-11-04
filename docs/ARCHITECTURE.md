@@ -34,6 +34,8 @@ Generátor v `src/world/world.js` je starší samostatná experimentální obytn
 | Stav světa | `src/world/building-state.js` | Serializace a obnova dveří |
 | Příběh | `src/core/story-rules.js` | Čistá pravidla vedlejšího úkolu a setkání |
 | Ukládání | `src/core/persistence.js` | Bezpečné čtení a zápis JSON do localStorage |
+| Validace save | `src/core/save-schema.js` | Allow-list a rozsahová validace uložených stavů a nastavení |
+| Časování | `src/core/interval-gate.js` | Deterministická kadence drahých aktualizací vykreslování |
 | Modely | `src/world/model-assets.js` | Cesty, licence, atribuce a záložní modely |
 
 ## Převod herní vize do skutečné implementace
@@ -67,7 +69,7 @@ Volitelný balíček domů `LowPoly_House_20_Pack_Selected.glb` není v repozit�
 
 ## Persistence a kompatibilita
 
-Save klíč `mir12-save-v1` a nastavení `mir12-save-v1-settings` zůstávají beze změny. `readStoredJson` vrací fallback při prázdném, poškozeném nebo zablokovaném úložišti. `writeStoredJson` vrací `false` při chybě kvóty nebo serializace. Tato vrstva nemění strukturu existujících save dat.
+Save klíč `mir12-save-v1` a nastavení `mir12-save-v1-settings` zůstávají beze změny. `normalizeSaveData` omezuje statistiky, ověřuje souřadnice hráče/vozidla a povoluje pouze platné stavy misí a skutečné konce `public`/`eva`. Neznámá pole se nepřenášejí do živého stavu. Chybějící pole `buildings` zůstává `null`, aby starší save dál aktivoval kompatibilní obnovu `panelak`. `readStoredJson` vrací fallback při prázdném, poškozeném nebo zablokovaném úložišti. `writeStoredJson` vrací `false` při chybě kvóty nebo serializace. Tato vrstva nemění strukturu existujících save dat.
 
 ## Pravidla pro další vývoj
 
