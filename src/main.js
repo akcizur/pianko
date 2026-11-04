@@ -227,6 +227,7 @@ function buildWalkablePanelak(x,z,width,depth,height,inward,options={}){
   const concrete=wallColor,inner=innerColor,doorWidth=kind==="shop"?1.72:1.34;
   const halfFlight=8,run=flightLength/halfFlight,apartmentDoors=[];
   const elevatorDoorWidth=1.12,elevatorSideZ=1,elevatorLayout=calculateElevatorShaftLayout({stairX,inward,z,elevatorSideZ,hallHalf,doorWidth:elevatorDoorWidth,wall:.24});
+  const elevatorRailStopX=elevatorLayout.centerX-inward*(elevatorDoorWidth/2+.16);
   const elevatorFloorHeights=Array.from({length:storyCount},(_,index)=>floorOffset+index*storyHeight);
   const elevatorMotion=createBuildingElevator(elevatorFloorHeights);
   const elevatorCab=new THREE.Group();elevatorCab.name=buildingId+" — kabina výtahu";
@@ -431,7 +432,7 @@ function buildWalkablePanelak(x,z,width,depth,height,inward,options={}){
         if(step%2===0){
           block("schodišťové zábradlí — sloupek",firstX,firstTreadTop+.025,z-1.35,.065,.88,.065,0x5a605f,false);
           block("schodišťové zábradlí — středový sloupek",firstX,firstTreadTop+.025,z,.065,.88,.065,0x5a605f,false);
-          block("schodišťové zábradlí — sloupek",secondX,secondTreadTop+.025,z+1.35,.065,.88,.065,0x5a605f,false);
+          if((secondX-elevatorRailStopX)*inward<=0)block("schodišťové zábradlí — sloupek",secondX,secondTreadTop+.025,z+1.35,.065,.88,.065,0x5a605f,false);
           block("schodišťové zábradlí — středový sloupek",secondX,secondTreadTop+.025,z,.065,.88,.065,0x5a605f,false);
         }
       }
@@ -439,7 +440,7 @@ function buildWalkablePanelak(x,z,width,depth,height,inward,options={}){
       block(buildingId+" — horní výstupní podesta",stairX+inward*.065,base+storyHeight-rise*.5,z+.72,.19,rise*.5,1.28,0x77766f,false);
       beamBetween("schodišťové madlo",{x:stairX,y:base+1.0,z:z-1.35},{x:landingX,y:base+storyHeight/2+1.0,z:z-1.35},.07,0x565c5a);
       beamBetween("schodišťové středové madlo",{x:stairX,y:base+1.0,z:z},{x:landingX,y:base+storyHeight/2+1.0,z:z},.07,0x565c5a);
-      beamBetween("schodišťové madlo",{x:landingX,y:base+storyHeight/2+1.0,z:z+1.35},{x:stairX,y:base+storyHeight+1.0,z:z+1.35},.07,0x565c5a);
+      beamBetween("schodišťové madlo",{x:landingX,y:base+storyHeight/2+1.0,z:z+1.35},{x:elevatorRailStopX,y:base+storyHeight+1.0,z:z+1.35},.07,0x565c5a);
       beamBetween("schodišťové středové madlo",{x:landingX,y:base+storyHeight/2+1.0,z:z},{x:stairX,y:base+storyHeight+1.0,z:z},.07,0x565c5a);
     }
   }
