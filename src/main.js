@@ -389,7 +389,7 @@ function buildWalkablePanelak(x,z,width,depth,height,inward,options={}){
   const innerColor=kind==="tenement"?0xb6aa98:0xaaa79c;
   const shellMaterial=plasterMaterial(wallColor),partitionMaterial=plasterMaterial(innerColor);
   const floorPlan=calculatePanelakLayout({x,z,width,depth,inward,wall});
-  const {frontX,frontWallX,backX,endWallCenters,stairX,landingX,flightLength,insideFront,insideBack,minHallX,maxHallX,hallHalf}=floorPlan;
+  const {frontX,frontWallX,backX,endWallCenters,stairX,landingX,flightLength,insideFront,insideBack,minHallX,maxHallX,hallHalf,stairCenterOffset,stairFlightWidth,landingWidth,landingDepth}=floorPlan;
   const concrete=wallColor,inner=innerColor,doorWidth=kind==="shop"?1.72:1.34;
   const halfFlight=8,run=flightLength/halfFlight,apartmentDoors=[];
   const elevatorDoorWidth=1.12,elevatorSideZ=1,elevatorLayout=calculateElevatorShaftLayout({
@@ -598,20 +598,22 @@ function buildWalkablePanelak(x,z,width,depth,height,inward,options={}){
         const secondTreadTop=base+storyHeight/2+rise*(step+.5);
         const firstTreadBottom=step===0?base:firstTreadTop-rise;
         const secondTreadBottom=step===0?base+storyHeight/2:secondTreadTop-rise;
-        block(buildingId+" — schodišťový stupeň",firstX,firstTreadBottom,z-.78,.30,firstTreadTop-firstTreadBottom,1.42,0x77766f,false);
-        block(buildingId+" — schodišťový stupeň",secondX,secondTreadBottom,z+.78,.30,secondTreadTop-secondTreadBottom,1.42,0x77766f,false);
+        block(buildingId+" — schodišťový stupeň",firstX,firstTreadBottom,z-stairCenterOffset,.30,firstTreadTop-firstTreadBottom,stairFlightWidth,0x77766f,false);
+        block(buildingId+" — schodišťový stupeň",secondX,secondTreadBottom,z+stairCenterOffset,.30,secondTreadTop-secondTreadBottom,stairFlightWidth,0x77766f,false);
         if(step%2===0){
-          block("schodišťové zábradlí — sloupek",firstX,firstTreadTop+.025,z-1.53,.065,.88,.065,0x5a605f,false);
+          const outerRailOffset=stairCenterOffset+stairFlightWidth/2+.04;
+          block("schodišťové zábradlí — sloupek",firstX,firstTreadTop+.025,z-outerRailOffset,.065,.88,.065,0x5a605f,false);
           block("schodišťové zábradlí — středový sloupek",firstX,firstTreadTop+.025,z,.065,.88,.065,0x5a605f,false);
-          if((secondX-elevatorRailStopX)*inward<=0)block("schodišťové zábradlí — sloupek",secondX,secondTreadTop+.025,z+1.53,.065,.88,.065,0x5a605f,false);
+          if((secondX-elevatorRailStopX)*inward<=0)block("schodišťové zábradlí — sloupek",secondX,secondTreadTop+.025,z+outerRailOffset,.065,.88,.065,0x5a605f,false);
           block("schodišťové zábradlí — středový sloupek",secondX,secondTreadTop+.025,z,.065,.88,.065,0x5a605f,false);
         }
       }
-      block(buildingId+" — schodišťová podesta",landingX,base+storyHeight/2-rise*.5,z,1.02,rise*.5,3.06,0x77766f,false);
-      block(buildingId+" — horní výstupní podesta",stairX+inward*.065,base+storyHeight-rise*.5,z+.78,.28,rise*.5,1.42,0x77766f,false);
-      beamBetween("schodišťové madlo",{x:stairX,y:base+1.0,z:z-1.53},{x:landingX,y:base+storyHeight/2+1.0,z:z-1.53},.07,0x565c5a);
+      const outerRailOffset=stairCenterOffset+stairFlightWidth/2+.04;
+      block(buildingId+" — schodišťová podesta",landingX,base+storyHeight/2-rise*.5,z,landingWidth,rise*.5,landingDepth,0x77766f,false);
+      block(buildingId+" — horní výstupní podesta",stairX+inward*.065,base+storyHeight-rise*.5,z+stairCenterOffset,.28,rise*.5,stairFlightWidth,0x77766f,false);
+      beamBetween("schodišťové madlo",{x:stairX,y:base+1.0,z:z-outerRailOffset},{x:landingX,y:base+storyHeight/2+1.0,z:z-outerRailOffset},.07,0x565c5a);
       beamBetween("schodišťové středové madlo",{x:stairX,y:base+1.0,z:z},{x:landingX,y:base+storyHeight/2+1.0,z:z},.07,0x565c5a);
-      beamBetween("schodišťové madlo",{x:landingX,y:base+storyHeight/2+1.0,z:z+1.53},{x:elevatorRailStopX,y:base+storyHeight+1.0,z:z+1.53},.07,0x565c5a);
+      beamBetween("schodišťové madlo",{x:landingX,y:base+storyHeight/2+1.0,z:z+outerRailOffset},{x:elevatorRailStopX,y:base+storyHeight+1.0,z:z+outerRailOffset},.07,0x565c5a);
       beamBetween("schodišťové středové madlo",{x:landingX,y:base+storyHeight/2+1.0,z:z},{x:stairX,y:base+storyHeight+1.0,z:z},.07,0x565c5a);
     }
   }
