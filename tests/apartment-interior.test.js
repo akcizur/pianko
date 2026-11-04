@@ -1,5 +1,5 @@
 import test from "node:test";import assert from "node:assert/strict";
-import {calculateApartmentLayout,APARTMENT_FLOOR_LAYERS,calculateApartmentFurnitureLayout,calculateApartmentDepthMapping} from "../src/world/apartment-interior.js";
+import {calculateApartmentLayout,APARTMENT_FLOOR_LAYERS,calculateApartmentFurnitureLayout,calculateApartmentDepthMapping,calculateRoomPartitionSegments} from "../src/world/apartment-interior.js";
 import {calculateFloorSegmentsWithOpening} from "../src/world/building-geometry.js";
 test("panel flat keeps two full-size rooms and a separate service core",()=>{const p=calculateApartmentLayout({unitMinX:-4.4,unitMaxX:4.4});assert.equal(p.unitWidth,8.8);assert.ok(p.livingWidth>=4.3);assert.ok(p.bedroomWidth>=4.3);assert.ok(p.livingArea>=19);assert.ok(p.bedroomArea>=19);assert.ok(p.bathroomArea>=3.5&&p.bathroomArea<=3.8);});
 test("interior passage widths remain usable at the measured building width",()=>{const p=calculateApartmentLayout({unitMinX:-4.4,unitMaxX:4.4});assert.equal(p.bathroomDoorWidth,.72);assert.equal(p.roomDoorWidth,.88);assert.ok(p.bathroomWidth>=1.8);assert.ok(p.bathroomDepth>=1.9);});
@@ -74,4 +74,14 @@ test("apartment depth mapping preserves the rear wall clearance in wide and narr
  assert.ok(Math.abs(shop.map(1.56)-shop.start)<1e-10);
  assert.ok(Math.abs(shop.map(6.12)-shop.end)<1e-10);
  assert.throws(()=>calculateApartmentDepthMapping({hallHalf:4,depth:5}),RangeError);
+});
+
+test("room divider wall lengths and door gaps stay aligned after corridor widening",()=>{
+ const depth=calculateApartmentDepthMapping({hallHalf:1.72,depth:13});
+ const segments=calculateRoomPartitionSegments({depthScale:depth.scale});
+ const wallLength=segments.reduce((sum,segment)=>sum+segment.length,0);
+ assert.equal(segments.length,3);
+ assert.ok(Math.abs(wallLength+2*.88-(6.16-2.5)*depth.scale)<1e-8);
+ assert.ok(segments.every(segment=>segment.length>.02));
+ assert.throws(()=>calculateRoomPartitionSegments({doorCenters:[3,3.2],depthScale:1}),RangeError);
 });
