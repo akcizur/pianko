@@ -63,6 +63,82 @@ async function checkAsset(asset) {
     }
   }
 
+  const validIndex = (list, index) => Number.isInteger(index) && index >= 0 && index < (list?.length ?? 0);
+  for (const [index, node] of (source.nodes ?? []).entries()) {
+    if (node.mesh !== undefined && !validIndex(source.meshes, node.mesh)) {
+      throw new Error(asset.id + ": node " + index + " references a missing mesh.");
+    }
+    if (node.skin !== undefined && !validIndex(source.skins, node.skin)) {
+      throw new Error(asset.id + ": node " + index + " references a missing skin.");
+    }
+    for (const child of node.children ?? []) {
+      if (!validIndex(source.nodes, child) || child === index) {
+        throw new Error(asset.id + ": node " + index + " has an invalid child reference.");
+      }
+    }
+  }
+
+  const componentByteSize = new Map([[5120,1],[5121,1],[5122,2],[5123,2],[5125,4],[5126,4]]);
+  const typeComponents = new Map([["SCALAR",1],["VEC2",2],["VEC3",3],["VEC4",4],["MAT2",4],["MAT3",9],["MAT4",16]]);
+  for (const [index, accessor] of (source.accessors ?? []).entries()) {
+    if (!Number.isInteger(accessor.count) || accessor.count < 1 ||
+        !componentByteSize.has(accessor.componentType) || !typeComponents.has(accessor.type)) {
+      throw new Error(asset.id + ": accessor " + index + " has an invalid count, componentType, or type.");
+    }
+    if (accessor.bufferView !== undefined && !validIndex(source.bufferViews, accessor.bufferView)) {
+      throw new Error(asset.id + ": accessor " + index + " references a missing bufferView.");
+    }
+    if (accessor.sparse) {
+      if (!Number.isInteger(accessor.sparse.count) || accessor.sparse.count < 1 || accessor.sparse.count > accessor.count ||
+          !validIndex(source.bufferViews, accessor.sparse.indices?.bufferView) ||
+          !validIndex(source.bufferViews, accessor.sparse.values?.bufferView) ||
+          !componentByteSize.has(accessor.sparse.indices?.componentType) ||
+          ![5121,5123,5125].includes(accessor.sparse.indices.componentType)) {
+        throw new Error(asset.id + ": accessor " + index + " has invalid sparse data.");
+      }
+    }
+  }
+
+  for (const [meshIndex, mesh] of (source.meshes ?? []).entries()) {
+    for (const [primitiveIndex, primitive] of (mesh.primitives ?? []).entries()) {
+      for (const [semantic, accessorIndex] of Object.entries(primitive.attributes ?? {})) {
+        if (!validIndex(source.accessors, accessorIndex)) {
+          throw new Error(asset.id + ": mesh " + meshIndex + " attribute " + semantic + " is invalid.");
+        }
+      }
+      if (primitive.indices !== undefined && !validIndex(source.accessors, primitive.indices)) {
+        throw new Error(asset.id + ": mesh " + meshIndex + " primitive " + primitiveIndex + " has invalid indices.");
+      }
+      if (primitive.material !== undefined && !validIndex(source.materials, primitive.material)) {
+        throw new Error(asset.id + ": mesh " + meshIndex + " primitive " + primitiveIndex + " has invalid material.");
+      }
+    }
+  }
+
+  for (const [animationIndex, animation] of (source.animations ?? []).entries()) {
+    for (const [samplerIndex, sampler] of (animation.samplers ?? []).entries()) {
+      if (!validIndex(source.accessors, sampler.input) || !validIndex(source.accessors, sampler.output)) {
+        throw new Error(asset.id + ": animation " + animationIndex + " sampler " + samplerIndex + " has invalid accessors.");
+      }
+    }
+    for (const [channelIndex, channel] of (animation.channels ?? []).entries()) {
+      if (!validIndex(animation.samplers, channel.sampler) ||
+          !validIndex(source.nodes, channel.target?.node) ||
+          !["translation","rotation","scale","weights"].includes(channel.target?.path)) {
+        throw new Error(asset.id + ": animation " + animationIndex + " channel " + channelIndex + " is invalid.");
+      }
+    }
+  }
+
+  for (const [index, image] of (source.images ?? []).entries()) {
+    if (image.uri) {
+      const imagePath = resolveInside(modelDirectory, image.uri, asset.id + " image " + index);
+      await stat(imagePath);
+    } else if (image.bufferView !== undefined && !validIndex(source.bufferViews, image.bufferView)) {
+      throw new Error(asset.id + ": image " + index + " references a missing bufferView.");
+    }
+  }
+
   const extras = source.asset?.extras ?? {};
   if (extras.license && !extras.license.startsWith(asset.license)) {
     throw new Error(asset.id + ": catalogue license does not match the glTF metadata.");
