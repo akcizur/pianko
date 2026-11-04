@@ -50,7 +50,7 @@ test("elevator is integrated beside the stair flight with a landing door on the 
   assert.ok(lift.minX>-23.2&&lift.maxX<23.2);
   assert.ok(Math.abs((lift.centerX-layout.stairX)*inward-.40)<1e-9);
   assert.ok(Math.abs(lift.doorPlaneZ-(z+elevatorSideZ*layout.hallHalf))<1e-9);
-  assert.ok(Math.abs((lift.cabCenterZ-elevatorSideZ*.66)-lift.doorPlaneZ)<1e-9,"cab doors align with the landing doors");
+  assert.ok(Math.abs((lift.cabCenterZ-elevatorSideZ*.76)-lift.doorPlaneZ)<1e-9,"cab doors align with the landing doors");
   const stairOpeningEdge=z+elevatorSideZ*1.55;
   const liftOpeningEdge=elevatorSideZ>0?lift.minZ:lift.maxZ;
   assert.ok(Math.abs(liftOpeningEdge-stairOpeningEdge)>=.029,"lift shaft clears the stairwell opening");
