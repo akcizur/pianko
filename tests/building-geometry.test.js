@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {calculateBuildingEndWallCenters,calculateFloorSlabSegments,calculatePanelakLayout,calculateFloorSegmentsWithOpening} from "../src/world/building-geometry.js";
+import {calculateBuildingEndWallCenters,calculateFloorSlabSegments,calculatePanelakLayout,calculateFloorSegmentsWithOpening,calculateElevatorShaftLayout,calculateEntranceDoorLayout,calculateApartmentDoorPlacement} from "../src/world/building-geometry.js";
 test("end walls are symmetric and have the correct separation",()=>{
  for(const z of [11,-6,-23,-40,-57,-74]){
   const [a,b]=calculateBuildingEndWallCenters(z,13,.32);
@@ -40,4 +40,24 @@ test("stairwell placement is symmetric in both facade orientations",()=>{
  assert.ok(Math.abs(west.corridorClearance-east.corridorClearance)<1e-9);
  assert.ok(west.stairwellMinX<west.stairwellMaxX);
  assert.ok(east.stairwellMinX<east.stairwellMaxX);
+});
+
+test("rear elevator shaft fits beside every playable building without crossing world bounds",()=>{
+ for(const side of [-1,1])for(const z of [11,-6,-23,-40,-57,-74]){
+  const width=z===-40&&side===1?13:9.2;
+  const inward=-side,backX=side*14.2-inward*(width/2-.32);
+  const shaft=calculateElevatorShaftLayout({backX,inward,z});
+  assert.ok(shaft.minX>-23.2&&shaft.maxX<23.2);
+  assert.ok(Math.abs(Math.abs(shaft.doorPlaneX-shaft.centerX)-shaft.shaftWidth/2-.04)<1e-9);
+  assert.ok(shaft.maxZ-shaft.minZ<2);
+ }
+});
+test("door transforms put apartment prompts in the corridor and entrance collider on the leaf",()=>{
+ const apartment=calculateApartmentDoorPlacement({doorX:-14.2,wallZ:-7.42,sideZ:-1,floorY:3.093});
+ assert.ok(apartment.approachZ>-7.42);
+ assert.ok(apartment.pivotX< -14.2);
+ assert.ok(apartment.collider.minY>3);
+ const entrance=calculateEntranceDoorLayout({frontX:-9.6,inward:1,z:-6,doorWidth:1.34,floorOffset:.18});
+ assert.ok(entrance.interactX>-9.6);
+ assert.ok(entrance.collider.minX<entrance.planeX&&entrance.collider.maxX>entrance.planeX);
 });

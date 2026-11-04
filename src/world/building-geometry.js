@@ -77,3 +77,36 @@ export function calculateFloorSegmentsWithOpening({x,z,width,depth,opening}){
   {x:(cutMinX+cutMaxX)/2,z:(cutMaxZ+maxZ)/2,width:cutWidth,depth:maxZ-cutMaxZ}
  ].filter(part=>part.width>.02&&part.depth>.02);
 }
+
+/** Shared placement for the rear elevator shaft attached to a panel block. */
+export function calculateElevatorShaftLayout({backX,inward,z,doorWidth=1.12,shaftWidth=1.4,shaftDepth=1.72}){
+ const centerX=backX-inward*.82;
+ return {
+  centerX,z,doorWidth,shaftWidth,shaftDepth,
+  doorPlaneX:backX-inward*.08,
+  shaftBackX:backX-inward*(.82+shaftWidth/2-.06),
+  minX:centerX-shaftWidth/2,maxX:centerX+shaftWidth/2,
+  minZ:z-shaftDepth/2,maxZ:z+shaftDepth/2
+ };
+}
+/** Entrance door placement is used by both visible leaf and collision bounds. */
+export function calculateEntranceDoorLayout({frontX,inward,z,doorWidth,floorOffset}){
+ const planeX=frontX+inward*.055;
+ return {
+  planeX,hingeZ:z-doorWidth/2,openAngle:-inward*Math.PI/2,
+  interactX:frontX+inward*.56,
+  collider:{minX:planeX-.07,maxX:planeX+.07,minZ:z-doorWidth/2,maxZ:z+doorWidth/2,minY:floorOffset,maxY:floorOffset+2.14}
+ };
+}
+/** Apartment door pivots face the corridor; prompts are placed on the corridor side. */
+export function calculateApartmentDoorPlacement({doorX,wallZ,sideZ,floorY,doorWidth=.86}){
+ const planeZ=wallZ+sideZ*.06;
+ return {
+  pivotX:doorX-doorWidth/2,pivotZ:planeZ,
+  approachX:doorX,approachZ:wallZ-sideZ*.52,
+  openAngle:-sideZ*Math.PI/2,
+  collider:{minX:doorX-doorWidth/2,maxX:doorX+doorWidth/2,minZ:planeZ-.055,maxZ:planeZ+.055,minY:floorY,maxY:floorY+2.08}
+ };
+}
+/** Bathroom lies on the low-X side in both mirror apartment orientations. */
+export function calculateBathroomDoorSwing(){return -1.12;}

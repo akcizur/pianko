@@ -5,10 +5,12 @@ export function createBuildingElevationResolver(entries = []) {
     for(const entry of entries){
       const {z:centerZ,frontX,inward,doorWidth=1.34,floorOffset=0,entryStepLength=0,
         stairX,landingX,flightLength,storyHeight,storyCount}=entry;
+      const lift=entry.elevator;
+      if(lift&&Math.abs(x-lift.x)<.49&&Math.abs(z-lift.z)<.53)return lift.motion.y;
       const doorAxis=(x-frontX)*inward;
       if(Math.abs(z-centerZ)<doorWidth/2+.18&&doorAxis>=0&&doorAxis<=entryStepLength)
         return floorOffset*clamp(1-doorAxis/Math.max(entryStepLength,.01),0,1);
-      const clampStory=i=>clamp(i,0,storyCount-2),progress=v=>clamp(v,0,1);
+      const clampStory=i=>clamp(i,0,storyCount-1),progress=v=>clamp(v,0,1);
       const firstProgress=(stairX-x)*inward/flightLength;
       if(Math.abs(z-(centerZ-.72))<.5&&firstProgress>=-.12&&firstProgress<=1.12){
         const story=clampStory(Math.floor((elevation-floorOffset)/storyHeight+.25));

@@ -1,11 +1,12 @@
 /**
- * Stable, id-based persistence for entrance and apartment doors.
- * A save survives ordering changes in the generated building list.
+ * Stable, id-based persistence for entrance, roof, apartment doors and lifts.
  */
 export function serializeBuildingDoorStates(entries = []) {
   return entries.map(entry => ({
     id: entry.id,
     entranceOpen: Boolean(entry.open),
+    roofOpen: Boolean(entry.roofOpen),
+    elevator: entry.elevator?.motion?.serialize?.() ?? null,
     doors: entry.apartmentDoors.map(door => Boolean(door.open))
   }));
 }
@@ -19,6 +20,12 @@ export function restoreBuildingDoorStates(entries = [], savedStates) {
     entry.open = Boolean(saved.entranceOpen);
     entry.doorPivot.rotation.y = entry.open ? entry.openAngle : 0;
     entry.doorCollider.enabled = !entry.open;
+    if (entry.roofDoor && entry.roofDoorCollider) {
+      entry.roofOpen = Boolean(saved.roofOpen);
+      entry.roofDoor.rotation.y = entry.roofOpen ? entry.roofOpenAngle : 0;
+      entry.roofDoorCollider.enabled = !entry.roofOpen;
+    }
+    if(saved.elevator&&entry.elevator?.motion)entry.elevator.motion.restore(saved.elevator);
     for (let index = 0; index < entry.apartmentDoors.length; index++) {
       const door = entry.apartmentDoors[index];
       door.open = Boolean(saved.doors?.[index]);

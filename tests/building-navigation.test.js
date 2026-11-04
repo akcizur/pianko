@@ -89,3 +89,20 @@ test("player controller can climb both flights, cross the landing and descend",(
   walk(-Math.PI/2,12);
   assert.ok(Math.abs(controller.player.elevation-.18)<1e-8);
 });
+
+test("the final two-flight stair reaches the roof and stays there outside the stairwell",()=>{
+ const entry=makeEntry(),resolve=createBuildingElevationResolver([entry]);
+ const topBase=entry.floorOffset+(entry.storyCount-1)*entry.storyHeight;
+ const upperFlightMid=entry.landingX+entry.inward*entry.flightLength*.5;
+ assert.ok(Math.abs(resolve(upperFlightMid,-5.28,topBase+entry.storyHeight/2)-(topBase+entry.storyHeight*.75))<1e-8);
+ assert.ok(Math.abs(resolve(entry.stairX,-5.28,topBase+entry.storyHeight*.75)-(topBase+entry.storyHeight))<1e-8);
+ assert.equal(resolve(entry.stairX+.7,-5.28,topBase+entry.storyHeight),topBase+entry.storyHeight);
+});
+test("elevator cabin elevation follows the live lift position",()=>{
+ const entry=makeEntry();
+ entry.elevator={x:-19.46,z:-6,motion:{y:6.08}};
+ const resolve=createBuildingElevationResolver([entry]);
+ assert.equal(resolve(-19.46,-6,6.08),6.08);
+ assert.equal(resolve(-19.46,-6,.18),6.08);
+ assert.equal(resolve(-18.7,-6,.18),.18);
+});
