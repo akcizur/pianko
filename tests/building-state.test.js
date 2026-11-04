@@ -20,7 +20,7 @@ test("all building door, roof and elevator states serialize by stable id",()=>{
  const entries=[makeDoor("WEST",1),makeDoor("EAST",-1)];
  entries[0].open=true;entries[0].apartmentDoors[1].open=true;entries[0].roofOpen=true;
  entries[0].elevator.motion.rider=true;entries[0].elevator.motion.requestFloor(2);
- for(let frame=0;frame<18;frame++)entries[0].elevator.motion.step(1/60);
+ for(let frame=0;frame<25;frame++)entries[0].elevator.motion.step(1/60);
  entries[1].apartmentDoors[2].open=true;
  const saved=serializeBuildingDoorStates(entries);
  assert.equal(saved[0].id,"WEST");
