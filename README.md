@@ -56,8 +56,10 @@ GitHub Pages workflow je v .github/workflows/pages.yml.
       core/
         game-audio.js
         input-controller.js
+        interval-gate.js
         persistence.js
         player-controller.js
+        save-schema.js
         story-rules.js
         vehicle-controller.js
       ui/
@@ -81,8 +83,10 @@ GitHub Pages workflow je v .github/workflows/pages.yml.
     public/models/skoda-favorit/
     tests/
       district-layout.test.js
+      interval-gate.test.js
       model-assets.test.js
       persistence.test.js
+      save-schema.test.js
       ... testy ovladačů, geometrie, výtahu a příběhu
     docs/ARCHITECTURE.md
     licenses/SKODA-FAVORIT-ATTRIBUTION.md
@@ -99,3 +103,5 @@ Automatické testy se spouštějí příkazem npm test. Kontrola syntaxe JavaScr
 Aktivní mapa používá datový plán 12 průchozích budov v `src/world/district-layout.js`. Model Škody Favorit a jeho procedurální fallback jsou evidované v `src/world/model-assets.js`. Příkaz `npm run check:models` kontroluje glTF a externí binární buffery před sestavením. Licence a atribuce Favoritu jsou uvedeny v `licenses/SKODA-FAVORIT-ATTRIBUTION.md`.
 
 Podrobnosti o aktivních modulech, toku hry a dalších bezpečných krocích modularizace jsou v [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Starší generátor `src/world/world.js` není aktivní mapou MÍR 12.
+
+Uložené pozice a nastavení jsou před použitím normalizované a kontrolují se proti rozsahům herního světa. Výpočty kadence stínů mají vlastní jednotkové testy a snižují počet nákladných přepočtů bez alokace nových polí v herní smyčce.
