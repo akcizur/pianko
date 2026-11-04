@@ -94,17 +94,17 @@ export function calculateFloorSegmentsWithOpening({x,z,width,depth,opening}){
  */
 export function calculateElevatorShaftLayout({
  stairX,inward,z,elevatorSideZ=1,hallHalf=1.42,
- doorWidth=1.12,shaftWidth=1.4,shaftDepth=1.62,wall=.32,cabDoorOffset=.66
+ doorWidth=1.12,shaftWidth=1.72,shaftDepth=1.62,wall=.24,cabDoorOffset=.66
 }){
  const side=Math.sign(elevatorSideZ)||1;
- const centerX=stairX+inward*.35;
+ const centerX=stairX+inward*.42;
  const doorPlaneZ=z+side*hallHalf;
  const centerZ=doorPlaneZ+side*shaftDepth/2;
  const cabCenterZ=doorPlaneZ+side*cabDoorOffset;
  const backWallZ=centerZ+side*(shaftDepth/2-wall/2);
  const sideWallOffset=shaftWidth/2-wall/2;
  return {
-  centerX,centerZ,cabCenterZ,z:doorPlaneZ,
+  centerX,centerZ,cabCenterZ,z:doorPlaneZ,wallThickness:wall,
   inward,elevatorSideZ:side,doorWidth,shaftWidth,shaftDepth,doorPlaneZ,backWallZ,
   sideWallXs:[centerX-sideWallOffset,centerX+sideWallOffset],
   minX:centerX-shaftWidth/2,maxX:centerX+shaftWidth/2,
