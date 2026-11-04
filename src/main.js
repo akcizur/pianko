@@ -5,6 +5,7 @@ import { createPlayerController } from "./core/player-controller.js";
 import { bindInput } from "./core/input-controller.js";
 import { createGameAudio } from "./core/game-audio.js";
 import { readStoredJson, writeStoredJson } from "./core/persistence.js";
+import { normalizeGameSettings, normalizeSaveData } from "./core/save-schema.js";
 import { createIntervalGate } from "./core/interval-gate.js";
 import { advanceNeighborQuestStep, isCourierEncounterActive, normalizeNeighborQuestStep } from "./core/story-rules.js";
 import { moveVehicleWithCollisions, stepVehicleDynamics, vehicleAabb, VEHICLE_TUNING } from "./core/vehicle-controller.js";
@@ -49,7 +50,7 @@ const SAVE_KEY = "mir12-save-v1";
 function readSave() {
   return readStoredJson(SAVE_KEY, {});
 }
-const saved = readSave();
+const saved = normalizeSaveData(readSave());
 let neighborQuestStep=normalizeNeighborQuestStep(saved.neighborQuestStep);
 const savedVehicleSafe=saved.vehicle&&Math.abs(saved.vehicle.x)<=23&&saved.vehicle.z>-101&&saved.vehicle.z<34;
 const savedInVehicle=Boolean(saved.inVehicle&&savedVehicleSafe);
@@ -1646,8 +1647,7 @@ const menuScreen=$("menuScreen"),menuMain=$("menuMain"),menuSettings=$("menuSett
 const menuPages={main:menuMain,settings:menuSettings,controls:menuControls,newconfirm:menuConfirm};
 let menuPage="main",menuSelection=0;
 const settingsKey=SAVE_KEY+"-settings";
-let userSettings={sensitivity:5,crt:true,sound:true};
-userSettings={...userSettings,...readStoredJson(settingsKey,{})};
+let userSettings=normalizeGameSettings(readStoredJson(settingsKey,{}));
 function renderSettings(){
   $("sensitivityValue").textContent=String(userSettings.sensitivity).padStart(2,"0");$("crtValue").textContent=userSettings.crt?"ZAP":"VYP";
   $("soundValue").textContent=userSettings.sound?"ZAP":"VYP";gameAudio.setMuted(!userSettings.sound);
