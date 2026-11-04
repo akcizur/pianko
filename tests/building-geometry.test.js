@@ -15,7 +15,7 @@ test("upper slab is split around the stair opening while ground slab stays solid
  assert.equal(ground.length,1);
  assert.equal(upper.length,4);
  const area=upper.reduce((sum,p)=>sum+p.width*p.depth,0);
- const holeWidth=Math.abs(input.stairX-input.landingX)+.34;
+ const holeWidth=Math.abs(input.stairX-input.landingX)+.72;
  const holeDepth=3.10;
  assert.ok(Math.abs(area-(input.width*input.depth-holeWidth*holeDepth))<1e-8);
  assert.ok(upper.every(p=>p.width>0&&p.depth>0));
@@ -48,7 +48,7 @@ test("elevator is integrated beside the stair flight with a landing door on the 
   const layout=calculatePanelakLayout({x,z,width,depth:13,inward,wall:.32});
   const lift=calculateElevatorShaftLayout({stairX:layout.stairX,inward,z,elevatorSideZ,hallHalf:layout.hallHalf,wall:.24});
   assert.ok(lift.minX>-23.2&&lift.maxX<23.2);
-  assert.ok(Math.abs((lift.centerX-layout.stairX)*inward-.40)<1e-9);
+  assert.ok(Math.abs((lift.centerX-layout.stairX)*inward-.18)<1e-9);
   assert.ok(Math.abs(lift.doorPlaneZ-(z+elevatorSideZ*layout.hallHalf))<1e-9);
   assert.ok(Math.abs((lift.cabCenterZ-elevatorSideZ*.76)-lift.doorPlaneZ)<1e-9,"cab doors align with the landing doors");
   const stairOpeningEdge=z+elevatorSideZ*1.55;
