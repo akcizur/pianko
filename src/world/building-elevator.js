@@ -1,4 +1,19 @@
 /** Smooth, deterministic multi-floor elevator motion with resumable state. */
+/**
+ * Test whether the player capsule has crossed the lift threshold and is
+ * standing inside the cabin footprint. Depth is measured inward from the
+ * landing-door plane, so mirrored shafts work identically.
+ */
+export function isPlayerInsideElevatorCab({
+ playerX,playerZ,elevation,cabX,doorPlaneZ,side=1,floorY,
+ halfWidth=.32,minDepth=-.24,maxDepth=1.5,verticalTolerance=.72
+}){
+ const inwardDepth=(playerZ-doorPlaneZ)*(Math.sign(side)||1);
+ return Number.isFinite(playerX)&&Number.isFinite(playerZ)&&Number.isFinite(elevation)&&
+  Math.abs(playerX-cabX)<=halfWidth&&
+  inwardDepth>=minDepth&&inwardDepth<=maxDepth&&
+  Math.abs(elevation-floorY)<=verticalTolerance;
+}
 export function createBuildingElevator(floorHeights,{speed=2.8,doorSpeed=3.4}={}){
  if(!Array.isArray(floorHeights)||floorHeights.length<2||floorHeights.some(v=>!Number.isFinite(v)))throw new TypeError("Elevator requires at least two finite floor heights.");
  const heights=[...floorHeights],clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
