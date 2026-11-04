@@ -28,6 +28,7 @@ Generátor v `src/world/world.js` je starší samostatná experimentální obytn
 | Vstup | `src/core/input-controller.js` | Klávesnice, myš, dotyk, gamepad a uvolňování vstupů |
 | Vozidlo | `src/core/vehicle-controller.js` | Pozemní/hover dynamika, AABB a subkrokované kolize |
 | Kamera auta | `src/world/vehicle-camera.js` | Kabina, chase kamera a tlumené sledování |
+| Kola Favoritu | `src/world/vehicle-wheel-assembly.js` | Čtyři samostatné otočné sestavy odvozené ze středů kol importovaného modelu |
 | Budovy | `src/world/building-geometry.js` | Dispozice a konstrukční rozměry |
 | Interiéry | `src/world/apartment-interior.js` | Místnosti, povrchy a vybavení |
 | Výtah | `src/world/building-elevator.js` | Pohyb mezi patry, dveře a stav pasažéra |
@@ -61,7 +62,7 @@ Rozhodování o obnově stínů používá čistý časový gate v `src/core/int
 
 ## Modely a fallbacky
 
-Model Škody Favorit se načítá z `public/models/skoda-favorit/scene.gltf` a používá připojený `scene.bin`. Procedurální hatchback v `main.js` zůstává viditelný, dokud se GLTF úspěšně nenačte. Při chybě načtení zůstane procedurální varianta aktivní.
+Model Škody Favorit se načítá z `public/models/skoda-favorit/scene.gltf` a používá připojený `scene.bin`. Procedurální hatchback v `main.js` zůstává viditelný, dokud se GLTF úspěšně nenačte. Při chybě načtení zůstane procedurální varianta aktivní. Zdrojový GLTF má statické skinned povrchy pneumatik a disků; hra je po ověření čtyř středů nahrazuje čtyřmi samostatnými sestavami v `vehicle-wheel-assembly.js`. Jejich rotace vychází z rychlosti a poloměru kola, přední dvojice navíc kopíruje úhel řízení. Pokud zdrojový model přestane poskytovat očekávané čtyři pneumatiky, zachová se původní geometrie místo skrytí kol.
 
 `src/world/model-assets.js` je katalog veřejných cest relativních k `import.meta.env.BASE_URL`. Tím se zachovává provoz na GitHub Pages v kořenové i projektové cestě. `npm run check:models` ověřuje přítomnost souborů, referencované buffery, základní integritu glTF a shodu licenčních metadat.
 
