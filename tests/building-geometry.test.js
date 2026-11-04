@@ -46,7 +46,7 @@ test("elevator is integrated beside the stair flight with a landing door on the 
  for(const inward of [-1,1])for(const elevatorSideZ of [-1,1])for(const z of [11,-6,-23,-40,-57,-74]){
   const x=inward>0?-14.2:14.2,width=z===-40&&inward<0?13:9.2;
   const layout=calculatePanelakLayout({x,z,width,depth:13,inward,wall:.32});
-  const lift=calculateElevatorShaftLayout({stairX:layout.stairX,inward,z,elevatorSideZ,hallHalf:layout.hallHalf,wall:.32});
+  const lift=calculateElevatorShaftLayout({stairX:layout.stairX,inward,z,elevatorSideZ,hallHalf:layout.hallHalf,wall:.24});
   assert.ok(lift.minX>-23.2&&lift.maxX<23.2);
   assert.ok(Math.abs((lift.centerX-layout.stairX)*inward-.40)<1e-9);
   assert.ok(Math.abs(lift.doorPlaneZ-(z+elevatorSideZ*layout.hallHalf))<1e-9);
