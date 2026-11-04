@@ -1,8 +1,8 @@
 import {calculateFloorSegmentsWithOpening} from "./building-geometry.js";
 /** Thin finish layers share one walkable floor datum and never overlap. */
 export const APARTMENT_FLOOR_LAYERS=Object.freeze({floorBottom:.001,woodThickness:.012,surfaceGap:.001,tileThickness:.012,rugThickness:.008});
-export function calculateApartmentFurnitureLayout({unitMinX,unitMaxX,dividerX,bathroomMaxX,z,sideZ}){
- const side=Math.sign(sideZ)||1,at=d=>z+side*d,livingWidth=dividerX-unitMinX;
+export function calculateApartmentFurnitureLayout({unitMinX,unitMaxX,dividerX,bathroomMaxX,z,sideZ,depthOffset=0,depthScale=1}){
+ const side=Math.sign(sideZ)||1,at=d=>z+side*(depthOffset+d*depthScale),livingWidth=dividerX-unitMinX;
  const livingX=(bathroomMaxX+dividerX)/2,bedroomX=(dividerX+unitMaxX)/2;
  return {
   livingX,bedroomX,kitchenZ:at(5.78),diningZ:at(4.95),sofaZ:at(4.05),
@@ -20,14 +20,20 @@ export function calculateApartmentLayout({unitMinX,unitMaxX,roomDepth=4.64}){
  return {unitWidth,roomDepth,dividerX,livingWidth,bedroomWidth,bathroomWidth,bathroomDepth,bathroomArea:bathroomWidth*bathroomDepth,livingArea:livingWidth*roomDepth,bedroomArea:bedroomWidth*roomDepth,bathroomDoorWidth:.72,roomDoorWidth:.88};
 }
 /** Build a genuinely walkable panel flat with living room, bedroom and bathroom. */
-export function buildApartmentInterior({THREE,scene,block,material,x,z,base,storyHeight,sideZ,unitMinX,unitMaxX,unitX,tone=0,lighting=true,elevatorOpening=null,inward=1}){
- const side=Math.sign(sideZ)||1,width=unitMaxX-unitMinX,plan=calculateApartmentLayout({unitMinX,unitMaxX,roomDepth:4.64});
- const atZ=d=>z+side*d;
+export function buildApartmentInterior({THREE,scene,block,material,x,z,base,storyHeight,sideZ,unitMinX,unitMaxX,unitX,tone=0,lighting=true,elevatorOpening=null,inward=1,hallHalf=1.42,depth=13}){
+ const side=Math.sign(sideZ)||1,width=unitMaxX-unitMinX;
+ const sourceRoomStart=1.56,sourceRoomEnd=6.12;
+ const roomStart=hallHalf+.14,roomEnd=depth/2-.38;
+ const depthScale=(roomEnd-roomStart)/(sourceRoomEnd-sourceRoomStart);
+ const depthOffset=roomStart-sourceRoomStart*depthScale;
+ const mapDepth=d=>depthOffset+d*depthScale;
+ const plan=calculateApartmentLayout({unitMinX,unitMaxX,roomDepth:roomEnd-roomStart});
+ const atZ=d=>z+side*mapDepth(d);
  const floorBottomY=base+APARTMENT_FLOOR_LAYERS.floorBottom;
  const floorTopY=floorBottomY+APARTMENT_FLOOR_LAYERS.woodThickness;
  const {dividerX,livingWidth}=plan,wallY=floorTopY,wallH=storyHeight-.16-(floorTopY-base),wallThickness=.12;
  const bMin=unitMinX+.12,bMax=Math.min(unitMinX+2.02,dividerX-.16),bW=bMax-bMin;
- const furniture=calculateApartmentFurnitureLayout({unitMinX,unitMaxX,dividerX,bathroomMaxX:bMax,z,sideZ});
+ const furniture=calculateApartmentFurnitureLayout({unitMinX,unitMaxX,dividerX,bathroomMaxX:bMax,z,sideZ,depthOffset,depthScale});
  if(elevatorOpening)furniture.televisionX=x-inward*.1;
  const bathroomFloorX=(bMin+bMax)/2,bathroomFloorZ=atZ(2.58);
  const palette=[
@@ -51,9 +57,10 @@ export function buildApartmentInterior({THREE,scene,block,material,x,z,base,stor
    if(upperHeight>.02)add(n+" — výplň nad průchodem",px,py+2.2,pz,.15,upperHeight,w+.16,palette.wall,true);
   }
  };
+ const bathroomDepth=Math.abs(mapDepth(3.56)-mapDepth(1.62));
  let woodFloorSegments=calculateFloorSegmentsWithOpening({
-  x:(unitMinX+unitMaxX)/2,z:z+side*3.84,width:width-.08,depth:4.56,
-  opening:{x:bathroomFloorX,z:bathroomFloorZ,width:1.9,depth:2.04}
+  x:(unitMinX+unitMaxX)/2,z:z+side*((roomStart+roomEnd)/2),width:width-.08,depth:roomEnd-roomStart,
+  opening:{x:bathroomFloorX,z:bathroomFloorZ,width:1.9,depth:bathroomDepth+.08}
  });
  if(elevatorOpening){
   woodFloorSegments=woodFloorSegments.flatMap(segment=>
@@ -61,7 +68,7 @@ export function buildApartmentInterior({THREE,scene,block,material,x,z,base,stor
   );
  }
  woodFloorSegments.forEach((segment,index)=>add("byt — parketová podlaha · "+(index+1),segment.x,floorBottomY,segment.z,segment.width,APARTMENT_FLOOR_LAYERS.woodThickness,segment.depth,palette.floor));
- add("byt — koupelnová dlažba",bathroomFloorX,floorBottomY,bathroomFloorZ,1.9,APARTMENT_FLOOR_LAYERS.tileThickness,2.04,0x777e7a);
+ add("byt — koupelnová dlažba",bathroomFloorX,floorBottomY,bathroomFloorZ,1.9,APARTMENT_FLOOR_LAYERS.tileThickness,bathroomDepth,0x777e7a);
  add("byt — sokl",dividerX-.08,floorTopY,atZ(4.35),.025,.08,3.15,0x645d51);
  let cursor=2.5;
  for(const d of [{center:3.02,label:"obytné části"},{center:4.72,label:"ložnice"}]){
