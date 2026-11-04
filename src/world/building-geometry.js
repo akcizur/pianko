@@ -37,7 +37,8 @@ export function calculateFloorSlabSegments({
  */
 export function calculatePanelakLayout({
  x,z,width,depth,inward,wall=.32,hallHalf=1.72,
- flightLength=2.16,stairRearClearance=2.5,doorHalfWidth=.48
+ flightLength=2.16,stairRearClearance=2.5,doorHalfWidth=.48,
+ stairCenterOffset=.78,stairFlightWidth=1.42,landingWidth=1.02,landingDepth=3.06
 }){
  const frontX=x+inward*width/2;
  const frontWallX=frontX-inward*wall/2;
@@ -63,6 +64,7 @@ export function calculatePanelakLayout({
  return {
   frontX,frontWallX,backX,insideFront,insideBack,minHallX,maxHallX,
   stairX,landingX,flightLength,hallHalf,
+  stairCenterOffset,stairFlightWidth,landingWidth,landingDepth,
   hallWallZs:[z-hallHalf,z+hallHalf],
   endWallCenters,stairwellMinX,stairwellMaxX,
   apartmentDoorMinX,apartmentDoorMaxX,corridorClearance
