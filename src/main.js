@@ -8,7 +8,7 @@ import { advanceNeighborQuestStep, isCourierEncounterActive, normalizeNeighborQu
 import { moveVehicleWithCollisions, stepVehicleDynamics, vehicleAabb, VEHICLE_TUNING } from "./core/vehicle-controller.js";
 import { buildApartmentInterior } from "./world/apartment-interior.js";
 import { createBuildingElevationResolver } from "./world/building-navigation.js";
-import { calculateFloorSlabSegments, calculatePanelakLayout, calculateElevatorShaftLayout, calculateEntranceDoorLayout, calculateApartmentDoorPlacement, calculateRoofGuardrailSegments } from "./world/building-geometry.js";
+import { calculateFloorSlabSegments, calculatePanelakLayout, calculateElevatorShaftLayout, calculateEntranceDoorLayout, calculateEntranceBellLayout, calculateApartmentDoorPlacement, calculateRoofGuardrailSegments } from "./world/building-geometry.js";
 import { createBuildingElevator } from "./world/building-elevator.js";
 import { createVehicleCameraRig } from "./world/vehicle-camera.js";
 import { calculateVehicleModelFit, isFavoritWheelMesh } from "./world/vehicle-model.js";
@@ -226,7 +226,7 @@ function buildWalkablePanelak(x,z,width,depth,height,inward,options={}){
   const {frontX,frontWallX,backX,endWallCenters,stairX,landingX,flightLength,insideFront,insideBack,minHallX,maxHallX,hallHalf}=floorPlan;
   const concrete=wallColor,inner=innerColor,doorWidth=kind==="shop"?1.72:1.34;
   const halfFlight=8,run=flightLength/halfFlight,apartmentDoors=[];
-  const elevatorDoorWidth=1.12,elevatorLayout=calculateElevatorShaftLayout({backX,inward,z,doorWidth:elevatorDoorWidth});
+  const elevatorDoorWidth=1.12,elevatorLayout=calculateElevatorShaftLayout({backX,insideBack,inward,z,doorWidth:elevatorDoorWidth,wall});
   const elevatorFloorHeights=Array.from({length:storyCount},(_,index)=>floorOffset+index*storyHeight);
   const elevatorMotion=createBuildingElevator(elevatorFloorHeights);
   const elevatorCab=new THREE.Group();elevatorCab.name=buildingId+" — kabina výtahu";
@@ -255,11 +255,13 @@ function buildWalkablePanelak(x,z,width,depth,height,inward,options={}){
   const apartmentXs=[x];
 
   block(buildingId+" — základový sokl",x,0,z,width+.34,.18,depth+.34,kind==="tenement"?0x746b60:0x626a6b,false);
-  const backPierDepth=depth/2-elevatorDoorWidth/2;
-  for(const sideZ of [-1,1])block(buildingId+" — zadní obvodová stěna",backX,floorOffset,z+sideZ*(elevatorDoorWidth/2+backPierDepth/2),wall,height,backPierDepth,concrete,true,0,0,shellMaterial);
+  block(buildingId+" — zadní obvodová stěna",backX,floorOffset,z,wall,height,depth,concrete,true,0,0,shellMaterial);
   const shaftHeight=height+.24;
   block(buildingId+" — výtahová šachta zadní stěna",elevatorLayout.shaftBackX,floorOffset,z,wall,shaftHeight,elevatorLayout.shaftDepth,concrete,true,0,0,shellMaterial);
-  for(const sideZ of [-1,1])block(buildingId+" — výtahová šachta boční stěna",elevatorLayout.centerX,floorOffset,z+sideZ*(elevatorLayout.shaftDepth/2),elevatorLayout.shaftWidth,shaftHeight,wall,concrete,true,0,0,shellMaterial);
+  for(const sideZ of [-1,1])block(buildingId+" — výtahová šachta boční stěna",
+    elevatorLayout.centerX+inward*wall/2,floorOffset,
+    z+sideZ*(elevatorLayout.shaftDepth/2-wall/2),
+    elevatorLayout.shaftWidth-wall,shaftHeight,wall,concrete,true,0,0,shellMaterial);
   block(buildingId+" — strop výtahové šachty",elevatorLayout.centerX,floorOffset+height,z,elevatorLayout.shaftWidth,.24,elevatorLayout.shaftDepth,0x676e6b,false);
   for(const sideZ of [-1,1]){
     const sideWallZ=sideZ<0?endWallCenters[0]:endWallCenters[1];
@@ -275,8 +277,8 @@ function buildWalkablePanelak(x,z,width,depth,height,inward,options={}){
 
   for(let story=0;story<storyCount;story++){
     const base=floorOffset+story*storyHeight,top=base+storyHeight;
-    if(storyHeight>2.18)block(buildingId+" — překlad zadního výtahového vstupu",backX,base+2.14,z,wall,storyHeight-2.14,elevatorDoorWidth,concrete,true,0,0,shellMaterial);
     const liftDoorX=elevatorLayout.doorPlaneX;
+    if(storyHeight>2.08)block(buildingId+" — překlad výtahového vstupu",liftDoorX,base+2.08,z,wall,storyHeight-2.08,elevatorDoorWidth,concrete,true,0,0,shellMaterial);
     const liftDoorLeft=new THREE.Mesh(new THREE.BoxGeometry(.055,2.08,elevatorDoorWidth/2),material(0x8f928d,.62));
     const liftDoorRight=new THREE.Mesh(new THREE.BoxGeometry(.055,2.08,elevatorDoorWidth/2),material(0x8f928d,.62));
     liftDoorLeft.name=buildingId+" — výtahové dveře vlevo · "+(story+1);
@@ -286,18 +288,26 @@ function buildWalkablePanelak(x,z,width,depth,height,inward,options={}){
     const liftDoorCollider={name:buildingId+" — zavřené dveře výtahu · "+(story+1),minX:liftDoorX-.07,maxX:liftDoorX+.07,minZ:z-elevatorDoorWidth/2,maxZ:z+elevatorDoorWidth/2,minY:base,maxY:base+2.08,enabled:story!==0};
     colliders.push(liftDoorCollider);
     elevatorFloorDoors.push({left:liftDoorLeft,right:liftDoorRight,collider:liftDoorCollider,base,floor:story});
-    const callX=insideBack+inward*.25,callZ=z-1.08;
-    block(buildingId+" — panel přivolání výtahu",callX,base+1.08,callZ,.07,.42,.22,0x343b3b,false);
-    block(buildingId+" — tlačítko výtahu",callX+inward*.045,base+1.18,callZ,.025,.075,.075,0xd7c99e,false,0x9d8756,.12);
-    elevatorCallInteractables.push({id:buildingId+" — přivolat výtah · "+(story+1)+". patro",x:callX,z:callZ,levelY:base,verticalRange:.55,range:1.35,enabled:true,
+    const callZ=z+elevatorLayout.shaftDepth/2+.24;
+    const callPanelX=liftDoorX+inward*.10;
+    const callX=liftDoorX+inward*.30;
+    block(buildingId+" — panel přivolání výtahu",callPanelX,base+1.08,callZ,.07,.46,.18,0x343b3b,false);
+    block(buildingId+" — tlačítko výtahu",callPanelX+inward*.045,base+1.27,callZ,.025,.075,.075,0xd7c99e,false,0x9d8756,.12);
+    elevatorCallInteractables.push({id:buildingId+" — přivolat výtah · "+(story+1)+". patro",x:callX,z:callZ,levelY:base,verticalRange:.55,range:1.25,enabled:true,
       action(){elevatorMotion.requestFloor(story);gameAudio.ui();showToast("VÝTAH · PŘIVOLÁNÍ DO "+(story+1)+". PATRA");}});
-    const floorSlabSegments=calculateFloorSlabSegments({x,z,width,depth,stairX,landingX,storyIndex:story});
+    const floorSlabSegments=calculateFloorSlabSegments({
+      x,z,width,depth,stairX,landingX,storyIndex:story,
+      elevatorOpening:elevatorLayout.opening,perimeterInset:.045
+    });
     floorSlabSegments.forEach((segment,index)=>{
       block(buildingId+" — železobetonová podlahová deska "+(story+1)+". patra · "+(index+1),
         segment.x,base-.16,segment.z,segment.width,.16,segment.depth,0x777a76,false);
     });
     const corridorCenterX=(minHallX+maxHallX)/2,corridorWidth=maxHallX-minHallX;
-    const corridorFloorSegments=calculateFloorSlabSegments({x:corridorCenterX,z,width:corridorWidth,depth:hallHalf*2,stairX,landingX,storyIndex:story});
+    const corridorFloorSegments=calculateFloorSlabSegments({
+      x:corridorCenterX,z,width:corridorWidth,depth:hallHalf*2,stairX,landingX,storyIndex:story,
+      elevatorOpening:elevatorLayout.opening,perimeterInset:.025
+    });
     corridorFloorSegments.forEach((segment,index)=>block(
       buildingId+" — nášlap chodby "+(story+1)+". patra · "+(index+1),
       segment.x,base+.001,segment.z,segment.width,.012,segment.depth,0x817d72,false
@@ -421,7 +431,10 @@ function buildWalkablePanelak(x,z,width,depth,height,inward,options={}){
 
   for(const pipeZ of [-depth/2+.35,depth/2-.35])queueFacadePart("pipe",frontX+inward*.16,floorOffset+height/2,z+pipeZ,.08,height,.08);
   const roofY=floorOffset+height;
-  const roofSegments=calculateFloorSlabSegments({x,z,width,depth,stairX,landingX,storyIndex:storyCount});
+  const roofSegments=calculateFloorSlabSegments({
+    x,z,width,depth,stairX,landingX,storyIndex:storyCount,
+    elevatorOpening:elevatorLayout.opening,perimeterInset:.045
+  });
   roofSegments.forEach((segment,index)=>block(buildingId+" — střešní deska · "+(index+1),segment.x,roofY-.16,segment.z,segment.width,.16,segment.depth,concrete,false));
   const roofRailStart=landingX-inward*.34,roofRailEnd=stairX+inward*.5;
   for(const railZ of [-1.39,1.39]){
@@ -476,12 +489,18 @@ function buildWalkablePanelak(x,z,width,depth,height,inward,options={}){
   }
   block(buildingId+" — vstupní stříška",frontX+inward*.5,floorOffset+2.38,z,1.12,.14,doorWidth+.42,0x555d60,false);
   block(buildingId+" — světlo nad vchodem",frontX+inward*.25,floorOffset+2.48,z,.14,.09,.3,0xffd18a,false,0xb8742a,.72);
-  block(buildingId+" — domovní zvonky",frontX+inward*.23,floorOffset+1.14,z+doorWidth*.63,.08,.48,.25,0x787c78,false);
-  for(let button=0;button<6;button++)block(buildingId+" — zvonkové tlačítko",frontX+inward*.28,floorOffset+1.31,z+doorWidth*.63-.17+button*.068,.04,.035,.035,button===0?0xc5b99d:0xa2a49f,false);
+  const bellLayout=calculateEntranceBellLayout({frontX,inward,z,doorWidth,floorOffset,wall});
+  const bellPanel=bellLayout.panel;
+  block(buildingId+" — domovní zvonky",bellPanel.x,bellPanel.y,bellPanel.z,
+    bellPanel.width,bellPanel.height,bellPanel.depth,0x787c78,false);
+  bellLayout.buttons.forEach((button,index)=>block(
+    buildingId+" — zvonkové tlačítko "+(index+1),button.x,button.y,button.z,
+    button.width,button.height,button.depth,index===0?0xc5b99d:0xa2a49f,false
+  ));
   for(let box=0;box<6;box++)block(buildingId+" — domovní schránka",frontX-inward*.48,floorOffset+1.08,z-.58+box*.23,.12,.19,.19,[0x777d7b,0x908b7d][box%2],false);
   const doorCollider={name:buildingId+" — zavřené vstupní dveře",...entranceDoorPlan.collider,enabled:true};
   colliders.push(doorCollider);
-  const cabDoorPlaneX=elevatorLayout.centerX+inward*.66;
+  const cabDoorPlaneX=elevatorLayout.doorPlaneX;
   const elevator={x:elevatorLayout.centerX,z,layout:elevatorLayout,motion:elevatorMotion,cab:elevatorCab,
     cabDoorLeft,cabDoorRight,shaftDoors:elevatorFloorDoors,cabDoorCollider:elevatorCabDoorCollider,
     callInteractables:elevatorCallInteractables,upInteractable:elevatorUpInteractable,downInteractable:elevatorDownInteractable,
