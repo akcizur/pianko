@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {createBuildingElevator} from "../src/world/building-elevator.js";
+import {createBuildingElevator,isPlayerInsideElevatorCab} from "../src/world/building-elevator.js";
 
 test("elevator closes, travels and opens exactly at requested floor",()=>{
  const lift=createBuildingElevator([.18,3.08,5.98,8.88]);
@@ -51,4 +51,14 @@ test("invalid elevator snapshots are ignored",()=>{
  const lift=createBuildingElevator([0,3,6]);
  assert.equal(lift.restore({currentFloor:99,targetFloor:0,y:2}),false);
  assert.equal(lift.y,0);
+});
+
+test("elevator boarding requires crossing the threshold into the cabin",()=>{
+ for(const side of [-1,1]){
+  const base={cabX:4,doorPlaneZ:-6,side,floorY:3.08};
+  assert.equal(isPlayerInsideElevatorCab({...base,playerX:4.28,playerZ:-6+side*.42,elevation:3.08}),true);
+  assert.equal(isPlayerInsideElevatorCab({...base,playerX:4.34,playerZ:-6+side*.42,elevation:3.08}),false);
+  assert.equal(isPlayerInsideElevatorCab({...base,playerX:4,playerZ:-6-side*.3,elevation:3.08}),false);
+  assert.equal(isPlayerInsideElevatorCab({...base,playerX:4,playerZ:-6+side*.4,elevation:4.1}),false);
+ }
 });
