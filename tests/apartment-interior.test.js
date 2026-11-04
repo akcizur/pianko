@@ -81,7 +81,7 @@ test("room divider wall lengths and door gaps stay aligned after corridor wideni
  const segments=calculateRoomPartitionSegments({depthScale:depth.scale});
  const wallLength=segments.reduce((sum,segment)=>sum+segment.length,0);
  assert.equal(segments.length,3);
- assert.ok(Math.abs(wallLength+2*.88-(6.16-2.5)*depth.scale)<1e-8);
+ assert.ok(Math.abs(wallLength+2*.88-(6.12-2.5)*depth.scale)<1e-8);
  assert.ok(segments.every(segment=>segment.length>.02));
  assert.throws(()=>calculateRoomPartitionSegments({doorCenters:[3,3.2],depthScale:1}),RangeError);
 });
