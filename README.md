@@ -40,6 +40,7 @@ Vyžaduje Node.js 20 nebo novější. Instalace a spuštění:
 
     npm ci
     npm test
+    npm run check:models
     npm run dev
 
 Produkční sestavení a lokální náhled:
@@ -55,22 +56,46 @@ GitHub Pages workflow je v .github/workflows/pages.yml.
       core/
         game-audio.js
         input-controller.js
+        persistence.js
         player-controller.js
         story-rules.js
         vehicle-controller.js
+      ui/
+        menu-flow.js
+        startup-error.js
       world/
         apartment-interior.js
-      main.js
+        building-elevator.js
+        building-geometry.js
+        building-navigation.js
+        building-state.js
+        district-layout.js
+        door-animation.js
+        model-assets.js
+        vehicle-camera.js
+        vehicle-model.js
+        world.js (starší samostatný generátor)
+      main.js (composition root a aktivní scéna)
+    scripts/
+      check-model-assets.js
     public/models/skoda-favorit/
     tests/
-      apartment-interior.test.js
-      input-controller.test.js
-      player-controller.test.js
-      story-rules.test.js
-      vehicle-controller.test.js
+      district-layout.test.js
+      model-assets.test.js
+      persistence.test.js
+      ... testy ovladačů, geometrie, výtahu a příběhu
+    docs/ARCHITECTURE.md
+    licenses/SKODA-FAVORIT-ATTRIBUTION.md
 
 ## Technické poznámky
 
 vehicle-controller.js odděluje fyziku jízdy a letu od vykreslovací smyčky. Řeší akceleraci, brzdění před zpátečkou, rychlostně závislé zatáčení, tlumení výšky, baterii, otočenou kolizní obálku a subkrokované kolize s možností klouzání podél překážky. apartment-interior.js vytváří dispozice a vybavení bytů odděleně od generování fasády. Pevné příčky a hlavní vybavení mají kolizní objemy, průchody místnostmi zůstávají volné.
 
 Automatické testy se spouštějí příkazem npm test. Kontrola syntaxe JavaScriptu nevyžaduje spuštění grafického enginu; plný vizuální playtest se provádí v prohlížeči s WebGL.
+
+
+## Assety a architektura
+
+Aktivní mapa používá datový plán 12 průchozích budov v `src/world/district-layout.js`. Model Škody Favorit a jeho procedurální fallback jsou evidované v `src/world/model-assets.js`. Příkaz `npm run check:models` kontroluje glTF a externí binární buffery před sestavením. Licence a atribuce Favoritu jsou uvedeny v `licenses/SKODA-FAVORIT-ATTRIBUTION.md`.
+
+Podrobnosti o aktivních modulech, toku hry a dalších bezpečných krocích modularizace jsou v [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Starší generátor `src/world/world.js` není aktivní mapou MÍR 12.
