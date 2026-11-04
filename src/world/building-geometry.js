@@ -52,7 +52,6 @@ export function calculatePanelakLayout({
  const stairX=insideBack+inward*stairRearClearance;
  const landingX=stairX-inward*flightLength;
  const stairIsMin=stairX<landingX;
- const stairIsMin=stairX<landingX;
  const stairwellMinX=Math.min(stairX,landingX)-(stairIsMin?.16:.18);
  const stairwellMaxX=Math.max(stairX,landingX)+(stairIsMin?.18:.16);
  const apartmentDoorMinX=x-doorHalfWidth;
