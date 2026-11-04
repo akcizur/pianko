@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {createBuildingElevator,isPlayerInsideElevatorCab} from "../src/world/building-elevator.js";
+import {createBuildingElevator,isPlayerInsideElevatorCab,calculateSlidingDoorLeafBounds} from "../src/world/building-elevator.js";
 
 test("elevator closes, travels and opens exactly at requested floor",()=>{
  const lift=createBuildingElevator([.18,3.08,5.98,8.88]);
@@ -61,5 +61,18 @@ test("elevator boarding requires crossing the threshold into the cabin",()=>{
   assert.equal(isPlayerInsideElevatorCab({...base,playerX:4,playerZ:-6+side*.02,elevation:3.08}),false);
   assert.equal(isPlayerInsideElevatorCab({...base,playerX:4,playerZ:-6-side*.3,elevation:3.08}),false);
   assert.equal(isPlayerInsideElevatorCab({...base,playerX:4,playerZ:-6+side*.4,elevation:4.1}),false);
+ }
+});
+
+test("sliding elevator door colliders follow the leaves and leave a capsule-wide opening",()=>{
+ for(const orientation of [-1,1]){
+  const closedLeft=calculateSlidingDoorLeafBounds({centerX:5,planeZ:2,side:-orientation,offset:.28,slide:0,halfWidth:.275});
+  const closedRight=calculateSlidingDoorLeafBounds({centerX:5,planeZ:2,side:orientation,offset:.28,slide:0,halfWidth:.275});
+  assert.ok(Math.abs(Math.max(closedLeft.maxX,closedRight.maxX)-Math.min(closedLeft.minX,closedRight.minX))<1e-10||Math.abs(closedLeft.maxX-closedRight.minX)<1e-10||Math.abs(closedRight.maxX-closedLeft.minX)<1e-10);
+  const openLeft=calculateSlidingDoorLeafBounds({centerX:5,planeZ:2,side:-orientation,offset:.28,slide:.60,halfWidth:.275});
+  const openRight=calculateSlidingDoorLeafBounds({centerX:5,planeZ:2,side:orientation,offset:.28,slide:.60,halfWidth:.275});
+  const gap=Math.max(openLeft.minX,openRight.minX)-Math.min(openLeft.maxX,openRight.maxX);
+  assert.ok(gap>=.6,"open panels leave enough room for the 0.58 m player capsule");
+  assert.ok(openLeft.maxY===2.08&&openRight.maxY===2.08);
  }
 });
