@@ -518,7 +518,7 @@ function buildWalkablePanelak(x,z,width,depth,height,inward,options={}){
   const elevator={x:elevatorLayout.centerX,z:elevatorLayout.cabCenterZ,doorPlaneZ:elevatorLayout.doorPlaneZ,layout:elevatorLayout,motion:elevatorMotion,cab:elevatorCab,
     cabDoorLeft,cabDoorRight,shaftDoors:elevatorFloorDoors,cabDoorCollider:elevatorCabDoorCollider,
     callInteractables:elevatorCallInteractables,upInteractable:elevatorUpInteractable,downInteractable:elevatorDownInteractable,
-    controlX:elevatorControlX,controlZ:elevatorControlZ};
+    controlX:elevatorControlX,controlZ:elevatorControlZ,elevatorSideZ};
   return {id:buildingId,kind,x,z,width,depth,floorOffset,entryStepLength,doorWidth,frontX,inward,
     storyHeight,storyCount,stairX,landingX,flightLength,apartmentDoors,elevator,
     roofY,roofDoor,roofDoorCollider,roofInteractX:roofDoorX-inward*.48,roofInteractZ:roofDoorZ,roofOpenAngle:-inward*Math.PI/2,
@@ -1158,22 +1158,22 @@ function updateBuildingElevators(deltaTime){
     lift.cab.position.y=frame.y-.12;
     for(const floorDoor of lift.shaftDoors){
       const amount=floorDoor.floor===frame.currentFloor?doorAmount:0;
-      floorDoor.left.position.z=entry.z-1.12/4-amount*.38;
-      floorDoor.right.position.z=entry.z+1.12/4+amount*.38;
+      floorDoor.left.position.x=lift.x-1.12/4-amount*.38;
+      floorDoor.right.position.x=lift.x+1.12/4+amount*.38;
       floorDoor.collider.enabled=!(floorDoor.floor===frame.currentFloor&&amount>.92);
     }
     cabDoorLeftPosition(lift.cabDoorLeft,-.28-doorAmount*.38);
     cabDoorLeftPosition(lift.cabDoorRight,.28+doorAmount*.38);
     Object.assign(lift.cabDoorCollider,{
-      minX:lift.doorPlaneX-.07,maxX:lift.doorPlaneX+.07,
-      minZ:entry.z-.62,maxZ:entry.z+.62,minY:frame.y,maxY:frame.y+2.08,
+      minX:lift.x-.62,maxX:lift.x+.62,
+      minZ:lift.doorPlaneZ-.07,maxZ:lift.doorPlaneZ+.07,minY:frame.y,maxY:frame.y+2.08,
       enabled:doorAmount<.92
     });
-    const inCab=Math.abs(player.x-lift.x)<.49&&Math.abs(player.z-lift.z)<.53&&Math.abs(player.elevation-frame.y)<.95;
+    const inCab=Math.abs(player.x-lift.x)<.56&&Math.abs(player.z-lift.z)<.56&&Math.abs(player.elevation-frame.y)<.95;
     if(motion.rider&&!inCab)motion.rider=false;
     if(inCab&&doorAmount>.92)motion.rider=true;
-    lift.upInteractable.x=lift.controlX;lift.upInteractable.z=entry.z-.3;lift.upInteractable.levelY=frame.y;
-    lift.downInteractable.x=lift.controlX;lift.downInteractable.z=entry.z+.3;lift.downInteractable.levelY=frame.y;
+    lift.upInteractable.x=lift.controlX-lift.elevatorSideZ*.12;lift.upInteractable.z=lift.controlZ;lift.upInteractable.levelY=frame.y;
+    lift.downInteractable.x=lift.controlX+lift.elevatorSideZ*.12;lift.downInteractable.z=lift.controlZ;lift.downInteractable.levelY=frame.y;
     lift.upInteractable.enabled=inCab&&doorAmount>.92&&!frame.moving&&frame.currentFloor<lift.motion.floorCount-1;
     lift.downInteractable.enabled=inCab&&doorAmount>.92&&!frame.moving&&frame.currentFloor>0;
     if(motion.rider&&inCab&&frame.moving){
