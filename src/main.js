@@ -9,7 +9,7 @@ import { moveVehicleWithCollisions, stepVehicleDynamics, vehicleAabb, VEHICLE_TU
 import { buildApartmentInterior } from "./world/apartment-interior.js";
 import { createBuildingElevationResolver } from "./world/building-navigation.js";
 import { calculateFloorSlabSegments, calculatePanelakLayout, calculateElevatorShaftLayout, calculateEntranceDoorLayout, calculateEntranceBellLayout, calculateApartmentDoorPlacement, calculateRoofGuardrailSegments } from "./world/building-geometry.js";
-import { createBuildingElevator, isPlayerInsideElevatorCab } from "./world/building-elevator.js";
+import { createBuildingElevator, isPlayerInsideElevatorCab, calculateSlidingDoorLeafBounds } from "./world/building-elevator.js";
 import { stepDoorAnimation } from "./world/door-animation.js";
 import { createVehicleCameraRig } from "./world/vehicle-camera.js";
 import { calculateVehicleModelFit, isFavoritWheelMesh } from "./world/vehicle-model.js";
@@ -416,9 +416,13 @@ function buildWalkablePanelak(x,z,width,depth,height,inward,options={}){
   cabPart("výtah — tlačítko o patro níž",.045,.085,.075,0xc8b99a,.40,1.58,.48,.4);
   const cabDoorLeft=cabPart("výtah — levé dveře kabiny",.055,2.08,.55,0x9c9e97,.76,1.16,-.28,.58);
   const cabDoorRight=cabPart("výtah — pravé dveře kabiny",.055,2.08,.55,0x9c9e97,.76,1.16,.28,.58);
-  const elevatorCabDoorCollider={name:buildingId+" — dveře kabiny výtahu",minX:elevatorLayout.centerX-.62,maxX:elevatorLayout.centerX+.62,minZ:elevatorLayout.doorPlaneZ-.07,maxZ:elevatorLayout.doorPlaneZ+.07,minY:floorOffset,maxY:floorOffset+2.08,enabled:true};
+  const elevatorCabDoorColliders=[-1,1].map((side,index)=>({
+    name:buildingId+" — dveře kabiny výtahu · "+(index===0?"levé":"pravé"),
+    ...calculateSlidingDoorLeafBounds({centerX:elevatorLayout.centerX,planeZ:elevatorLayout.doorPlaneZ,side:elevatorSideZ*side,offset:.28,slide:.60,halfWidth:.275,minY:floorOffset,maxY:floorOffset+2.08}),
+    enabled:true
+  }));
   const elevatorFloorDoors=[],elevatorCallInteractables=[];
-  colliders.push(elevatorCabDoorCollider);
+  colliders.push(...elevatorCabDoorColliders);
   const elevatorControlX=elevatorLayout.centerX+elevatorSideZ*.38;
   const elevatorControlZ=elevatorLayout.cabCenterZ-elevatorSideZ*.40;
   const elevatorUpInteractable={id:buildingId+" — výtah o patro výš",label:"VÝTAH · O PATRO VÝŠ",x:elevatorControlX-elevatorSideZ*.10,z:elevatorControlZ,levelY:floorOffset,verticalRange:.75,range:.85,hoverOffset:1.58,hoverRadius:.25,enabled:false,
@@ -461,11 +465,13 @@ function buildWalkablePanelak(x,z,width,depth,height,inward,options={}){
     liftDoorLeft.position.set(elevatorLayout.centerX-elevatorDoorWidth/4,base+1.04,liftDoorZ);
     liftDoorRight.position.set(elevatorLayout.centerX+elevatorDoorWidth/4,base+1.04,liftDoorZ);
     scene.add(liftDoorLeft,liftDoorRight);
-    const liftDoorCollider={name:buildingId+" — zavřené dveře výtahu · "+(story+1),
-      minX:elevatorLayout.centerX-elevatorDoorWidth/2,maxX:elevatorLayout.centerX+elevatorDoorWidth/2,
-      minZ:liftDoorZ-.07,maxZ:liftDoorZ+.07,minY:base,maxY:base+2.08,enabled:story!==0};
-    colliders.push(liftDoorCollider);
-    elevatorFloorDoors.push({left:liftDoorLeft,right:liftDoorRight,collider:liftDoorCollider,base,floor:story});
+    const leafColliders=[-1,1].map((side,index)=>({
+      name:buildingId+" — zavřené dveře výtahu · "+(story+1)+" · "+(index===0?"levé":"pravé"),
+      ...calculateSlidingDoorLeafBounds({centerX:elevatorLayout.centerX,planeZ:liftDoorZ,side,offset:elevatorDoorWidth/4,slide:0,halfWidth:elevatorDoorWidth/4,minY:base,maxY:base+2.08}),
+      enabled:true
+    }));
+    colliders.push(...leafColliders);
+    elevatorFloorDoors.push({left:liftDoorLeft,right:liftDoorRight,colliders:leafColliders,base,floor:story});
     const callPanelX=elevatorLayout.centerX+inward*(elevatorDoorWidth/2+.065);
     const callPanelZ=liftDoorZ-elevatorSideZ*.10;
     const callX=callPanelX,callZ=callPanelZ-elevatorSideZ*.06;
@@ -696,7 +702,7 @@ function buildWalkablePanelak(x,z,width,depth,height,inward,options={}){
   colliders.push(doorCollider);
   const doorAnimation=createAnimatedDoor(doorPivot,doorCollider,entranceDoorPlan.openAngle);
   const elevator={x:elevatorLayout.centerX,z:elevatorLayout.cabCenterZ,doorPlaneZ:elevatorLayout.doorPlaneZ,layout:elevatorLayout,motion:elevatorMotion,cab:elevatorCab,
-    cabDoorLeft,cabDoorRight,shaftDoors:elevatorFloorDoors,cabDoorCollider:elevatorCabDoorCollider,
+    cabDoorLeft,cabDoorRight,shaftDoors:elevatorFloorDoors,cabDoorColliders:elevatorCabDoorColliders,
     callInteractables:elevatorCallInteractables,upInteractable:elevatorUpInteractable,downInteractable:elevatorDownInteractable,
     controlX:elevatorControlX,controlZ:elevatorControlZ,elevatorSideZ};
   return {id:buildingId,kind,x,z,width,depth,floorOffset,entryStepLength,doorWidth,frontX,inward,
@@ -1403,19 +1409,29 @@ function updateBuildingElevators(deltaTime){
     const frame=motion.step(deltaTime),doorAmount=frame.doorOpen;
     const doorEase=doorAmount*doorAmount*(3-2*doorAmount);
     lift.cab.position.y=frame.y-.12;
+    const doorSlide=doorEase*.60;
     for(const floorDoor of lift.shaftDoors){
       const amount=floorDoor.floor===frame.currentFloor?doorEase:0;
-      floorDoor.left.position.x=lift.x-1.12/4-amount*.58;
-      floorDoor.right.position.x=lift.x+1.12/4+amount*.58;
-      floorDoor.collider.enabled=!(floorDoor.floor===frame.currentFloor&&amount>.96);
+      const slide=amount*.60;
+      const leftX=lift.x-1.12/4-slide,rightX=lift.x+1.12/4+slide;
+      floorDoor.left.position.x=leftX;
+      floorDoor.right.position.x=rightX;
+      Object.assign(floorDoor.colliders[0],calculateSlidingDoorLeafBounds({
+        centerX:lift.x,planeZ:lift.doorPlaneZ,side:-1,offset:1.12/4,slide,halfWidth:1.12/4,minY:floorDoor.base,maxY:floorDoor.base+2.08
+      }));
+      Object.assign(floorDoor.colliders[1],calculateSlidingDoorLeafBounds({
+        centerX:lift.x,planeZ:lift.doorPlaneZ,side:1,offset:1.12/4,slide,halfWidth:1.12/4,minY:floorDoor.base,maxY:floorDoor.base+2.08
+      }));
     }
-    cabDoorLeftPosition(lift.cabDoorLeft,-.28-doorEase*.58);
-    cabDoorLeftPosition(lift.cabDoorRight,.28+doorEase*.58);
-    Object.assign(lift.cabDoorCollider,{
-      minX:lift.x-.62,maxX:lift.x+.62,
-      minZ:lift.doorPlaneZ-.07,maxZ:lift.doorPlaneZ+.07,minY:frame.y,maxY:frame.y+2.08,
-      enabled:doorEase<.96
-    });
+    const leftCabDoorZ=-.28-doorSlide,rightCabDoorZ=.28+doorSlide;
+    cabDoorLeftPosition(lift.cabDoorLeft,leftCabDoorZ);
+    cabDoorLeftPosition(lift.cabDoorRight,rightCabDoorZ);
+    Object.assign(lift.cabDoorColliders[0],calculateSlidingDoorLeafBounds({
+      centerX:lift.x,planeZ:lift.doorPlaneZ,side:-lift.elevatorSideZ,offset:.28,slide:doorSlide,halfWidth:.275,minY:frame.y,maxY:frame.y+2.08
+    }));
+    Object.assign(lift.cabDoorColliders[1],calculateSlidingDoorLeafBounds({
+      centerX:lift.x,planeZ:lift.doorPlaneZ,side:lift.elevatorSideZ,offset:.28,slide:doorSlide,halfWidth:.275,minY:frame.y,maxY:frame.y+2.08
+    }));
     const inCab=isPlayerInsideElevatorCab({
       playerX:player.x,playerZ:player.z,elevation:player.elevation,
       cabX:lift.x,doorPlaneZ:lift.doorPlaneZ,side:lift.elevatorSideZ,floorY:frame.y
