@@ -23,7 +23,30 @@
       <section class="ending-panel" id="endingPanel" aria-label="Závěr příběhu" hidden><div class="ending-kicker">MÍR 12 · PÁSKA Z KONCERTU</div><h2 id="endingTitle">POSLEDNÍ ROZHODNUTÍ</h2><p id="endingText">Kurýr přinesl nahrávku zakázané kapely. Rozhodni, komu ji předáš.</p><div class="ending-actions"><button data-ending="eva"><b>1</b> PŘEDAT PÁSKU EVĚ</button><button data-ending="public"><b>2</b> ROZMNOŽIT PRO SAMIZDAT</button></div><button class="ending-continue" id="endingContinue" hidden>POKRAČOVAT DO MĚSTA</button><footer>1–2 VÝBĚR · ENTER POTVRDIT</footer></section>
       <section class="crt-menu" id="menuScreen" aria-label="Hlavní menu"><div class="crt-noise"></div><div class="menu-head"><span>──────────</span><b>MÍR 12</b><span>──────────</span></div><div class="menu-subtitle" id="menuSubtitle">SÍDLIŠTĚ MÍR · ČESKOSLOVENSKO · 1975</div><div class="menu-content" id="menuMain"><button class="menu-option selected" data-menu="continue" id="continueOption">POKRAČOVAT</button><button class="menu-option" data-menu="new">NOVÁ HRA</button><button class="menu-option" data-menu="settings">NASTAVENÍ</button><button class="menu-option" data-menu="controls">OVLÁDÁNÍ</button></div><div class="menu-content" id="menuSettings" hidden><button class="menu-option selected" data-setting="sensitivity">CITLIVOST MYŠI <span id="sensitivityValue">05</span></button><button class="menu-option" data-setting="crt">CRT ŘÁDKY <span id="crtValue">ZAP</span></button><button class="menu-option" data-setting="sound">ZVUK <span id="soundValue">ZAP</span></button><button class="menu-option" data-menu="back">ZPĚT</button></div><div class="menu-content controls-copy" id="menuControls" hidden><p>W A S D / ŠIPKY <span>POHYB · ŘÍZENÍ</span></p><p>JOYSTICK <span>DOTYK · GAMEPAD · POHYB + PLYN</span></p><p>GAMEPAD <span>A POTVRDIT · X INTERAKCE · RB OBVAZY</span></p><p>MYŠ <span>ROZHLED / KAMERA VOZU</span></p><p>V <span>POHLED ŘIDIČE / ZA VOZEM</span></p><p>SHIFT <span>BĚH · VE VOZE STOUPAT</span></p><p>SPACE <span>SKOK</span></p><p>T <span>TELEFON DO RUKY</span></p><p>I <span>INVENTÁŘ</span></p><p>CTRL <span>VE VOZE KLESAT</span></p><p>E <span>INTERAKCE / VOZIDLO</span></p><p>1–4 <span>TAHOVÉ AKCE</span></p><p>ESC <span>PAUZA</span></p><button class="menu-option" data-menu="back">ZPĚT</button></div><div class="menu-content controls-copy" id="menuConfirm" hidden><p>ZAČÍT NOVOU HRU?</p><p><span>ULOŽENÝ POSTUP BUDE NAHRAZEN</span></p><button class="menu-option selected" data-menu="confirm-new">ANO, ZAČÍT ZNOVU</button><button class="menu-option" data-menu="back">ZPĚT</button></div><div class="menu-footer"><span>▲ ▼ VÝBĚR</span><span>ENTER POTVRDIT</span></div><div class="menu-clock"><span>PLAY</span><b id="menuClock">00:00:00</b><span>SP</span></div></section>
       <section class="pause-screen" id="pauseScreen" hidden><div class="pause-panel"><div class="eyebrow">──── PAUZA ────</div><h1>POZASTAVENO</h1><p>HRA JE POZASTAVENA</p><button id="resumeButton" type="button">POKRAČOVAT</button><button id="pauseMenuButton" type="button">ZPĚT DO MENU</button><small>ESC / ENTER POKRAČOVAT</small></div></section>
-      <section class="touch-ui" id="touchUI" aria-label="Dotykové ovládání"><div class="move-stick" id="moveStick" aria-label="Joystick pohybu"><div class="stick-ring"></div><div class="stick-knob" id="moveKnob"></div></div><div class="look-zone" id="touchLookZone" aria-label="Tažením změnit rozhled"></div><div class="touch-actions"><button type="button" data-touch-action="jump">SKOK</button><button type="button" data-touch-action="run">BĚH</button><button type="button" data-touch-action="interact">E</button><button type="button" data-touch-action="pause">Ⅱ</button></div></section>
+      <section class="touch-ui" id="touchUI" aria-label="Dotykový gamepad">
+        <div class="touch-stick-zone" id="moveStick" aria-label="Analogový joystick pohybu">
+          <span class="touch-zone-kicker">01 / MOVE</span>
+          <span class="touch-zone-name">POHYB</span>
+          <span class="touch-stick-hint">WASD</span>
+        </div>
+        <div class="look-zone" id="touchLookZone" aria-label="Tažením ovládat rozhled">
+          <span class="look-zone-kicker">02 / LOOK</span>
+          <span class="look-zone-name">TAHEM ROZHLED</span>
+          <span class="look-zone-reticle" aria-hidden="true"></span>
+        </div>
+        <div class="touch-top-actions">
+          <span class="touch-live-indicator"><i></i> TOUCH INPUT</span>
+          <button type="button" data-touch-action="pause" aria-label="Pauza">Ⅱ</button>
+        </div>
+        <div class="touch-actions" aria-label="Akční tlačítka">
+          <button type="button" data-touch-action="jump" class="touch-button touch-button-primary">SKOK</button>
+          <button type="button" data-touch-action="run" class="touch-button">BĚH</button>
+          <button type="button" data-touch-action="interact" class="touch-button touch-button-wide">E · AKCE</button>
+          <button type="button" data-touch-action="view" class="touch-button touch-vehicle-only">V · POHLED</button>
+          <button type="button" data-touch-action="phone" class="touch-button">TELEFON</button>
+          <button type="button" data-touch-action="inventory" class="touch-button">VÝBAVA</button>
+        </div>
+      </section>
     </main>
     <script type="module" src="/src/main.js"></script>
   </body>
