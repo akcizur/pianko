@@ -49,7 +49,7 @@ test("interior elevator sits at the entrance end of the corridor and clears the 
   const shaft=calculateElevatorShaftLayout({backX:layout.backX,insideFront:layout.insideFront,inward,z,wall:.32});
   assert.ok(shaft.minX>-23.2&&shaft.maxX<23.2);
   assert.ok(Math.abs((layout.insideFront-shaft.centerX)*inward-1.8)<1e-9);
-  assert.ok(Math.abs((shaft.centerX-shaft.doorPlaneX)*inward-(shaft.shaftWidth/2-.04))<1e-9);
+  assert.ok(Math.abs((shaft.doorPlaneX-shaft.centerX)*inward-(shaft.shaftWidth/2-.04))<1e-9);
   const stairNearX=inward>0?layout.stairwellMaxX:layout.stairwellMinX;
   const shaftRearEdge=shaft.centerX-inward*shaft.shaftWidth/2;
   assert.ok((stairNearX-shaftRearEdge )*(-inward)>1.0,"lift remains separated from the stairwell");
