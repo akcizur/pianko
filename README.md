@@ -76,6 +76,7 @@ GitHub Pages workflow je v .github/workflows/pages.yml.
         model-assets.js
         vehicle-camera.js
         vehicle-model.js
+        vehicle-wheel-assembly.js
         world.js (starší samostatný generátor)
       main.js (composition root a aktivní scéna)
     scripts/
@@ -87,6 +88,7 @@ GitHub Pages workflow je v .github/workflows/pages.yml.
       model-assets.test.js
       persistence.test.js
       save-schema.test.js
+      vehicle-wheel-assembly.test.js
       ... testy ovladačů, geometrie, výtahu a příběhu
     docs/ARCHITECTURE.md
     licenses/SKODA-FAVORIT-ATTRIBUTION.md
