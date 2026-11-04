@@ -51,6 +51,12 @@ Generátor v `src/world/world.js` je starší samostatná experimentální obytn
 
 Tabulka záměrně rozlišuje hotovou herní funkci od typu jejího assetu. Tramvaj, policejní vůz, obyvatelé, fasády a vybavení jsou již viditelné 3D objekty, ale nejsou dodané jako samostatné externí modelové soubory. Jejich výměna za detailní licencované modely je další obsahová fáze, nikoli něco, co by bylo možné označit za hotové pouhým přidáním odkazu.
 
+## Výkon vykreslování
+
+Aktivní scéna používá statickou většinu geometrie a malou skupinu dynamických objektů. Stínová mapa proto není přepočítávána při každém snímku: její aktualizace jsou omezeny na 24 Hz na desktopu a 15 Hz na dotykových zařízeních. Mezi aktualizacemi zůstává poslední mapa stínů zachována. Je to kompromis mezi stabilním osvětlením a náklady na vykreslení velkého množství meshů; vizuální kontrola pohybujících se stínů zůstává součástí WebGL playtestu.
+
+Rozhodování o obnově stínů používá čistý časový gate v `src/core/interval-gate.js`. Testy ověřují kadenci, zachování zbytku času a bezpečné chování po dlouhém snímku. Seznam kolových meshů vozidla se vytváří jednou a doplňuje po načtení modelu, nikoli jako nová pole při každém snímku.
+
 ## Modely a fallbacky
 
 Model Škody Favorit se načítá z `public/models/skoda-favorit/scene.gltf` a používá připojený `scene.bin`. Procedurální hatchback v `main.js` zůstává viditelný, dokud se GLTF úspěšně nenačte. Při chybě načtení zůstane procedurální varianta aktivní.
