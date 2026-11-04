@@ -68,7 +68,7 @@ test("player controller can climb both flights, cross the landing and descend",(
   };
 
   // Walk through the front entrance, then align at the bottom of the first flight.
-  walk(Math.PI/2,43);
+  walk(Math.PI/2,42);
   assert.ok(Math.abs(controller.player.x-(building.stairX+.13*building.inward))<1e-8);
   walk(0,4);
   assert.ok(Math.abs(controller.player.z-(-6.72))<1e-8);
