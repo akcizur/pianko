@@ -580,7 +580,7 @@ function buildWalkablePanelak(x,z,width,depth,height,inward,options={}){
         const unitMaxX=unit===apartmentXs.length-1?maxHallX:(unitX+apartmentXs[unit+1])/2;
         buildApartmentInterior({
           THREE,scene,block:queueApartmentBlock,material,x:unitX,z,base,storyHeight,sideZ,unitMinX,unitMaxX,unitX,tone,
-          lighting:options.lighting!==false,elevatorOpening:sideZ===elevatorSideZ?elevatorLayout.opening:null,inward
+          lighting:options.lighting!==false,elevatorOpening:sideZ===elevatorSideZ?elevatorLayout.opening:null,inward,hallHalf,depth
         });
       }
     }
@@ -689,7 +689,7 @@ function buildWalkablePanelak(x,z,width,depth,height,inward,options={}){
   ));
   for(let box=0;box<6;box++){
     const row=Math.floor(box/2),column=box%2;
-    block(buildingId+" — domovní schránka",frontX+inward*.19,floorOffset+.91+row*.34,
+    block(buildingId+" — domovní schránka",frontX-inward*.28,floorOffset+.91+row*.34,
       z+doorWidth/2+.15+column*.21,.08,.27,.18,[0x777d7b,0x908b7d][box%2],false);
   }
   const doorCollider={name:buildingId+" — zavřené vstupní dveře",...entranceDoorPlan.collider,enabled:true};
@@ -1221,18 +1221,18 @@ function collectSupply(supply){
   showToast(supply.label+" · "+reward);
 }
 
-const relayInteractable={id:"relay",x:0,z:-43,range:2.6,enabled:mission.stage===1,action(){
+const relayInteractable={id:"relay",label:"ZAPNOUT TELEFONNÍ ROZVODNU",x:0,z:-43,range:2.6,hoverOffset:1.2,enabled:mission.stage===1,action(){
   if(mission.stage<1){showToast("ROZVODNA JE STÁLE ZAMČENÁ");return;}
   mission.stage=2;mission.complete=false;mechanicInteractable.enabled=true;miraBeacon.visible=true;awardXP(45);stats.credits+=140;stats.energy=stats.maxEnergy;updateMission();updateStats();saveGame();
   markerRing.visible=false;
   showToast("TELEFONNÍ LINKA OBNOVENA · +45 XP · +140 KČS");
 }};
-const enemyInteractable={id:"street-enemy",x:avatarTarget.x,z:avatarTarget.z,range:2.8,enabled:!foe.defeated,action:()=>{activeFoe=foe;activeEnemyMesh=enemyMesh;activeEnemyCollider=enemyCollider;startCombat();}};
-const mechanicInteractable={id:"mira",x:4.8,z:-4.8,range:2.5,enabled:mission.stage===2,action:()=>openMechanicDialogue()};
-const courierInteractable={id:"courier-ambush",x:-1.8,z:-68,range:3.1,enabled:isCourierEncounterActive(mission.stage,secondFoe.defeated),action:()=>{activeFoe=secondFoe;activeEnemyMesh=courierGuard;activeEnemyCollider=courierCollider;startCombat();}};
-const towerInteractable={id:"archive-tower",x:-2,z:-85,range:3,enabled:mission.stage===4,action:()=>openEndingChoice()};
+const enemyInteractable={id:"street-enemy",label:"ZAHÁJIT SOUBOJ",x:avatarTarget.x,z:avatarTarget.z,range:2.8,hoverOffset:1.8,hoverRadius:.52,enabled:!foe.defeated,action:()=>{activeFoe=foe;activeEnemyMesh=enemyMesh;activeEnemyCollider=enemyCollider;startCombat();}};
+const mechanicInteractable={id:"mira",label:"PROMLOUVAT S MIROU",x:4.8,z:-4.8,range:2.5,hoverOffset:1.85,hoverRadius:.48,enabled:mission.stage===2,action:()=>openMechanicDialogue()};
+const courierInteractable={id:"courier-ambush",label:"ZACHRÁNIT KURÝRA",x:-1.8,z:-68,range:3.1,hoverOffset:1.8,hoverRadius:.52,enabled:isCourierEncounterActive(mission.stage,secondFoe.defeated),action:()=>{activeFoe=secondFoe;activeEnemyMesh=courierGuard;activeEnemyCollider=courierCollider;startCombat();}};
+const towerInteractable={id:"archive-tower",label:"POKRAČOVAT K VYSÍLAČI",x:-2,z:-85,range:3,hoverOffset:2.5,enabled:mission.stage===4,action:()=>openEndingChoice()};
 const supplyInteractables=supplies.map(supply=>{
-  const interactable={id:supply.id,x:supply.x,z:supply.z,range:1.8,enabled:!supply.collected,action:()=>collectSupply(supply)};
+  const interactable={id:supply.id,label:supply.label||"SEBRAT PŘEDMĚT",x:supply.x,z:supply.z,range:1.8,hoverOffset:.72,hoverRadius:.34,enabled:!supply.collected,action:()=>collectSupply(supply)};
   supply.interactable=interactable;return interactable;
 });
 function makeResident(data){
@@ -1263,7 +1263,7 @@ function makeResident(data){
   const collider={name:data.name,minX:data.x-.32,maxX:data.x+.32,minZ:data.z-.24,maxZ:data.z+.24,minY:0,maxY:1.85,enabled:true};
   colliders.push(collider);
   const resident={...data,group,collider,arms,legs,routeIndex:0,waitTimer:0,heading:direction>0?Math.PI:0,idleYaw:direction>0?Math.PI:0,lineIndex:0,interactable:null,phase:Math.random()*Math.PI*2};
-  const interactable={id:"resident-"+data.id,x:data.x,z:data.z,range:1.55,enabled:true,action:()=>{
+  const interactable={id:"resident-"+data.id,label:"PROMLOUVAT · "+data.name,x:data.x,z:data.z,range:1.55,hoverOffset:1.95,hoverRadius:.5,enabled:true,action:()=>{
     if(neighborQuestStep===0&&resident.id==="anna"){
       neighborQuestStep=advanceNeighborQuestStep(neighborQuestStep,"talk","anna");updateMission();saveGame();gameAudio.ui();showToast("PANÍ ANNA: „Ivana nechala sešit střihů ve vestibulu. Odneseš jí ho?“");return;
     }
@@ -1292,7 +1292,7 @@ const patternCover=new THREE.Mesh(new THREE.BoxGeometry(.33,.035,.25),material(0
 const patternSpine=new THREE.Mesh(new THREE.BoxGeometry(.035,.04,.25),material(0x394d59,.86));patternSpine.position.set(-.145,.15,0);patternBook.add(patternSpine);
 const patternMarker=new THREE.Mesh(new THREE.TorusGeometry(.48,.025,6,24),material(0xffffff,.55,0xffffff,.3));patternMarker.rotation.x=Math.PI/2;patternMarker.position.y=.045;patternBook.add(patternMarker);
 patternBook.position.set(-10.2,0,-6);patternBook.visible=neighborQuestStep===1;scene.add(patternBook);
-const patternInteractable={id:"sešit-střihů",x:-10.2,z:-6,range:1.65,enabled:neighborQuestStep===1,action(){
+const patternInteractable={id:"sešit-střihů",label:"VZÍT SEŠIT STŘIHŮ",x:-10.2,z:-6,range:1.65,hoverOffset:.42,hoverRadius:.34,enabled:neighborQuestStep===1,action(){
   const next=advanceNeighborQuestStep(neighborQuestStep,"pickup","pattern");if(next===neighborQuestStep)return;
   neighborQuestStep=next;patternBook.visible=false;patternInteractable.enabled=false;gameAudio.reward();updateMission();saveGame();showToast("SEŠIT STŘIHŮ VZAT · DONES HO IVANĚ");
 }};
