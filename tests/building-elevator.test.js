@@ -58,6 +58,7 @@ test("elevator boarding requires crossing the threshold into the cabin",()=>{
   const base={cabX:4,doorPlaneZ:-6,side,floorY:3.08};
   assert.equal(isPlayerInsideElevatorCab({...base,playerX:4.28,playerZ:-6+side*.42,elevation:3.08}),true);
   assert.equal(isPlayerInsideElevatorCab({...base,playerX:4.34,playerZ:-6+side*.42,elevation:3.08}),false);
+  assert.equal(isPlayerInsideElevatorCab({...base,playerX:4,playerZ:-6+side*.02,elevation:3.08}),false);
   assert.equal(isPlayerInsideElevatorCab({...base,playerX:4,playerZ:-6-side*.3,elevation:3.08}),false);
   assert.equal(isPlayerInsideElevatorCab({...base,playerX:4,playerZ:-6+side*.4,elevation:4.1}),false);
  }
