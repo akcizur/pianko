@@ -5,6 +5,7 @@ import { createPlayerController } from "./core/player-controller.js";
 import { bindInput } from "./core/input-controller.js";
 import { createGameAudio } from "./core/game-audio.js";
 import { readStoredJson, writeStoredJson } from "./core/persistence.js";
+import { createIntervalGate } from "./core/interval-gate.js";
 import { advanceNeighborQuestStep, isCourierEncounterActive, normalizeNeighborQuestStep } from "./core/story-rules.js";
 import { moveVehicleWithCollisions, stepVehicleDynamics, vehicleAabb, VEHICLE_TUNING } from "./core/vehicle-controller.js";
 import { buildApartmentInterior } from "./world/apartment-interior.js";
@@ -86,8 +87,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 // every frame. Moving doors, NPCs, the tram and the vehicle remain updated.
 renderer.shadowMap.autoUpdate = false;
 renderer.shadowMap.needsUpdate = true;
-const shadowRefreshInterval=touchDevice?1/15:1/24;
-let shadowRefreshAccumulator=0;
+const shadowRefreshGate=createIntervalGate(touchDevice?1/15:1/24,{maxDelta:.1});
 renderer.domElement.id = "screenCanvas";
 renderer.domElement.setAttribute("aria-label", "Mír 12 — 3D herní scéna");
 renderer.domElement.tabIndex = 0;
@@ -1798,11 +1798,7 @@ const resizeObserver=new ResizeObserver(resize);resizeObserver.observe(mount);re
 let previousTime=0,gameTime=0,nextAutosave=6,nextFootstep=0,nextVehicleImpact=0;
 renderer.setAnimationLoop(time=>{
   const dt=previousTime?Math.min((time-previousTime)/1000,.05):0;previousTime=time;gameTime+=dt;
-  shadowRefreshAccumulator+=dt;
-  if(shadowRefreshAccumulator>=shadowRefreshInterval){
-    renderer.shadowMap.needsUpdate=true;
-    shadowRefreshAccumulator%=shadowRefreshInterval;
-  }
+  if(shadowRefreshGate.advance(dt))renderer.shadowMap.needsUpdate=true;
   let playerMoved=false;
   if(state.started&&!state.paused&&!state.combat)totalPlaySeconds+=dt;
   const clockSeconds=Math.floor(totalPlaySeconds),clockHours=String(Math.floor(clockSeconds/3600)).padStart(2,"0"),clockMinutes=String(Math.floor(clockSeconds/60)%60).padStart(2,"0"),clockRemainder=String(clockSeconds%60).padStart(2,"0");
