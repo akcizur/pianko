@@ -44,7 +44,7 @@ function startGame() {
   state.started = true;
   audio.unlock();
   renderer.domElement.focus();
-  if (matchMedia("(pointer: fine)").matches) renderer.domElement.requestPointerLock?.().catch?.(() => {});
+  if (matchMedia("(pointer: fine)").matches) { const lock = renderer.domElement.requestPointerLock?.(); lock?.catch?.(() => {}); }
 }
 const input = bindInput({
   element: renderer.domElement,
@@ -82,7 +82,7 @@ $("menuControlsBack").addEventListener("click", () => {
   $("menuMain").hidden = false;
   $("menuControls").hidden = true;
 });
-window.addEventListener("pointerdown", () => audio.unlock(), { once: true, capture: true });
+window.addEventListener("keydown", (event) => {\n  if (!state.started && event.code === "Enter") startGame();\n}, true);\nwindow.addEventListener("pointerdown", () => audio.unlock(), { once: true, capture: true });
 window.addEventListener("keydown", () => audio.unlock(), { once: true, capture: true });
 
 function resize() {
